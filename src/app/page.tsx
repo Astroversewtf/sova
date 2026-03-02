@@ -40,7 +40,7 @@ function ConnectView() {
           <h1 className="font-pixel text-4xl text-gray-900 tracking-wider mb-2">
             SOVA
           </h1>
-          <div className="w-32 h-0.5 bg-gradient-to-r from-transparent via-gray-300 to-transparent mx-auto mb-3" />
+          <div className="w-32 h-0.5 bg-linear-to-r from-transparent via-gray-300 to-transparent mx-auto mb-3" />
           <p className="font-pixel text-[10px] text-gray-400 uppercase tracking-widest">
             Dungeon Maze Crawler
           </p>
