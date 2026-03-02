@@ -1,10 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect } from "react";
-import { useConnect, useAccount, useSwitchChain } from "wagmi";
 import { useWalletStore } from "@/stores/walletStore";
-import { AVALANCHE_FUJI_CHAIN_ID, SUPPORTED_CHAIN_IDS } from "@/lib/wagmi";
 import { TopBar } from "@/components/TopBar";
 import { BottomNav } from "@/components/BottomNav";
 import { ChatSidebar } from "@/components/ChatSidebar";
@@ -14,6 +11,7 @@ import { QuestsTab } from "@/components/lobby/QuestsTab";
 import { RankingsTab } from "@/components/lobby/RankingsTab";
 import { StashTab } from "@/components/lobby/StashTab";
 import { useLobbyStore } from "@/stores/lobbyStore";
+import { useLogin, usePrivy } from "@privy-io/react-auth";
 
 const PhaserGame = dynamic(
   () => import("@/components/PhaserGame").then((mod) => mod.PhaserGame),
@@ -21,23 +19,18 @@ const PhaserGame = dynamic(
 );
 
 function ConnectView() {
-  const { connectors, connect, isPending } = useConnect();
-  const { address, chainId, isConnected } = useAccount();
-  const { switchChain } = useSwitchChain();
+  const { ready, authenticated, user} = usePrivy();
   const walletStoreConnect = useWalletStore((s) => s.connect);
-
-  const isWrongNetwork =
-    isConnected &&
-    chainId != null &&
-    !SUPPORTED_CHAIN_IDS.includes(
-      chainId as (typeof SUPPORTED_CHAIN_IDS)[number]
-    );
-
-  useEffect(() => {
-    if (isConnected && address && chainId && !isWrongNetwork) {
-      walletStoreConnect(address, chainId);
+  const { login } = useLogin({
+    onComplete: ({ user }) => {
+      const wallet = user?.wallet;
+      console.log(wallet?.address);
+      if(wallet) {
+        walletStoreConnect(wallet.address, 43113)
+      }
     }
-  }, [isConnected, address, chainId, isWrongNetwork, walletStoreConnect]);
+  })
+
 
   return (
     <div className="min-h-screen bg-white flex flex-col items-center justify-center relative overflow-hidden">
@@ -58,52 +51,22 @@ function ConnectView() {
 
         {/* Connect Card */}
         <div className="bg-gray-50 border border-gray-200 rounded-xl p-8 w-full max-w-sm shadow-sm">
-          {isWrongNetwork ? (
-            <div className="text-center space-y-4">
-              <div className="font-pixel text-xs text-red-500">
-                WRONG NETWORK
-              </div>
-              <p className="font-pixel text-[9px] text-gray-500">
-                Please switch to Avalanche Fuji Testnet
-              </p>
-              <button
-                onClick={() =>
-                  switchChain({ chainId: AVALANCHE_FUJI_CHAIN_ID })
-                }
-                className="w-full bg-red-500 hover:bg-red-600 text-white font-pixel text-[10px] py-3 rounded-lg transition-all"
-              >
-                SWITCH NETWORK
-              </button>
-            </div>
-          ) : (
             <div className="space-y-3">
               <div className="text-center mb-4">
                 <span className="font-pixel text-xs text-gray-700 uppercase">
                   Connect Wallet
                 </span>
               </div>
-              {connectors.map((connector) => (
                 <button
-                  key={connector.uid}
-                  onClick={() => connect({ connector })}
-                  disabled={isPending}
+                  onClick={login}
                   className="w-full bg-white border border-gray-200 hover:border-gray-400 text-gray-800 font-pixel text-[10px] py-3 px-4 rounded-lg transition-all flex items-center justify-between group disabled:opacity-50"
                 >
-                  <span>{connector.name}</span>
+                  CONNECT WITH WALLET
                   <span className="text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">
                     &rarr;
                   </span>
                 </button>
-              ))}
-              {isPending && (
-                <div className="text-center mt-3">
-                  <span className="font-pixel text-[10px] text-gray-400 animate-pulse">
-                    CONNECTING...
-                  </span>
-                </div>
-              )}
             </div>
-          )}
         </div>
 
         {/* Dev Skip */}

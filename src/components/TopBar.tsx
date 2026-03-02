@@ -1,9 +1,19 @@
 "use client";
 
 import { usePlayerStore } from "@/stores/playerStore";
+import { useWalletStore } from "@/stores/walletStore";
+import { useLogout } from "@privy-io/react-auth";
 
 export function TopBar() {
   const { coins, gems, keys, goldenTickets, avaxBalance } = usePlayerStore();
+  const { logout } = useLogout();
+  const walletDisconnect = useWalletStore((s) => s.disconnect)
+
+  async function handleLogout() {
+    await logout();
+    walletDisconnect();
+  }
+
 
   return (
     <div className="h-16 bg-gray-50 border-b border-gray-200 flex items-center justify-between px-4 shrink-0">
@@ -28,6 +38,7 @@ export function TopBar() {
 
       {/* Player Stats */}
       <div className="flex items-center gap-4">
+        <button className="w-32 h-8 bg-black rounded-4xl text-white cursor-pointer" onClick={handleLogout}>Logout</button>
         <StatBadge icon="🪙" value={coins} color="text-amber-600" />
         <StatBadge icon="💎" value={gems} color="text-purple-600" />
         <StatBadge icon="🗝️" value={keys} color="text-blue-600" />
