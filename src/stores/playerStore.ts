@@ -26,6 +26,7 @@ interface PlayerState {
   addGems: (amount: number) => void;
   addKeys: (amount: number) => void;
   addTickets: (amount: number) => void;
+  setAvaxBalance: (balance: number) => void;
   resetWeekly: () => void;
 }
 
@@ -46,5 +47,6 @@ export const usePlayerStore = create<PlayerState>((set) => ({
   addGems: (amount) => set((s) => ({ gems: s.gems + amount })),
   addKeys: (amount) => set((s) => ({ keys: s.keys + amount })),
   addTickets: (amount) => set((s) => ({ goldenTickets: s.goldenTickets + amount })),
+  setAvaxBalance: (balance) => set({ avaxBalance: balance }),
   resetWeekly: () => set({ weeklyScore: 0, weeklyEarnings: 0 }),
 }));

@@ -12,6 +12,8 @@ import { RankingsTab } from "@/components/lobby/RankingsTab";
 import { StashTab } from "@/components/lobby/StashTab";
 import { useLobbyStore } from "@/stores/lobbyStore";
 import { useLogin, usePrivy } from "@privy-io/react-auth";
+import { usePlayerStore } from "@/stores/playerStore";
+import { getBalance } from "@/lib/avax";
 
 const PhaserGame = dynamic(
   () => import("@/components/PhaserGame").then((mod) => mod.PhaserGame),
@@ -21,13 +23,18 @@ const PhaserGame = dynamic(
 function ConnectView() {
   const { ready, authenticated, user} = usePrivy();
   const walletStoreConnect = useWalletStore((s) => s.connect);
+  const { setAvaxBalance } = usePlayerStore();
   const { login } = useLogin({
-    onComplete: ({ user }) => {
+    onComplete: async ({ user }) => {
       const wallet = user?.wallet;
       console.log(wallet?.address);
       if(wallet) {
         walletStoreConnect(wallet.address, 43113)
+        const balance = await getBalance(wallet?.address as `0x${string}`);
+        setAvaxBalance(Number(balance) / 1e18);
       }
+
+      
     }
   })
 
