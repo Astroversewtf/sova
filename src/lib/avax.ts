@@ -6,7 +6,7 @@ declare global {
 
 import { createAvalancheClient, createAvalancheWalletClient } from "@avalanche-sdk/client";
 import { avalancheFuji } from "@avalanche-sdk/client/chains";
-import { parseEther, type Address, type Hash, type TransactionReceipt } from "viem";
+import { type Address } from "viem";
 
 
 const testNetClient = createAvalancheClient({

@@ -15,6 +15,8 @@ import { useLobbyStore } from "@/stores/lobbyStore";
 import { useLogin, usePrivy } from "@privy-io/react-auth";
 import { usePlayerStore } from "@/stores/playerStore";
 import { getBalance } from "@/lib/avax";
+import { redirect } from "next/dist/server/api-utils";
+import { RedirectType } from "next/navigation";
 
 const PhaserGame = dynamic(
   () => import("@/components/PhaserGame").then((mod) => mod.PhaserGame),
@@ -39,12 +41,22 @@ function ConnectView() {
       if(wallet) {
         walletStoreConnect(wallet.address, 43113)
         const balance = await getBalance(wallet?.address as `0x${string}`);
+        console.log(Number(balance) / 1e18);
         setAvaxBalance(Number(balance) / 1e18);
       }
-
-      
     }
   })
+
+  // Re-hydrate wallet state when user is already authenticated (e.g. page refresh)
+  useEffect(() => {
+    if (ready && authenticated && user?.wallet) {
+      const address = user.wallet.address;
+      walletStoreConnect(address, 43113);
+      getBalance(address as `0x${string}`).then((balance) => {
+        setAvaxBalance(Number(balance) / 1e18);
+      });
+    }
+  }, [ready, authenticated, user]);
 
 
   return (
@@ -63,6 +75,7 @@ function ConnectView() {
           src="/images/astroverse-logo.png"
           alt="Astroverse"
           className="h-8 sm:h-10 object-contain"
+          onClick={() => window.open('https://astroverse.wtf', '_blank')}
         />
         <div className="flex items-center gap-5">
           <button className="font-pixel text-[9px] text-gray-300 hover:text-white transition-colors uppercase tracking-wide">
@@ -104,7 +117,7 @@ function ConnectView() {
         {/* Card */}
         <div className="bg-black/70 border border-white/15 rounded-xl p-6 sm:p-8 w-full max-w-sm backdrop-blur-sm">
           <button
-            onClick={() => walletStoreConnect("0xDEV0000000000000000000000000000DEV", 43113)}
+            onClick={login}
             className="w-full bg-[#b8e550] hover:bg-[#c5ed65] text-gray-900 font-pixel text-sm py-4 px-4 rounded-lg border-2 border-[#a0cc40]/50 transition-all uppercase tracking-wide shadow-[0_4px_0_#7a9e30] hover:shadow-[0_2px_0_#7a9e30] hover:translate-y-[2px] active:shadow-none active:translate-y-[4px]"
           >
             CONNECT WALLET
