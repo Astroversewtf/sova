@@ -51,15 +51,15 @@ export function TopBar() {
         <StatBadge icon="🗝️" value={keys} color="text-blue-400" />
         <StatBadge icon="🎫" value={goldenTickets} color="text-amber-300" className="hidden sm:flex" />
         <div className="w-px h-8 bg-white/20" />
-        <div 
-        className="flex flex-col items-end cursor-pointer select-none" 
-        onClick={() => walletAdress && navigator.clipboard.writeText(walletAdress)}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
+        <div
+          className="flex flex-col items-end cursor-pointer select-none"
+          onClick={() => walletAdress && navigator.clipboard.writeText(walletAdress)}
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
         >
           <span className="text-[9px] sm:text-[10px] font-pixel text-gray-500">
             {hovered ? "WALLET" : "AVAX"}
-            </span>
+          </span>
           <span className="text-xs sm:text-sm font-pixel text-white">
             {hovered ? truncatedAddress : avaxBalance.toFixed(2)}
           </span>
