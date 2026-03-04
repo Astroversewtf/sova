@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { usePlayerStore } from "@/stores/playerStore";
 import { useWalletStore } from "@/stores/walletStore";
 import { useLogout } from "@privy-io/react-auth";
@@ -7,7 +8,10 @@ import { useLogout } from "@privy-io/react-auth";
 export function TopBar() {
   const { coins, gems, keys, goldenTickets, avaxBalance } = usePlayerStore();
   const { logout } = useLogout();
+  const [hovered, setHovered] = useState(false);
   const walletDisconnect = useWalletStore((s) => s.disconnect)
+  const walletAdress = useWalletStore((s) => s.address)
+  const truncatedAddress = walletAdress ? `${walletAdress.slice(0,6)}...${walletAdress.slice(-4)}`: "";
 
   async function handleLogout() {
     await logout();
@@ -47,10 +51,17 @@ export function TopBar() {
         <StatBadge icon="🗝️" value={keys} color="text-blue-400" />
         <StatBadge icon="🎫" value={goldenTickets} color="text-amber-300" className="hidden sm:flex" />
         <div className="w-px h-8 bg-white/20" />
-        <div className="flex flex-col items-end">
-          <span className="text-[9px] sm:text-[10px] font-pixel text-gray-500">AVAX</span>
+        <div 
+        className="flex flex-col items-end cursor-pointer select-none" 
+        onClick={() => walletAdress && navigator.clipboard.writeText(walletAdress)}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        >
+          <span className="text-[9px] sm:text-[10px] font-pixel text-gray-500">
+            {hovered ? "WALLET" : "AVAX"}
+            </span>
           <span className="text-xs sm:text-sm font-pixel text-white">
-            {avaxBalance.toFixed(2)}
+            {hovered ? truncatedAddress : avaxBalance.toFixed(2)}
           </span>
         </div>
       </div>
