@@ -1,10 +1,19 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Providers } from "@/lib/providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "SOVA — Dungeon Maze Crawler",
   description: "A web3 dungeon maze crawler game by Astroverse on Avalanche",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
+  themeColor: "#0c1220",
 };
 
 export default function RootLayout({
@@ -16,11 +25,14 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <link
-          href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap"
-          rel="stylesheet"
+          rel="preload"
+          href="/fonts/8bit-wonder.ttf"
+          as="font"
+          type="font/ttf"
+          crossOrigin="anonymous"
         />
       </head>
-      <body className="antialiased bg-white text-gray-900">
+      <body className="antialiased bg-[#0c1220] text-gray-200">
         <Providers>{children}</Providers>
       </body>
     </html>

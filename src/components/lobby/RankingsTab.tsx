@@ -15,8 +15,8 @@ export function RankingsTab() {
             onClick={() => setRankingsSubTab(tab)}
             className={`font-pixel text-[10px] px-4 py-2 rounded transition-all uppercase ${
               activeRankingsSubTab === tab
-                ? "bg-gray-900 text-white"
-                : "bg-gray-50 text-gray-400 hover:text-gray-600 border border-gray-200"
+                ? "bg-white/20 text-white"
+                : "bg-black/30 text-gray-500 hover:text-gray-300 border border-white/10"
             }`}
           >
             {tab === "weekly" ? "Weekly" : "Best Runs"}
@@ -25,27 +25,27 @@ export function RankingsTab() {
       </div>
 
       {/* Global Score */}
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mb-4 text-center">
+      <div className="bg-black/40 border border-white/10 rounded-lg p-3 mb-4 text-center backdrop-blur-sm">
         <span className="font-pixel text-[9px] text-gray-400 uppercase">
           Global Score
         </span>
-        <div className="font-pixel text-lg text-gray-800">--</div>
+        <div className="font-pixel text-lg text-white">--</div>
       </div>
 
       {/* Your Position */}
-      <div className="bg-gray-50 border border-gray-300 rounded-lg p-3 mb-4 flex items-center justify-between">
+      <div className="bg-black/40 border border-white/15 rounded-lg p-3 mb-4 flex items-center justify-between backdrop-blur-sm">
         <div className="flex items-center gap-3">
-          <div className="bg-gray-200 text-gray-500 font-pixel text-xs w-8 h-8 rounded flex items-center justify-center">
+          <div className="bg-white/10 text-gray-400 font-pixel text-xs w-8 h-8 rounded flex items-center justify-center">
             #--
           </div>
           <div>
-            <span className="font-pixel text-[10px] text-gray-500 uppercase">
+            <span className="font-pixel text-[10px] text-gray-400 uppercase">
               Your Position
             </span>
-            <div className="font-pixel text-xs text-gray-800">Score: --</div>
+            <div className="font-pixel text-xs text-white">Score: --</div>
           </div>
         </div>
-        <span className="font-pixel text-[9px] text-gray-400">YOU</span>
+        <span className="font-pixel text-[9px] text-gray-500">YOU</span>
       </div>
 
       {/* Leaderboard Table */}
@@ -55,7 +55,7 @@ export function RankingsTab() {
         </div>
         <table className="w-full">
           <thead>
-            <tr className="text-left font-pixel text-[9px] text-gray-400 border-b border-gray-200">
+            <tr className="text-left font-pixel text-[9px] text-gray-500 border-b border-white/10">
               <th className="pb-2 pl-2">Rank</th>
               <th className="pb-2">Player</th>
               <th className="pb-2 text-right">Score</th>
@@ -68,7 +68,7 @@ export function RankingsTab() {
             <tr>
               <td
                 colSpan={6}
-                className="text-center py-8 font-pixel text-[10px] text-gray-300"
+                className="text-center py-8 font-pixel text-[10px] text-gray-500"
               >
                 No data yet
               </td>

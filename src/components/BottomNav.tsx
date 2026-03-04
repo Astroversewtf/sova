@@ -3,35 +3,44 @@
 import { useLobbyStore, type LobbyTab } from "@/stores/lobbyStore";
 
 const tabs: { id: LobbyTab; label: string; icon: string }[] = [
-  { id: "home", label: "Home", icon: "🏠" },
+  { id: "stash", label: "Stash", icon: "💰" },
   { id: "shop", label: "Shop", icon: "🛒" },
+  { id: "home", label: "Home", icon: "🏠" },
   { id: "quests", label: "Quests", icon: "📜" },
   { id: "rankings", label: "Rankings", icon: "🏆" },
-  { id: "stash", label: "Stash", icon: "💰" },
 ];
 
 export function BottomNav() {
   const { activeTab, setActiveTab } = useLobbyStore();
 
   return (
-    <div className="h-16 bg-gray-50 border-t border-gray-200 flex items-center justify-around shrink-0">
-      {tabs.map((tab) => (
-        <button
-          key={tab.id}
-          onClick={() => setActiveTab(tab.id)}
-          className={`flex flex-col items-center gap-1 px-4 py-2 transition-colors ${
-            activeTab === tab.id
-              ? "text-gray-900"
-              : "text-gray-400 hover:text-gray-600"
-          }`}
-        >
-          <span className="text-lg">{tab.icon}</span>
-          <span className="text-[10px] font-pixel uppercase">{tab.label}</span>
-          {activeTab === tab.id && (
-            <div className="w-1 h-1 rounded-full bg-gray-900" />
-          )}
-        </button>
-      ))}
+    <div className="flex justify-center py-3 shrink-0">
+      <div className="flex items-end gap-0 bg-[#1a2332]/90 backdrop-blur-sm rounded-xl border border-white/10 px-1 py-1">
+        {tabs.map((tab) => {
+          const isActive = activeTab === tab.id;
+
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex flex-col items-center gap-0.5 px-4 sm:px-5 py-2 rounded-lg transition-all min-w-0 ${
+                isActive
+                  ? "bg-white/10 -mt-2"
+                  : "hover:bg-white/5"
+              }`}
+            >
+              <span className={`text-xl transition-transform ${isActive ? "scale-125 -translate-y-1" : ""}`}>
+                {tab.icon}
+              </span>
+              {isActive && (
+                <span className="font-pixel text-[8px] text-white uppercase">
+                  {tab.label}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
