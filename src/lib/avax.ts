@@ -1,10 +1,4 @@
-declare global {
-    interface Window {
-        ethereum?: any;
-    }
-}
-
-import { createAvalancheClient, createAvalancheWalletClient } from "@avalanche-sdk/client";
+import { createAvalancheClient } from "@avalanche-sdk/client";
 import { avalancheFuji } from "@avalanche-sdk/client/chains";
 import { type Address } from "viem";
 
