@@ -83,7 +83,6 @@ function PackageSlot({ icon, label, unitPrice, item }: { icon: string; label: st
   const handleBuy = async () => {
     setIsLoading(true);
     try {
-      console.log(checkTransaction("0x0b3d8594915102d82d0aeef81565767905fd6205b5a877dedd4f4881b4e64114"))
       const receipt = await sendTransactionBuy(WALLET, totalPrice);
       console.log("Transaction success", receipt);
       // TODO NEED TO CHECK IF THE EVENTS ON CHAIN ARE CONFIRMED
