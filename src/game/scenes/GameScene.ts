@@ -1,109 +1,458 @@
 import Phaser from "phaser";
+import { CellType, TurnPhase, type FloorMap, type TilePos } from "../types";
+import {
+  TILE_SIZE, TILE_FULL_H, GAME_WIDTH, GAME_HEIGHT,
+  CAMERA_ZOOM, CAMERA_LERP, C,
+} from "../constants";
+import { generateFloor } from "../systems/RoomGenerator";
+import { TurnManager } from "../systems/TurnManager";
+import { EnergyManager } from "../systems/EnergyManager";
+import { FogOfWar } from "../systems/FogOfWar";
+import { EnemyAI } from "../systems/EnemyAI";
+import { CombatSystem } from "../systems/CombatSystem";
+import { TreasureManager } from "../systems/TreasureManager";
 
-// ── Tile image dimensions ──
-const IMG_W = 256;
-const IMG_H = 512;
-
-// ── Diamond geometry within the image ──
-// The diamond (top face) starts at y≈364 in the 256×512 image
-// Diamond: 256px wide, 128px tall (standard 2:1 isometric ratio)
-// Side faces extend ~20px below the diamond
-const DIAMOND_W = 256;
-const DIAMOND_H = 128;
-const DIAMOND_TOP_Y = 364; // y in image where diamond top vertex sits
-const DIAMOND_CENTER_Y = DIAMOND_TOP_Y + DIAMOND_H / 2; // ≈428
-
-// ── Origin for Phaser sprites (aligns diamond center with position) ──
-const ORIGIN_X = 0.5;
-const ORIGIN_Y = DIAMOND_CENTER_Y / IMG_H; // ≈0.836
-
-// ── Map layout ──
-// 1 = stone floor, 0 = empty (void)
-// Irregular shape inspired by the concept art
-const MAP: number[][] = [
-  [0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0],
-  [0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0],
-  [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0],
-  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-  [1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0],
-  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-  [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-  [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-  [0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0],
-  [0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0],
-];
-
-const ROWS = MAP.length;
-const COLS = MAP[0].length;
+import { UpgradeManager } from "../systems/UpgradeManager";
+import { Player } from "../entities/Player";
+import { Enemy } from "../entities/Enemy";
+import { Treasure } from "../entities/Treasure";
+import { Chest } from "../entities/Chest";
+import { Trap } from "../entities/Trap";
+import { Stairs } from "../entities/Stairs";
+import { useGameStore } from "@/stores/gameStore";
 
 export class GameScene extends Phaser.Scene {
+  // Systems
+  turnManager!: TurnManager;
+  energyManager!: EnergyManager;
+  fogOfWar!: FogOfWar;
+  enemyAI!: EnemyAI;
+  combatSystem!: CombatSystem;
+  treasureManager!: TreasureManager;
+  upgradeManager!: UpgradeManager;
+
+  // Entities
+  player!: Player;
+  enemies: Enemy[] = [];
+  treasures: Treasure[] = [];
+  chests: Chest[] = [];
+  traps: Trap[] = [];
+  stairs!: Stairs;
+  statueSprite: Phaser.GameObjects.Image | null = null;
+
+  // Map
+  floorMap!: FloorMap;
+  tileSprites: Map<string, Phaser.GameObjects.Image> = new Map();
+  currentFloor = 1;
+
+  // Movement arrows
+  private moveArrows!: {
+    up: Phaser.GameObjects.Image;
+    down: Phaser.GameObjects.Image;
+    left: Phaser.GameObjects.Image;
+    right: Phaser.GameObjects.Image;
+  };
+
+  // Input
+  private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
+  private wasd!: Record<string, Phaser.Input.Keyboard.Key>;
+  private chatFocused = false;
+
   constructor() {
     super({ key: "GameScene" });
   }
 
-  /** Simple seeded random for consistent tile variation */
-  private seed = 0;
-  private seededRandom(): number {
-    this.seed = (this.seed * 16807 + 0) % 2147483647;
-    return (this.seed & 0x7fffffff) / 2147483647;
-  }
-
-  /** Check if a grid cell has floor */
-  private hasFloor(row: number, col: number): boolean {
-    if (row < 0 || row >= ROWS || col < 0 || col >= COLS) return false;
-    return MAP[row][col] === 1;
-  }
-
   create() {
-    this.cameras.main.setBackgroundColor("#0a0a1a");
+    this.cameras.main.setBackgroundColor(C.VOID_BG);
 
-    const cam = this.cameras.main;
+    // Camera zoom — match Maze of Gains close-up perspective
+    this.cameras.main.setZoom(CAMERA_ZOOM);
 
-    // ── Compute scale to fit the isometric map in the viewport ──
-    // The isometric diamond occupies:
-    //   width  = (COLS + ROWS) * DIAMOND_W/2
-    //   height = (COLS + ROWS) * DIAMOND_H/2 + block_depth
-    const mapPixelW = (COLS + ROWS) * (DIAMOND_W / 2);
-    const mapPixelH = (COLS + ROWS) * (DIAMOND_H / 2) + 40; // +40 for side faces
-    const padding = 0.85; // 85% of viewport
-    const scaleX = (cam.width * padding) / mapPixelW;
-    const scaleY = (cam.height * padding) / mapPixelH;
-    const tileScale = Math.min(scaleX, scaleY);
+    // Init systems
+    this.turnManager = new TurnManager(this);
+    this.energyManager = new EnergyManager(this);
+    this.combatSystem = new CombatSystem(this);
+    this.enemyAI = new EnemyAI(this);
+    this.treasureManager = new TreasureManager(this);
+    this.upgradeManager = new UpgradeManager(this);
 
-    // Half-tile dimensions at computed scale
-    const halfW = (DIAMOND_W * tileScale) / 2;
-    const halfH = (DIAMOND_H * tileScale) / 2;
+    // Init store
+    useGameStore.getState().startRun();
 
-    // ── Center the map in viewport ──
-    // The diamond center (middle of the grid) should be at screen center
-    const midRow = (ROWS - 1) / 2;
-    const midCol = (COLS - 1) / 2;
-    const centerX = cam.width / 2 - (midCol - midRow) * halfW;
-    const centerY = cam.height / 2 - (midCol + midRow) * halfH;
+    // Input
+    if (this.input.keyboard) {
+      this.cursors = this.input.keyboard.createCursorKeys();
+      this.wasd = {
+        W: this.input.keyboard.addKey("W"),
+        A: this.input.keyboard.addKey("A"),
+        S: this.input.keyboard.addKey("S"),
+        D: this.input.keyboard.addKey("D"),
+      };
+    }
 
-    // ── Floor tile variants for visual interest ──
-    const floorTiles = ["stone", "stone", "stone", "stone", "stoneUneven"];
+    // Chat focus bridge
+    const onChatFocus = () => { this.chatFocused = true; };
+    const onChatBlur = () => { this.chatFocused = false; };
+    window.addEventListener("sova:chat-focus", onChatFocus);
+    window.addEventListener("sova:chat-blur", onChatBlur);
+    this.events.on("shutdown", () => {
+      window.removeEventListener("sova:chat-focus", onChatFocus);
+      window.removeEventListener("sova:chat-blur", onChatBlur);
+    });
 
-    // ── Render tiles ──
-    for (let row = 0; row < ROWS; row++) {
-      for (let col = 0; col < COLS; col++) {
-        if (!this.hasFloor(row, col)) continue;
+    // Build first floor
+    this.buildFloor(1);
+  }
 
-        // Isometric screen position (diamond center)
-        const screenX = centerX + (col - row) * halfW;
-        const screenY = centerY + (col + row) * halfH;
+  buildFloor(floor: number) {
+    this.currentFloor = floor;
 
-        // Seeded random for consistent variation
-        this.seed = (col + 1) * 31 + (row + 1) * 137;
-        const variant = floorTiles[
-          Math.floor(this.seededRandom() * floorTiles.length)
-        ];
+    // Cleanup previous floor
+    this.cleanupFloor();
 
-        const tile = this.add.image(screenX, screenY, variant);
-        tile.setScale(tileScale);
-        tile.setOrigin(ORIGIN_X, ORIGIN_Y);
-        tile.setDepth(col + row); // depth sort: tiles further forward render on top
+    // Generate new floor
+    this.floorMap = generateFloor(floor);
+    const { width, height, cells, spawn, stairs, enemySpawns, treasureSpawns, chestSpawns, trapSpawns, bossSpawn, statuePos } = this.floorMap;
+
+    // Update store
+    const store = useGameStore.getState();
+    if (floor > 1) store.nextFloor();
+    store.setEnemiesRemaining(enemySpawns.length);
+
+    // Energy
+    this.energyManager.energy = store.energy;
+    this.energyManager.maxEnergy = store.maxEnergy;
+
+    // Render tiles
+    this.renderTiles(cells, width, height);
+
+    // World bounds (generous padding)
+    const worldW = width * TILE_SIZE;
+    const worldH = height * TILE_FULL_H;
+    this.cameras.main.setBounds(
+      -TILE_SIZE * 4, -TILE_FULL_H * 4,
+      worldW + TILE_SIZE * 8, worldH + TILE_FULL_H * 8,
+    );
+
+    // Player
+    this.player = new Player(this, spawn);
+
+    // Movement arrows around player
+    this.createMoveArrows();
+
+    // Camera follow — centered on player, smooth lerp, NO deadzone
+    this.cameras.main.startFollow(this.player.sprite, true, CAMERA_LERP, CAMERA_LERP);
+
+    // Stairs
+    this.stairs = new Stairs(this, stairs);
+
+    // Statue (boss room)
+    if (statuePos) {
+      this.statueSprite = this.add.image(
+        statuePos.x * TILE_SIZE + TILE_SIZE / 2,
+        statuePos.y * TILE_FULL_H + TILE_SIZE / 2,
+        "statue",
+      );
+      this.statueSprite.setDepth(350);
+    }
+
+    // Enemies
+    this.enemies = enemySpawns.map((e, i) =>
+      new Enemy(this, e.pos, e.type, floor, `enemy-${i}`),
+    );
+
+    // Treasures
+    this.treasures = treasureSpawns.map((t, i) =>
+      new Treasure(this, t.pos, t.type, t.value, `treasure-${i}`),
+    );
+
+    // Chests
+    this.chests = chestSpawns.map((pos, i) =>
+      new Chest(this, pos, `chest-${i}`),
+    );
+
+    // Traps
+    this.traps = trapSpawns.map((t, i) =>
+      new Trap(this, t.pos, t.type, `trap-${i}`),
+    );
+
+    // Fog of war
+    this.fogOfWar = new FogOfWar(this, width, height, cells);
+    const radius = this.energyManager.getVisionRadius();
+    this.fogOfWar.update(spawn, radius);
+
+    // Initial entity visibility
+    this.updateEntityVisibility();
+
+    // Position arrows for spawn
+    this.updateMoveArrows();
+
+    // Turn manager
+    this.turnManager.reset();
+
+    // Notify HUD of new floor
+    this.game.events.emit("sova:floor-start", { floor, isBoss: !!bossSpawn });
+  }
+
+  private renderTiles(cells: CellType[][], w: number, h: number) {
+    this.tileSprites.clear();
+
+    const isFloor = (x: number, y: number) =>
+      x >= 0 && y >= 0 && x < w && y < h && cells[y][x] === CellType.FLOOR;
+
+    const usePngWalls = this.textures.exists("wall-fill");
+
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const px = x * TILE_SIZE + TILE_SIZE / 2;
+        const py = y * TILE_SIZE + TILE_SIZE / 2;
+
+        if (cells[y][x] === CellType.FLOOR) {
+          const isAlt = (x + y) % 2 === 0;
+          const img = this.add.image(px, py, isAlt ? "tile-floor" : "tile-floor-alt");
+          img.setDepth(100).setOrigin(0.5, 0.5);
+          this.tileSprites.set(`${x},${y}`, img);
+        } else if (usePngWalls) {
+          const key = this.pickWallTile(x, y, isFloor);
+          const img = this.add.image(px, py, key);
+          img.setDepth(95).setOrigin(0.5, 0.5);
+          this.tileSprites.set(`w${x},${y}`, img);
+        } else {
+          const hasFloorSouth = isFloor(x, y + 1);
+          const img = this.add.image(px, py, hasFloorSouth ? "tile-wall-face" : "tile-wall");
+          img.setDepth(95).setOrigin(0.5, 0.5);
+          this.tileSprites.set(`w${x},${y}`, img);
+        }
       }
     }
+  }
+
+  /** Pick the correct wall PNG based on adjacent floor tiles */
+  private pickWallTile(
+    x: number,
+    y: number,
+    isFloor: (x: number, y: number) => boolean,
+  ): string {
+    const fN = isFloor(x, y - 1);
+    const fS = isFloor(x, y + 1);
+    const fW = isFloor(x - 1, y);
+    const fE = isFloor(x + 1, y);
+
+    // Corners (two adjacent floor edges)
+    if (fS && fW) return "wall-corner-bl";
+    if (fS && fE) return "wall-corner-br";
+    if (fN && fW) return "wall-corner-tl";
+    if (fN && fE) return "wall-corner-tr";
+
+    // Edges — alternate variants with deterministic hash
+    const v = ((x * 7 + y * 13) & 1) + 1;
+    if (fS) return `wall-straight-${v}`;
+    if (fN) return `wall-top-${v}`;
+    if (fW) return "wall-side-l";
+    if (fE) return "wall-side-r";
+
+    // Interior wall — no adjacent floor
+    return "wall-fill";
+  }
+
+  private cleanupFloor() {
+    this.player?.destroy();
+    this.moveArrows?.up.destroy();
+    this.moveArrows?.down.destroy();
+    this.moveArrows?.left.destroy();
+    this.moveArrows?.right.destroy();
+    this.enemies.forEach((e) => e.destroy());
+    this.treasures.forEach((t) => t.destroy());
+    this.chests.forEach((c) => c.destroy());
+    this.traps.forEach((tr) => tr.destroy());
+    this.stairs?.destroy();
+    this.statueSprite?.destroy();
+    this.statueSprite = null;
+    this.fogOfWar?.destroy();
+
+    for (const s of this.tileSprites.values()) s.destroy();
+    this.tileSprites.clear();
+
+    this.enemies = [];
+    this.treasures = [];
+    this.chests = [];
+    this.traps = [];
+  }
+
+  update() {
+    if (this.chatFocused) return;
+    if (this.turnManager.phase !== TurnPhase.PLAYER_INPUT) return;
+
+    const kb = Phaser.Input.Keyboard;
+    if (kb.JustDown(this.cursors.up) || kb.JustDown(this.wasd.W)) {
+      this.turnManager.handleInput(0, -1);
+    } else if (kb.JustDown(this.cursors.down) || kb.JustDown(this.wasd.S)) {
+      this.turnManager.handleInput(0, 1);
+    } else if (kb.JustDown(this.cursors.left) || kb.JustDown(this.wasd.A)) {
+      this.turnManager.handleInput(-1, 0);
+    } else if (kb.JustDown(this.cursors.right) || kb.JustDown(this.wasd.D)) {
+      this.turnManager.handleInput(1, 0);
+    }
+  }
+
+  // ── Public helpers used by systems ──
+
+  getEnemyAt(pos: TilePos): Enemy | undefined {
+    return this.enemies.find(
+      (e) => e.isAlive() && e.pos.x === pos.x && e.pos.y === pos.y,
+    );
+  }
+
+  getChestAt(pos: TilePos): Chest | undefined {
+    return this.chests.find(
+      (c) => !c.opened && c.pos.x === pos.x && c.pos.y === pos.y,
+    );
+  }
+
+  getTrapAt(pos: TilePos): Trap | undefined {
+    return this.traps.find(
+      (tr) => tr.pos.x === pos.x && tr.pos.y === pos.y,
+    );
+  }
+
+  removeEnemy(_enemy: Enemy) {
+    // Mark as dead — AI skips dead enemies
+  }
+
+  isOnStairs(pos: TilePos): boolean {
+    return (
+      pos.x === this.stairs.pos.x &&
+      pos.y === this.stairs.pos.y
+    );
+  }
+
+  updateEntityVisibility() {
+    for (const e of this.enemies) {
+      e.setVisible(e.isAlive() && this.fogOfWar.isVisible(e.pos));
+    }
+    for (const t of this.treasures) {
+      if (t.collected) continue;
+      t.setVisible(this.fogOfWar.isVisible(t.pos));
+    }
+    for (const c of this.chests) {
+      c.setVisible(this.fogOfWar.isVisible(c.pos) || this.fogOfWar.isExplored(c.pos));
+    }
+    for (const tr of this.traps) {
+      tr.setVisible(this.fogOfWar.isVisible(tr.pos));
+    }
+    this.stairs.setVisible(
+      this.fogOfWar.isVisible(this.stairs.pos) ||
+      this.fogOfWar.isExplored(this.stairs.pos),
+    );
+    if (this.statueSprite) {
+      const sPos = this.floorMap.statuePos;
+      this.statueSprite.setVisible(
+        !!sPos && (this.fogOfWar.isVisible(sPos) || this.fogOfWar.isExplored(sPos)),
+      );
+    }
+  }
+
+  private createMoveArrows() {
+    const alpha = 0.4;
+    const depth = 450;
+    const scale = 0.75;
+
+    const up = this.add.image(0, 0, "arrow-up").setAlpha(alpha).setDepth(depth).setScale(scale).setVisible(false);
+    const down = this.add.image(0, 0, "arrow-down").setAlpha(alpha).setDepth(depth).setScale(scale).setVisible(false);
+    const left = this.add.image(0, 0, "arrow-side").setAlpha(alpha).setDepth(depth).setScale(scale).setVisible(false);
+    const right = this.add.image(0, 0, "arrow-side").setAlpha(alpha).setDepth(depth).setScale(scale).setFlipX(true).setVisible(false);
+
+    this.moveArrows = { up, down, left, right };
+  }
+
+  hideMoveArrows() {
+    if (!this.moveArrows) return;
+    this.moveArrows.up.setVisible(false);
+    this.moveArrows.down.setVisible(false);
+    this.moveArrows.left.setVisible(false);
+    this.moveArrows.right.setVisible(false);
+  }
+
+  updateMoveArrows() {
+    if (!this.moveArrows || !this.player) return;
+
+    const px = this.player.pos.x;
+    const py = this.player.pos.y;
+
+    const dirs = [
+      { key: "up" as const, dx: 0, dy: -1 },
+      { key: "down" as const, dx: 0, dy: 1 },
+      { key: "left" as const, dx: -1, dy: 0 },
+      { key: "right" as const, dx: 1, dy: 0 },
+    ];
+
+    for (const { key, dx, dy } of dirs) {
+      const tx = px + dx;
+      const ty = py + dy;
+      const arrow = this.moveArrows[key];
+
+      // Show arrow only on walkable floor tiles
+      if (this.isWalkable({ x: tx, y: ty })) {
+        arrow.setPosition(
+          tx * TILE_SIZE + TILE_SIZE / 2,
+          ty * TILE_FULL_H + TILE_SIZE / 2,
+        );
+        arrow.setVisible(true);
+      } else {
+        arrow.setVisible(false);
+      }
+    }
+  }
+
+  private isWalkable(pos: TilePos): boolean {
+    const map = this.floorMap;
+    if (pos.x < 0 || pos.y < 0 || pos.x >= map.width || pos.y >= map.height) return false;
+    return map.cells[pos.y][pos.x] !== CellType.VOID;
+  }
+
+  completeFloor() {
+    const bossKilled = this.floorMap.bossSpawn &&
+      this.enemies.some((e) => e.type === "boss" && !e.isAlive());
+
+    // Fade to black before showing anything
+    this.cameras.main.fadeOut(400, 0, 0, 0);
+    this.cameras.main.once(
+      Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE,
+      () => {
+        if (bossKilled) {
+          this.scene.pause();
+          this.scene.launch("BossResultScene", {
+            floor: this.currentFloor,
+            onContinue: () => {
+              this.scene.resume();
+              this.showUpgradeScreen();
+            },
+          });
+          return;
+        }
+        this.showUpgradeScreen();
+      },
+    );
+  }
+
+  private showUpgradeScreen() {
+    this.scene.pause();
+    this.scene.launch("UpgradeScene", {
+      floor: this.currentFloor,
+      onComplete: (chosenUpgrade: string) => {
+        this.upgradeManager.applyUpgrade(chosenUpgrade as any);
+        this.scene.resume();
+        this.buildFloor(this.currentFloor + 1);
+        // Fade in to reveal the new floor
+        this.cameras.main.fadeIn(500, 0, 0, 0);
+      },
+    });
+  }
+
+  endRun(_reason: "energy" | "exit") {
+    this.scene.start("RunEndScene", {
+      stats: useGameStore.getState().getStats(),
+      floor: this.currentFloor,
+    });
   }
 }

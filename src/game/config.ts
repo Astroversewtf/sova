@@ -1,23 +1,26 @@
 import Phaser from "phaser";
-import { LoadingScene } from "./scenes/LoadingScene";
+import { GAME_WIDTH, GAME_HEIGHT, C } from "./constants";
+import { BootScene } from "./scenes/BootScene";
 import { GameScene } from "./scenes/GameScene";
+import { UpgradeScene } from "./scenes/UpgradeScene";
+import { RunEndScene } from "./scenes/RunEndScene";
+import { BossResultScene } from "./scenes/BossResultScene";
 
 export function createGameConfig(
-  parent: string | HTMLElement,
-  width: number,
-  height: number
+  parent: HTMLElement,
 ): Phaser.Types.Core.GameConfig {
   return {
     type: Phaser.AUTO,
     parent,
-    width: Math.floor(width),
-    height: Math.floor(height),
-    backgroundColor: "#2a2a2a",
-    scene: [LoadingScene, GameScene],
+    width: GAME_WIDTH,
+    height: GAME_HEIGHT,
+    pixelArt: true,
+    backgroundColor: 0x000000,
     scale: {
-      mode: Phaser.Scale.RESIZE,
+      mode: Phaser.Scale.FIT,
       autoCenter: Phaser.Scale.CENTER_BOTH,
     },
-    pixelArt: true,
+    scene: [BootScene, GameScene, UpgradeScene, RunEndScene, BossResultScene],
+    audio: { noAudio: true },
   };
 }

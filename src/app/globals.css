@@ -1,17 +1,38 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #1a1a1a;
+@font-face {
+  font-family: "8bit Wonder";
+  src: url("/fonts/8bit-wonder.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
 }
 
-body {
+:root {
+  --background: #0c1220;
+  --foreground: #e5e7eb;
+}
+
+html, body {
   background: var(--background);
   color: var(--foreground);
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Force pixel cursor everywhere — never switch to pointer */
+*,
+*:hover,
+a, a:hover,
+button, button:hover,
+[role="button"],
+input[type="submit"],
+select {
+  cursor: inherit !important;
 }
 
 .font-pixel {
-  font-family: "Press Start 2P", monospace;
+  font-family: "8bit Wonder", monospace;
 }
 
 /* Custom scrollbar */
@@ -20,14 +41,40 @@ body {
 }
 
 .scrollbar-thin::-webkit-scrollbar-track {
-  background: #f5f5f5;
+  background: #0c1620;
 }
 
 .scrollbar-thin::-webkit-scrollbar-thumb {
-  background: #d1d5db;
+  background: #2a3a4a;
   border-radius: 2px;
 }
 
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  background: #9ca3af;
+  background: #3a4f63;
+}
+
+/* Play button breathing pulse */
+@keyframes play-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.animate-play-pulse {
+  animation: play-pulse 2s ease-in-out infinite;
+}
+
+.animate-play-pulse:hover {
+  animation: none;
+}
+
+/* Floor label fade in/out */
+@keyframes floor-label {
+  0% { opacity: 0; transform: scale(0.8); }
+  15% { opacity: 1; transform: scale(1); }
+  75% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.1); }
+}
+
+.animate-floor-label {
+  animation: floor-label 1.8s ease-in-out forwards;
 }
