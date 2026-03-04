@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { GridEngine } from "grid-engine";
 import { GAME_WIDTH, GAME_HEIGHT, C } from "./constants";
 import { BootScene } from "./scenes/BootScene";
 import { GameScene } from "./scenes/GameScene";
@@ -15,12 +16,22 @@ export function createGameConfig(
     width: GAME_WIDTH,
     height: GAME_HEIGHT,
     pixelArt: true,
+    roundPixels: true,
     backgroundColor: 0x000000,
     scale: {
-      mode: Phaser.Scale.FIT,
+      mode: Phaser.Scale.ENVELOP,
       autoCenter: Phaser.Scale.CENTER_BOTH,
     },
     scene: [BootScene, GameScene, UpgradeScene, RunEndScene, BossResultScene],
     audio: { noAudio: true },
+    plugins: {
+      scene: [
+        {
+          key: "gridEngine",
+          plugin: GridEngine,
+          mapping: "gridEngine",
+        },
+      ],
+    },
   };
 }

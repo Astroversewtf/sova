@@ -12,6 +12,7 @@
     "@tanstack/react-query": "^5.90.21",
     "@walletconnect/modal": "^2.7.0",
     "@web3modal/wagmi": "^5.1.11",
+    "grid-engine": "^2.48.2",
     "next": "16.1.6",
     "phaser": "^3.90.0",
     "puppeteer": "^24.37.5",
