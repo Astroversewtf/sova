@@ -1,10 +1,4 @@
-declare global {
-    interface Window {
-        ethereum?: any;
-    }
-}
-
-import { createAvalancheClient, createAvalancheWalletClient } from "@avalanche-sdk/client";
+import { createAvalancheClient } from "@avalanche-sdk/client";
 import { avalancheFuji } from "@avalanche-sdk/client/chains";
 import { type Address } from "viem";
 
@@ -17,6 +11,10 @@ const testNetClient = createAvalancheClient({
 
 export async function getBalance(address: Address) {
     return testNetClient.getBalance({ address });
+}
+
+export async function checkTransaction(hash: `0x${string}`) {
+    return testNetClient.waitForTransactionReceipt({ hash });
 }
 
 
