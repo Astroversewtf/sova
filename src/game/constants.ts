@@ -29,10 +29,12 @@ export function getVisionRadius(energy: number, eagleEyeStacks: number): number 
 
 // ── Floor size scaling ──
 export function getFloorSize(floor: number): { w: number; h: number } {
-  if (floor <= 3) return { w: 18, h: 15 };
-  if (floor <= 6) return { w: 19, h: 16 };
-  if (floor <= 9) return { w: 24, h: 20 };
-  return { w: 28, h: 24 };
+  // Visible area at zoom 2x = 800x450 px = 25x14 tiles
+  // Floors must be >= visible area to avoid exposing void
+  if (floor <= 3) return { w: 28, h: 18 };
+  if (floor <= 6) return { w: 32, h: 22 };
+  if (floor <= 9) return { w: 36, h: 26 };
+  return { w: 40, h: 30 };
 }
 
 // ── Enemy counts per floor ──
@@ -102,7 +104,7 @@ export const ENEMY_MOVE_MS = 80;
 
 // ── Camera ──
 export const CAMERA_ZOOM = 2.0;
-export const CAMERA_LERP = 0.1;
+export const CAMERA_LERP = 1;
 
 // ── Colors (Maze of Gains teal dungeon palette) ──
 export const C = {

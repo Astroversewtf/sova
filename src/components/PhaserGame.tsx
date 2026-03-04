@@ -54,7 +54,7 @@ export function PhaserGame() {
 
   return (
     <div className="relative w-full h-full bg-black">
-      <div ref={containerRef} className="absolute inset-0 w-full h-full" />
+      <div ref={containerRef} className="absolute inset-0" />
       <GameHUD />
     </div>
   );

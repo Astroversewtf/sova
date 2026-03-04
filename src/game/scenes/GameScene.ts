@@ -3,7 +3,7 @@ import { Direction } from "grid-engine";
 import type { GridEngine } from "grid-engine";
 import { CellType, TurnPhase, type FloorMap, type TilePos } from "../types";
 import {
-  TILE_SIZE, TILE_FULL_H, GAME_WIDTH, GAME_HEIGHT,
+  TILE_SIZE, GAME_WIDTH, GAME_HEIGHT,
   CAMERA_ZOOM, CAMERA_LERP, C,
 } from "../constants";
 import { generateFloor } from "../systems/RoomGenerator";
@@ -82,12 +82,12 @@ export class GameScene extends Phaser.Scene {
   }
 
   create() {
-    this.cameras.main.setBackgroundColor(C.VOID_BG);
+    this.cameras.main.setBackgroundColor(0x000000);
 
-    // Camera — MoG style: zoom 2x, round pixels, small deadzone
+    // Camera — keep player locked to center while moving
     this.cameras.main.setZoom(CAMERA_ZOOM);
     this.cameras.main.setRoundPixels(true);
-    this.cameras.main.setDeadzone(1, 1);
+    this.cameras.main.setDeadzone(0, 0);
 
     // Init systems
     this.turnManager = new TurnManager(this);
@@ -145,18 +145,26 @@ export class GameScene extends Phaser.Scene {
     this.energyManager.energy = store.energy;
     this.energyManager.maxEnergy = store.maxEnergy;
 
-    // Render tiles
-    this.renderTiles(cells, width, height);
+    // Half-viewport in tiles (how far camera can see from player)
+    const halfVP = Math.ceil(Math.max(
+      GAME_WIDTH / (CAMERA_ZOOM * TILE_SIZE),
+      GAME_HEIGHT / (CAMERA_ZOOM * TILE_SIZE),
+    ) / 2);
+
+    // Wall-fill tiles extend further than camera bounds so walls are always visible
+    const wallPad = halfVP + 7; // extra margin so camera never reaches the edge
+    this.renderTiles(cells, width, height, wallPad);
 
     // Checkered overlay — 12% black on alternating floor tiles (MoG depth 1)
     this.createCheckeredOverlay(cells, width, height);
 
-    // World bounds (generous padding)
+    // Camera bounds — tighter than wall-fill, so camera can never see past wall tiles
+    const boundsPad = halfVP * TILE_SIZE;
     const worldW = width * TILE_SIZE;
-    const worldH = height * TILE_FULL_H;
+    const worldH = height * TILE_SIZE;
     this.cameras.main.setBounds(
-      -TILE_SIZE * 4, -TILE_FULL_H * 4,
-      worldW + TILE_SIZE * 8, worldH + TILE_FULL_H * 8,
+      -boundsPad, -boundsPad,
+      worldW + boundsPad * 2, worldH + boundsPad * 2,
     );
 
     // Player
@@ -168,8 +176,9 @@ export class GameScene extends Phaser.Scene {
     // Movement arrows around player
     this.createMoveArrows();
 
-    // Camera follow — centered on player, smooth lerp
-    this.cameras.main.startFollow(this.player.sprite, true, CAMERA_LERP, CAMERA_LERP, -32, -32);
+    // Camera follow — snap to player immediately and keep initial spawn centered
+    this.cameras.main.startFollow(this.player.sprite, true, CAMERA_LERP, CAMERA_LERP);
+    this.cameras.main.centerOn(this.player.sprite.x, this.player.sprite.y);
 
     // Stairs
     this.stairs = new Stairs(this, stairs);
@@ -178,7 +187,7 @@ export class GameScene extends Phaser.Scene {
     if (statuePos) {
       this.statueSprite = this.add.image(
         statuePos.x * TILE_SIZE + TILE_SIZE / 2,
-        statuePos.y * TILE_FULL_H + TILE_SIZE / 2,
+        statuePos.y * TILE_SIZE + TILE_SIZE / 2,
         "statue",
       );
       this.statueSprite.setDepth(350);
@@ -222,7 +231,7 @@ export class GameScene extends Phaser.Scene {
     this.game.events.emit("sova:floor-start", { floor, isBoss: !!bossSpawn });
   }
 
-  private renderTiles(cells: CellType[][], w: number, h: number) {
+  private renderTiles(cells: CellType[][], w: number, h: number, pad: number) {
     this.tileSprites.clear();
 
     const isFloor = (x: number, y: number) =>
@@ -230,26 +239,37 @@ export class GameScene extends Phaser.Scene {
 
     const usePngWalls = this.textures.exists("wall-fill");
 
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
+    // Render map tiles + wall-fill border (pad tiles on each side)
+    for (let y = -pad; y < h + pad; y++) {
+      for (let x = -pad; x < w + pad; x++) {
         const px = x * TILE_SIZE + TILE_SIZE / 2;
         const py = y * TILE_SIZE + TILE_SIZE / 2;
+        const inMap = x >= 0 && y >= 0 && x < w && y < h;
 
-        if (cells[y][x] === CellType.FLOOR) {
+        if (inMap && cells[y][x] === CellType.FLOOR) {
+          // Floor tile
           const isAlt = (x + y) % 2 === 0;
           const img = this.add.image(px, py, isAlt ? "tile-floor" : "tile-floor-alt");
           img.setDepth(100).setOrigin(0.5, 0.5);
           this.tileSprites.set(`${x},${y}`, img);
-        } else if (usePngWalls) {
+        } else if (inMap && usePngWalls) {
+          // Map wall — pick contextual wall tile
           const key = this.pickWallTile(x, y, isFloor);
           const img = this.add.image(px, py, key);
           img.setDepth(95).setOrigin(0.5, 0.5);
           this.tileSprites.set(`w${x},${y}`, img);
-        } else {
+        } else if (inMap) {
+          // Map wall — fallback (no PNG walls loaded)
           const hasFloorSouth = isFloor(x, y + 1);
           const img = this.add.image(px, py, hasFloorSouth ? "tile-wall-face" : "tile-wall");
           img.setDepth(95).setOrigin(0.5, 0.5);
           this.tileSprites.set(`w${x},${y}`, img);
+        } else {
+          // Outside map — continuous wall-fill so void is never visible
+          const key = usePngWalls ? "wall-fill" : "tile-wall";
+          const img = this.add.image(px, py, key);
+          img.setDepth(95).setOrigin(0.5, 0.5);
+          this.tileSprites.set(`p${x},${y}`, img);
         }
       }
     }
@@ -600,7 +620,7 @@ export class GameScene extends Phaser.Scene {
       if (this.isWalkable({ x: tx, y: ty })) {
         arrow.setPosition(
           tx * TILE_SIZE + TILE_SIZE / 2,
-          ty * TILE_FULL_H + TILE_SIZE / 2,
+          ty * TILE_SIZE + TILE_SIZE / 2,
         );
         arrow.setVisible(true);
       } else {

@@ -337,10 +337,19 @@ export function generateFloor(floor: number): FloorMap {
   // 3b. Thicken thin walls — any void with floor on opposite sides becomes floor
   thickenWalls(cells, w, h);
 
-  // 4. Sort rooms left-to-right for spawn/stairs placement
-  const sorted = [...rooms].sort((a, b) => a.cx - b.cx);
-  const spawnRoom = sorted[0];
-  const stairsRoom = sorted[sorted.length - 1];
+  // 4. Spawn in a random room, stairs in the room farthest from spawn
+  //    This distributes the dungeon in all directions around the player.
+  const spawnRoom = rooms[Math.floor(Math.random() * rooms.length)];
+  let stairsRoom = rooms[0];
+  let maxDist = 0;
+  for (const r of rooms) {
+    if (r === spawnRoom) continue;
+    const d = manhattan({ x: r.cx, y: r.cy }, { x: spawnRoom.cx, y: spawnRoom.cy });
+    if (d > maxDist) {
+      maxDist = d;
+      stairsRoom = r;
+    }
+  }
 
   const spawn: TilePos = { x: spawnRoom.cx, y: spawnRoom.cy };
   const stairs: TilePos = { x: stairsRoom.cx, y: stairsRoom.cy };
