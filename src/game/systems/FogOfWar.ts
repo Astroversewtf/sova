@@ -1,101 +1,95 @@
 import Phaser from "phaser";
-import { FogState, CellType, type TilePos } from "../types";
-import { TILE_SIZE, TILE_FULL_H } from "../constants";
-import type { GameScene } from "../scenes/GameScene";
+import { FogState, type TilePos } from "../types";
+import { TILE_SIZE } from "../constants";
 
 /**
- * Fog of War — MoG-style black fog with organic noisy edges.
- *  UNEXPLORED = solid black
- *  EXPLORED   = near-black (dimly visible structure)
- *  VISIBLE    = clear, with noisy boundary creating organic edges
+ * Fog of War — MoG-style tile-per-tile black rectangles.
+ *
+ *  State 0 (UNEXPLORED) = solid black (α 1.0)
+ *  State 1 (EXPLORED)   = dark overlay (α 0.7)
+ *  State 2 (VISIBLE)    = clear (nothing drawn)
+ *
+ * Uses flat Uint8Array + dirty-check to avoid redundant redraws.
  */
 export class FogOfWar {
-  private grid: FogState[][];
+  private fogState: Uint8Array;
+  private previousFogState: Uint8Array;
   private graphics: Phaser.GameObjects.Graphics;
   private mapW: number;
   private mapH: number;
 
-  constructor(scene: GameScene, w: number, h: number, _cells: CellType[][]) {
+  constructor(scene: Phaser.Scene, w: number, h: number) {
     this.mapW = w;
     this.mapH = h;
-    this.grid = Array.from({ length: h }, () =>
-      Array<FogState>(w).fill(FogState.UNEXPLORED),
-    );
-    this.graphics = scene.add.graphics();
-    this.graphics.setDepth(800);
-  }
 
-  /** Deterministic per-tile noise: returns 0–1, consistent for same (x,y) */
-  private tileNoise(x: number, y: number): number {
-    let h = (x * 374761393 + y * 668265263) | 0;
-    h = ((h ^ (h >> 13)) * 1274126177) | 0;
-    h = h ^ (h >> 16);
-    return ((h & 0x7fff) / 0x7fff);
+    const size = w * h;
+    this.fogState = new Uint8Array(size); // All 0 = UNEXPLORED
+    this.previousFogState = new Uint8Array(size).fill(255); // Force first draw
+
+    this.graphics = scene.add.graphics();
+    this.graphics.setDepth(2000);
   }
 
   update(playerPos: TilePos, radius: number) {
-    // Demote visible → explored
-    for (let y = 0; y < this.mapH; y++) {
-      for (let x = 0; x < this.mapW; x++) {
-        if (this.grid[y][x] === FogState.VISIBLE) {
-          this.grid[y][x] = FogState.EXPLORED;
-        }
+    // Demote all VISIBLE → EXPLORED
+    for (let i = 0; i < this.fogState.length; i++) {
+      if (this.fogState[i] === FogState.VISIBLE) {
+        this.fogState[i] = FogState.EXPLORED;
       }
     }
 
-    // Reveal within noisy radius (organic circle)
-    const reach = radius + 2; // check a bit beyond radius for noise
-    for (let y = Math.max(0, playerPos.y - reach); y <= Math.min(this.mapH - 1, playerPos.y + reach); y++) {
-      for (let x = Math.max(0, playerPos.x - reach); x <= Math.min(this.mapW - 1, playerPos.x + reach); x++) {
+    // Reveal tiles within vision radius (simple circular check)
+    const r2 = radius * radius;
+    const minY = Math.max(0, playerPos.y - radius);
+    const maxY = Math.min(this.mapH - 1, playerPos.y + radius);
+    const minX = Math.max(0, playerPos.x - radius);
+    const maxX = Math.min(this.mapW - 1, playerPos.x + radius);
+
+    for (let y = minY; y <= maxY; y++) {
+      for (let x = minX; x <= maxX; x++) {
         const dx = x - playerPos.x;
         const dy = y - playerPos.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-
-        // Noise offset: -1.2 to +1.2 tiles of variation at the boundary
-        const noise = this.tileNoise(x, y) * 2.4 - 1.2;
-
-        if (dist + noise <= radius) {
-          this.grid[y][x] = FogState.VISIBLE;
+        if (dx * dx + dy * dy <= r2) {
+          this.fogState[y * this.mapW + x] = FogState.VISIBLE;
         }
       }
     }
 
-    this.redraw(playerPos, radius);
+    this.drawFog();
   }
 
-  private redraw(playerPos: TilePos, radius: number) {
+  private drawFog() {
+    // Dirty-check: only redraw if state actually changed
+    let dirty = false;
+    for (let i = 0; i < this.fogState.length; i++) {
+      if (this.fogState[i] !== this.previousFogState[i]) {
+        dirty = true;
+        break;
+      }
+    }
+    if (!dirty) return;
+
+    // Copy current state to previous
+    this.previousFogState.set(this.fogState);
+
     this.graphics.clear();
 
     for (let y = 0; y < this.mapH; y++) {
       for (let x = 0; x < this.mapW; x++) {
-        const state = this.grid[y][x];
+        const state = this.fogState[y * this.mapW + x];
+        if (state === FogState.VISIBLE) continue; // Clear — draw nothing
+
         const px = x * TILE_SIZE;
-        const py = y * TILE_FULL_H;
+        const py = y * TILE_SIZE;
 
         if (state === FogState.UNEXPLORED) {
           // Solid black
           this.graphics.fillStyle(0x000000, 1.0);
-          this.graphics.fillRect(px - 1, py - 1, TILE_SIZE + 2, TILE_FULL_H + 2);
-        } else if (state === FogState.EXPLORED) {
-          // Near-black — structure barely visible
-          this.graphics.fillStyle(0x000000, 0.82);
-          this.graphics.fillRect(px, py, TILE_SIZE, TILE_FULL_H);
+          this.graphics.fillRect(px, py, TILE_SIZE, TILE_SIZE);
         } else {
-          // VISIBLE — darken edges for smooth fade into fog
-          const dx = x - playerPos.x;
-          const dy = y - playerPos.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          const noise = this.tileNoise(x, y) * 2.4 - 1.2;
-          const effectiveDist = dist + noise;
-          const edgeStart = radius * 0.5;
-
-          if (effectiveDist > edgeStart) {
-            // Gradual darkening toward the noisy boundary
-            const t = (effectiveDist - edgeStart) / (radius - edgeStart);
-            const alpha = Math.min(0.5, t * t * 0.5);
-            this.graphics.fillStyle(0x000000, alpha);
-            this.graphics.fillRect(px, py, TILE_SIZE, TILE_FULL_H);
-          }
+          // EXPLORED — semi-transparent dark overlay
+          this.graphics.fillStyle(0x000000, 0.7);
+          this.graphics.fillRect(px, py, TILE_SIZE, TILE_SIZE);
         }
       }
     }
@@ -103,12 +97,12 @@ export class FogOfWar {
 
   isVisible(pos: TilePos): boolean {
     if (pos.x < 0 || pos.y < 0 || pos.x >= this.mapW || pos.y >= this.mapH) return false;
-    return this.grid[pos.y][pos.x] === FogState.VISIBLE;
+    return this.fogState[pos.y * this.mapW + pos.x] === FogState.VISIBLE;
   }
 
   isExplored(pos: TilePos): boolean {
     if (pos.x < 0 || pos.y < 0 || pos.x >= this.mapW || pos.y >= this.mapH) return false;
-    return this.grid[pos.y][pos.x] !== FogState.UNEXPLORED;
+    return this.fogState[pos.y * this.mapW + pos.x] >= FogState.EXPLORED;
   }
 
   destroy() {

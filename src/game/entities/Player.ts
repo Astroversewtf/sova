@@ -6,6 +6,8 @@ type Facing = "front" | "back" | "side";
 
 export class Player {
   sprite: Phaser.GameObjects.Sprite | Phaser.GameObjects.Image;
+  /** Invisible sprite that GridEngine controls for position tracking */
+  dummySprite: Phaser.GameObjects.Sprite;
   pos: TilePos;
   private scene: Phaser.Scene;
   private dustEmitter: Phaser.GameObjects.Particles.ParticleEmitter | null = null;
@@ -16,24 +18,24 @@ export class Player {
     this.scene = scene;
     this.pos = { ...pos };
 
+    const px = pos.x * TILE_SIZE + TILE_SIZE / 2;
+    const py = pos.y * TILE_FULL_H + TILE_SIZE / 2;
+
+    // Invisible dummy sprite for GridEngine
+    this.dummySprite = scene.add.sprite(px, py, "player");
+    this.dummySprite.setVisible(false);
+    this.dummySprite.setDepth(-1);
+
     // Use animated sprite if animations exist, else static fallback
     this.animated = !!scene.anims.exists("player-idle-front");
 
     if (this.animated) {
-      const spr = scene.add.sprite(
-        pos.x * TILE_SIZE + TILE_SIZE / 2,
-        pos.y * TILE_FULL_H + TILE_SIZE / 2,
-        "player-idle-front-1",
-      );
+      const spr = scene.add.sprite(px, py, "player-idle-front-1");
       spr.setScale(1.0); // 64×64 full size — character fills tile generously
       spr.play("player-idle-front");
       this.sprite = spr;
     } else {
-      this.sprite = scene.add.image(
-        pos.x * TILE_SIZE + TILE_SIZE / 2,
-        pos.y * TILE_FULL_H + TILE_SIZE / 2,
-        "player",
-      );
+      this.sprite = scene.add.image(px, py, "player");
     }
 
     this.sprite.setDepth(500);
@@ -53,6 +55,11 @@ export class Player {
     }
   }
 
+  /** Sync visual sprite position with GridEngine-controlled dummy sprite */
+  syncWithGridEngine() {
+    this.sprite.setPosition(this.dummySprite.x, this.dummySprite.y);
+  }
+
   moveTo(target: TilePos, onComplete: () => void) {
     const prevX = this.sprite.x;
     const prevY = this.sprite.y;
@@ -61,7 +68,7 @@ export class Player {
     this.pos = { ...target };
 
     // Update facing direction
-    this.updateFacing(dx, dy);
+    this.updateFacingFromDir(dx, dy);
 
     // Dust puff at previous position
     if (this.dustEmitter) {
@@ -78,8 +85,15 @@ export class Player {
     });
   }
 
+  /** Emit dust particles at current position */
+  emitDust() {
+    if (this.dustEmitter) {
+      this.dustEmitter.emitParticleAt(this.sprite.x, this.sprite.y + 4, 4);
+    }
+  }
+
   /** Update direction and play matching idle animation */
-  private updateFacing(dx: number, dy: number) {
+  updateFacingFromDir(dx: number, dy: number) {
     if (!this.animated) return;
     const spr = this.sprite as Phaser.GameObjects.Sprite;
 
@@ -130,6 +144,7 @@ export class Player {
 
   destroy() {
     this.dustEmitter?.destroy();
+    this.dummySprite.destroy();
     this.sprite.destroy();
   }
 }

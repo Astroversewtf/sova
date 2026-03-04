@@ -46,7 +46,6 @@ export function PhaserGame() {
         gameRef.current.destroy(true);
         gameRef.current = null;
       }
-      // Also clear DOM just in case
       if (containerRef.current) {
         containerRef.current.innerHTML = "";
       }
@@ -54,8 +53,8 @@ export function PhaserGame() {
   }, [setView]);
 
   return (
-    <div className="relative w-full h-full">
-      <div ref={containerRef} className="w-full h-full" />
+    <div className="relative w-full h-full bg-black">
+      <div ref={containerRef} className="absolute inset-0 w-full h-full" />
       <GameHUD />
     </div>
   );

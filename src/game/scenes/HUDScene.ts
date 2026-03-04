@@ -1,11 +1,12 @@
 import Phaser from "phaser";
-import { GAME_WIDTH, GAME_HEIGHT } from "../constants";
 import { useGameStore } from "@/stores/gameStore";
 
 /**
  * Overlay HUD:
  * - Top-left: ENERGY — lightning icon + lime fill bar + "XX/100"
  * - Top-right: Resource badges — loot counts + floor number
+ *
+ * Uses this.scale.width/height for positioning so it works with RESIZE mode.
  */
 export class HUDScene extends Phaser.Scene {
   // Energy bar
@@ -25,6 +26,7 @@ export class HUDScene extends Phaser.Scene {
   private ticketText!: Phaser.GameObjects.Text;
   private floorDot!: Phaser.GameObjects.Graphics;
   private floorText!: Phaser.GameObjects.Text;
+  private sepG!: Phaser.GameObjects.Graphics;
 
   // Floor label
   private floorLabel: Phaser.GameObjects.Text | null = null;
@@ -49,7 +51,7 @@ export class HUDScene extends Phaser.Scene {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: "8px",
       color: "#e5e7eb",
-    }).setOrigin(0, 1);
+    }).setOrigin(0, 1).setScrollFactor(0);
 
     // Dark rounded container
     this.energyContainer = this.add.graphics();
@@ -84,71 +86,30 @@ export class HUDScene extends Phaser.Scene {
     // ══════════════════════════════════════════
     // TOP-RIGHT: RESOURCE BADGES + FLOOR
     // ══════════════════════════════════════════
-    const badgeW = 230;
-    const badgeH = 30;
-    const badgeX = GAME_WIDTH - badgeW - 8;
-    const badgeY = 22;
-
     this.badgeBg = this.add.graphics();
-    this.badgeBg.fillStyle(0x0f172a, 0.92);
-    this.badgeBg.fillRoundedRect(badgeX, badgeY, badgeW, badgeH, 10);
-    this.badgeBg.lineStyle(1, 0x334155, 0.5);
-    this.badgeBg.strokeRoundedRect(badgeX, badgeY, badgeW, badgeH, 10);
-
-    const midY = badgeY + badgeH / 2;
-    const dotR = 6;
-    const fontSize = "9px";
-    const fontCfg = { fontFamily: '"Press Start 2P", monospace', fontSize };
-
-    // Coin (orange)
-    const cx1 = badgeX + 18;
     this.coinDot = this.add.graphics();
-    this.coinDot.fillStyle(0xf59e0b);
-    this.coinDot.fillCircle(cx1, midY, dotR);
-    this.coinDot.lineStyle(1.5, 0xb45309);
-    this.coinDot.strokeCircle(cx1, midY, dotR);
-    this.coinText = this.add.text(cx1 + 12, midY, "0", {
-      ...fontCfg, color: "#fbbf24",
+    this.coinText = this.add.text(0, 0, "0", {
+      fontFamily: '"Press Start 2P", monospace', fontSize: "9px", color: "#fbbf24",
     }).setOrigin(0, 0.5);
-
-    // Gem (teal)
-    const cx2 = badgeX + 68;
     this.gemDot = this.add.graphics();
-    this.gemDot.fillStyle(0x2dd4bf);
-    this.gemDot.fillCircle(cx2, midY, dotR);
-    this.gemDot.lineStyle(1.5, 0x0d9488);
-    this.gemDot.strokeCircle(cx2, midY, dotR);
-    this.gemText = this.add.text(cx2 + 12, midY, "0", {
-      ...fontCfg, color: "#5eead4",
+    this.gemText = this.add.text(0, 0, "0", {
+      fontFamily: '"Press Start 2P", monospace', fontSize: "9px", color: "#5eead4",
     }).setOrigin(0, 0.5);
-
-    // Golden Ticket (gold/yellow)
-    const cx3 = badgeX + 118;
     this.ticketDot = this.add.graphics();
-    this.ticketDot.fillStyle(0xfbbf24);
-    this.ticketDot.fillCircle(cx3, midY, dotR);
-    this.ticketDot.lineStyle(1.5, 0xd97706);
-    this.ticketDot.strokeCircle(cx3, midY, dotR);
-    this.ticketText = this.add.text(cx3 + 12, midY, "0", {
-      ...fontCfg, color: "#fde68a",
+    this.ticketText = this.add.text(0, 0, "0", {
+      fontFamily: '"Press Start 2P", monospace', fontSize: "9px", color: "#fde68a",
     }).setOrigin(0, 0.5);
-
-    // Separator
-    const sepX = badgeX + 164;
-    const sepG = this.add.graphics();
-    sepG.fillStyle(0x334155, 0.6);
-    sepG.fillRect(sepX, badgeY + 6, 1, badgeH - 12);
-
-    // Floor number
-    const cx4 = badgeX + 178;
+    this.sepG = this.add.graphics();
     this.floorDot = this.add.graphics();
-    this.floorDot.fillStyle(0x94a3b8);
-    this.floorDot.fillCircle(cx4, midY, dotR);
-    this.floorDot.lineStyle(1.5, 0x64748b);
-    this.floorDot.strokeCircle(cx4, midY, dotR);
-    this.floorText = this.add.text(cx4 + 12, midY, "F1", {
-      ...fontCfg, color: "#e2e8f0",
+    this.floorText = this.add.text(0, 0, "F1", {
+      fontFamily: '"Press Start 2P", monospace', fontSize: "9px", color: "#e2e8f0",
     }).setOrigin(0, 0.5);
+
+    // Position badges based on current screen size
+    this.layoutBadges();
+
+    // Re-layout on resize
+    this.scale.on("resize", () => this.layoutBadges());
 
     // ══════════════════════════════════════════
     // EVENTS
@@ -159,7 +120,68 @@ export class HUDScene extends Phaser.Scene {
 
     this.events.on("shutdown", () => {
       this.game.events.off("sova:floor-start");
+      this.scale.off("resize");
     });
+  }
+
+  /** Position the top-right resource badges based on current screen width */
+  private layoutBadges() {
+    const screenW = this.scale.width;
+    const badgeW = 230;
+    const badgeH = 30;
+    const badgeX = screenW - badgeW - 8;
+    const badgeY = 22;
+    const midY = badgeY + badgeH / 2;
+    const dotR = 6;
+
+    // Background
+    this.badgeBg.clear();
+    this.badgeBg.fillStyle(0x0f172a, 0.92);
+    this.badgeBg.fillRoundedRect(badgeX, badgeY, badgeW, badgeH, 10);
+    this.badgeBg.lineStyle(1, 0x334155, 0.5);
+    this.badgeBg.strokeRoundedRect(badgeX, badgeY, badgeW, badgeH, 10);
+
+    // Coin
+    const cx1 = badgeX + 18;
+    this.coinDot.clear();
+    this.coinDot.fillStyle(0xf59e0b);
+    this.coinDot.fillCircle(cx1, midY, dotR);
+    this.coinDot.lineStyle(1.5, 0xb45309);
+    this.coinDot.strokeCircle(cx1, midY, dotR);
+    this.coinText.setPosition(cx1 + 12, midY);
+
+    // Gem
+    const cx2 = badgeX + 68;
+    this.gemDot.clear();
+    this.gemDot.fillStyle(0x2dd4bf);
+    this.gemDot.fillCircle(cx2, midY, dotR);
+    this.gemDot.lineStyle(1.5, 0x0d9488);
+    this.gemDot.strokeCircle(cx2, midY, dotR);
+    this.gemText.setPosition(cx2 + 12, midY);
+
+    // Golden Ticket
+    const cx3 = badgeX + 118;
+    this.ticketDot.clear();
+    this.ticketDot.fillStyle(0xfbbf24);
+    this.ticketDot.fillCircle(cx3, midY, dotR);
+    this.ticketDot.lineStyle(1.5, 0xd97706);
+    this.ticketDot.strokeCircle(cx3, midY, dotR);
+    this.ticketText.setPosition(cx3 + 12, midY);
+
+    // Separator
+    const sepX = badgeX + 164;
+    this.sepG.clear();
+    this.sepG.fillStyle(0x334155, 0.6);
+    this.sepG.fillRect(sepX, badgeY + 6, 1, badgeH - 12);
+
+    // Floor
+    const cx4 = badgeX + 178;
+    this.floorDot.clear();
+    this.floorDot.fillStyle(0x94a3b8);
+    this.floorDot.fillCircle(cx4, midY, dotR);
+    this.floorDot.lineStyle(1.5, 0x64748b);
+    this.floorDot.strokeCircle(cx4, midY, dotR);
+    this.floorText.setPosition(cx4 + 12, midY);
   }
 
   update() {
@@ -190,8 +212,14 @@ export class HUDScene extends Phaser.Scene {
     const fillW = Math.max(0, barW * pct);
     if (fillW <= 0) return;
 
-    // Lime-green fill
-    this.energyFill.fillStyle(0xb8e550, 0.95);
+    // Color: green → yellow → red based on energy percentage
+    let fillColor = 0xb8e550; // lime-green (high)
+    if (pct < 0.2) {
+      fillColor = 0xef4444; // red (critical)
+    } else if (pct < 0.4) {
+      fillColor = 0xfbbf24; // yellow (low)
+    }
+    this.energyFill.fillStyle(fillColor, 0.95);
     this.energyFill.fillRoundedRect(barX, barY, fillW, barH, 7);
 
     // Highlight on top half for glossy effect
@@ -204,9 +232,11 @@ export class HUDScene extends Phaser.Scene {
 
     const label = isBoss ? `BOSS FLOOR ${floor}` : `FLOOR ${floor}`;
     const color = isBoss ? "#8b5cf6" : "#f9fafb";
+    const cx = this.scale.width / 2;
+    const cy = this.scale.height / 2 - 30;
 
     this.floorLabel = this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 30, label, {
+      .text(cx, cy, label, {
         fontFamily: '"Press Start 2P", monospace',
         fontSize: "16px",
         color,

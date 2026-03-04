@@ -15,8 +15,6 @@ import { useLobbyStore } from "@/stores/lobbyStore";
 import { useLogin, usePrivy } from "@privy-io/react-auth";
 import { usePlayerStore } from "@/stores/playerStore";
 import { getBalance } from "@/lib/avax";
-import { redirect } from "next/dist/server/api-utils";
-import { RedirectType } from "next/navigation";
 
 const PhaserGame = dynamic(
   () => import("@/components/PhaserGame").then((mod) => mod.PhaserGame),
@@ -101,33 +99,29 @@ function ConnectView() {
       {/* ── Center content ── */}
       <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-4">
         {/* Logo */}
-        <div className="text-center mb-6">
+        <div className="mb-4">
           <img
             src="/images/logo-sova.png"
             alt="SOVA"
-            className="h-28 sm:h-36 object-contain mx-auto mb-2 drop-shadow-[0_2px_12px_rgba(0,0,0,0.6)]"
+            className="h-56 sm:h-80 object-contain mx-auto drop-shadow-[0_4px_20px_rgba(0,0,0,0.7)]"
             style={{ imageRendering: "pixelated" }}
           />
-          <p className="font-pixel text-[10px] text-gray-300 uppercase tracking-widest drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]">
-            Dungeon Maze Crawler
-          </p>
         </div>
 
-        {/* Card */}
-        <div className="bg-black/70 border border-white/15 rounded-xl p-6 sm:p-8 w-full max-w-sm backdrop-blur-sm">
-          <button
-            onClick={login}
-            className="w-full bg-[#b8e550] hover:bg-[#c5ed65] text-gray-900 font-pixel text-sm py-4 px-4 rounded-lg border-2 border-[#a0cc40]/50 transition-all uppercase tracking-wide shadow-[0_4px_0_#7a9e30] hover:shadow-[0_2px_0_#7a9e30] hover:translate-y-[2px] active:shadow-none active:translate-y-[4px]"
-          >
-            CONNECT
+        {/* Connect button */}
+        <button
+          onClick={login}
+          className="bg-[#b8e550] hover:bg-[#c5ed65] text-white font-pixel text-lg py-3 px-10 rounded-lg border-2 border-[#a0cc40]/50 transition-all uppercase tracking-wide shadow-[0_4px_0_#7a9e30] hover:shadow-[0_2px_0_#7a9e30] hover:translate-y-[2px] active:shadow-none active:translate-y-[4px]"
+          style={{ textShadow: "-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 -2px 0 #000, 0 2px 0 #000, -2px 0 0 #000, 2px 0 0 #000" }}
+        >
+          CONNECT
           </button>
           <button
             onClick={() => walletStoreConnect("DEV", 43113)}
-            className="my-5 w-full bg-[#b8e550] hover:bg-[#c5ed65] text-gray-900 font-pixel text-sm py-4 px-4 rounded-lg border-2 border-[#a0cc40]/50 transition-all uppercase tracking-wide shadow-[0_4px_0_#7a9e30] hover:shadow-[0_2px_0_#7a9e30] hover:translate-y-[2px] active:shadow-none active:translate-y-[4px]"
+            className="my-5 bg-[#b8e550] hover:bg-[#c5ed65] text-white font-pixel text-lg py-3 px-10 rounded-lg border-2 border-[#a0cc40]/50 transition-all uppercase tracking-wide shadow-[0_4px_0_#7a9e30] hover:shadow-[0_2px_0_#7a9e30] hover:translate-y-[2px] active:shadow-none active:translate-y-[4px]"
           >
             SKIP DEV
-          </button>
-        </div>
+        </button>
       </main>
 
       {/* ── Copyright text ── */}
@@ -174,74 +168,20 @@ function LobbyView() {
 
 function GameView() {
   return (
-    <div className="h-dvh flex overflow-hidden bg-[#1a3832]">
+    <div className="h-dvh flex overflow-hidden bg-black">
       {/* Chat sidebar (desktop: permanent, mobile: floating icon) */}
       <ChatSidebar />
       {/* Game fills remaining space */}
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 relative overflow-hidden">
         <PhaserGame />
       </div>
     </div>
   );
 }
 
-/** Generate a chunky 32×32 pixel art cursor (MoG style) */
-function usePixelCursor() {
-  useEffect(() => {
-    const s = 32;
-    const p = 2; // pixel block size
-    const c = document.createElement("canvas");
-    c.width = s;
-    c.height = s;
-    const ctx = c.getContext("2d");
-    if (!ctx) return;
-
-    // 1=outline, 2=white fill — classic arrow, symmetric sides
-    // Each cell = 2×2 px block → 16×16 grid on 32×32 canvas
-    const map = [
-      [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-      [1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-      [1,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0],
-      [1,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0],
-      [1,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0],
-      [1,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0],
-      [1,2,2,2,2,2,1,0,0,0,0,0,0,0,0,0],
-      [1,2,2,2,2,2,2,1,0,0,0,0,0,0,0,0],
-      [1,2,2,2,2,2,2,2,1,0,0,0,0,0,0,0],
-      [1,2,2,2,2,2,2,2,2,1,0,0,0,0,0,0],
-      [1,2,2,2,2,2,1,1,1,1,0,0,0,0,0,0],
-      [1,2,2,1,2,2,1,0,0,0,0,0,0,0,0,0],
-      [1,2,1,0,1,2,2,1,0,0,0,0,0,0,0,0],
-      [1,1,0,0,1,2,2,1,0,0,0,0,0,0,0,0],
-      [1,0,0,0,0,1,2,1,0,0,0,0,0,0,0,0],
-      [0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0],
-    ];
-
-    const colors: Record<number, string> = {
-      1: "#0a0a0a",
-      2: "#ffffff",
-    };
-
-    for (let y = 0; y < 16; y++) {
-      for (let x = 0; x < 16; x++) {
-        const v = map[y][x];
-        if (v && colors[v]) {
-          ctx.fillStyle = colors[v];
-          ctx.fillRect(x * p, y * p, p, p);
-        }
-      }
-    }
-
-    const url = c.toDataURL("image/png");
-    document.body.style.cursor = `url(${url}) 0 0, auto`;
-
-    return () => { document.body.style.cursor = ""; };
-  }, []);
-}
 
 export default function App() {
   const view = useWalletStore((s) => s.view);
-  usePixelCursor();
 
   if (view === "game") return <GameView />;
   if (view === "lobby") return <LobbyView />;

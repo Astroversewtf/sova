@@ -61,33 +61,51 @@ export class TurnManager {
       return;
     }
 
-    // Move player
-    player.moveTo(target, () => {
-      // Spend energy
-      this.scene.energyManager.spendMove();
+    // Move player via GridEngine
+    this.moveTarget = target;
+    player.updateFacingFromDir(dx, dy);
 
-      // Collect treasure
-      this.scene.treasureManager.checkPickup(target);
+    // Dust puff at previous position
+    player.emitDust();
 
-      // Check chest
-      this.checkChest(target);
+    const direction = this.scene.toDirection(dx, dy);
+    this.scene.gridEngine.move("player", direction);
+    // Post-move logic handled by onPlayerMoveComplete() via GridEngine event
+  }
 
-      // Check trap
-      this.checkTrap(target);
+  /** Store the pending move target for post-move logic */
+  private moveTarget: TilePos | null = null;
 
-      if (this.scene.energyManager.isDead()) {
-        this.scene.endRun("energy");
-        return;
-      }
+  /** Called by GameScene when GridEngine position change finishes */
+  onPlayerMoveComplete() {
+    const target = this.moveTarget;
+    if (!target) return;
+    this.moveTarget = null;
 
-      // Check stairs
-      if (this.scene.isOnStairs(target)) {
-        this.scene.completeFloor();
-        return;
-      }
+    // Spend energy
+    this.scene.energyManager.spendMove();
 
-      this.advanceToEnemyPhase();
-    });
+    // Collect treasure
+    this.scene.treasureManager.checkPickup(target);
+
+    // Check chest
+    this.checkChest(target);
+
+    // Check trap
+    this.checkTrap(target);
+
+    if (this.scene.energyManager.isDead()) {
+      this.scene.endRun("energy");
+      return;
+    }
+
+    // Check stairs
+    if (this.scene.isOnStairs(target)) {
+      this.scene.completeFloor();
+      return;
+    }
+
+    this.advanceToEnemyPhase();
   }
 
   private advanceToEnemyPhase() {
@@ -132,12 +150,16 @@ export class TurnManager {
     this.phase = TurnPhase.PLAYER_INPUT;
     this.inputLocked = false;
     useGameStore.getState().setTurnPhase(TurnPhase.PLAYER_INPUT);
+
+    // Notify GameScene that action is complete (movement queue)
+    this.scene.onActionComplete();
   }
 
   private cancelInput() {
     this.phase = TurnPhase.PLAYER_INPUT;
     this.inputLocked = false;
     useGameStore.getState().setTurnPhase(TurnPhase.PLAYER_INPUT);
+    this.scene.onActionComplete();
   }
 
   private checkChest(pos: TilePos) {

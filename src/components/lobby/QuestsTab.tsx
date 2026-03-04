@@ -7,7 +7,7 @@ function QuestSlot() {
         <span className="text-gray-500 text-lg">?</span>
       </div>
       <div className="flex-1">
-        <div className="font-pixel text-xs text-white">--</div>
+        <div className="font-pixel text-xs text-white text-outline">--</div>
         <div className="mt-2 flex items-center gap-2">
           <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
             <div className="h-full rounded-full bg-gray-500 w-0" />
@@ -15,7 +15,7 @@ function QuestSlot() {
           <span className="font-pixel text-[9px] text-gray-500">0/0</span>
         </div>
       </div>
-      <button className="font-pixel text-[10px] px-4 py-2 rounded bg-white/10 text-gray-500 cursor-default">
+      <button className="font-pixel text-[10px] px-4 py-2 rounded bg-white/10 text-gray-500 cursor-default text-outline">
         GO
       </button>
     </div>
@@ -33,7 +33,7 @@ export function QuestsTab() {
     <div className="p-6 overflow-y-auto h-full space-y-6">
       {categories.map((cat) => (
         <div key={cat.key}>
-          <h3 className={`font-pixel text-sm ${cat.color} mb-3 uppercase`}>
+          <h3 className={`font-pixel text-sm ${cat.color} mb-3 uppercase text-outline`}>
             {cat.label} Quests
           </h3>
           <div className="space-y-3">

@@ -3,8 +3,9 @@ import { Providers } from "@/lib/providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "SOVA — Dungeon Maze Crawler",
+  title: "SOVA",
   description: "A web3 dungeon maze crawler game by Astroverse on Avalanche",
+  icons: { icon: "/favicon.ico", apple: "/icon.png" },
 };
 
 export const viewport: Viewport = {

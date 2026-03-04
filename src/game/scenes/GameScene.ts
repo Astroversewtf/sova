@@ -1,4 +1,6 @@
 import Phaser from "phaser";
+import { Direction } from "grid-engine";
+import type { GridEngine } from "grid-engine";
 import { CellType, TurnPhase, type FloorMap, type TilePos } from "../types";
 import {
   TILE_SIZE, TILE_FULL_H, GAME_WIDTH, GAME_HEIGHT,
@@ -11,7 +13,7 @@ import { FogOfWar } from "../systems/FogOfWar";
 import { EnemyAI } from "../systems/EnemyAI";
 import { CombatSystem } from "../systems/CombatSystem";
 import { TreasureManager } from "../systems/TreasureManager";
-
+import { VFXManager } from "../systems/VFXManager";
 import { UpgradeManager } from "../systems/UpgradeManager";
 import { Player } from "../entities/Player";
 import { Enemy } from "../entities/Enemy";
@@ -22,6 +24,11 @@ import { Stairs } from "../entities/Stairs";
 import { useGameStore } from "@/stores/gameStore";
 
 export class GameScene extends Phaser.Scene {
+  // GridEngine (injected by plugin)
+  declare gridEngine: GridEngine;
+  private collisionMap: Phaser.Tilemaps.Tilemap | null = null;
+  private geSubscription: { unsubscribe: () => void } | null = null;
+
   // Systems
   turnManager!: TurnManager;
   energyManager!: EnergyManager;
@@ -29,7 +36,11 @@ export class GameScene extends Phaser.Scene {
   enemyAI!: EnemyAI;
   combatSystem!: CombatSystem;
   treasureManager!: TreasureManager;
+  vfxManager!: VFXManager;
   upgradeManager!: UpgradeManager;
+
+  // Track last energy for dirty-check
+  private lastEnergy = -1;
 
   // Entities
   player!: Player;
@@ -45,6 +56,9 @@ export class GameScene extends Phaser.Scene {
   tileSprites: Map<string, Phaser.GameObjects.Image> = new Map();
   currentFloor = 1;
 
+  // Checkered overlay
+  private checkeredOverlay: Phaser.GameObjects.RenderTexture | null = null;
+
   // Movement arrows
   private moveArrows!: {
     up: Phaser.GameObjects.Image;
@@ -52,6 +66,11 @@ export class GameScene extends Phaser.Scene {
     left: Phaser.GameObjects.Image;
     right: Phaser.GameObjects.Image;
   };
+
+  // Movement queue (MoG-style pendingMove)
+  private pendingMove: { dx: number; dy: number } | null = null;
+  isProcessingAction = false;
+  private actionTimeout: ReturnType<typeof setTimeout> | null = null;
 
   // Input
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -65,8 +84,10 @@ export class GameScene extends Phaser.Scene {
   create() {
     this.cameras.main.setBackgroundColor(C.VOID_BG);
 
-    // Camera zoom — match Maze of Gains close-up perspective
+    // Camera — MoG style: zoom 2x, round pixels, small deadzone
     this.cameras.main.setZoom(CAMERA_ZOOM);
+    this.cameras.main.setRoundPixels(true);
+    this.cameras.main.setDeadzone(1, 1);
 
     // Init systems
     this.turnManager = new TurnManager(this);
@@ -74,6 +95,7 @@ export class GameScene extends Phaser.Scene {
     this.combatSystem = new CombatSystem(this);
     this.enemyAI = new EnemyAI(this);
     this.treasureManager = new TreasureManager(this);
+    this.vfxManager = new VFXManager(this);
     this.upgradeManager = new UpgradeManager(this);
 
     // Init store
@@ -126,6 +148,9 @@ export class GameScene extends Phaser.Scene {
     // Render tiles
     this.renderTiles(cells, width, height);
 
+    // Checkered overlay — 12% black on alternating floor tiles (MoG depth 1)
+    this.createCheckeredOverlay(cells, width, height);
+
     // World bounds (generous padding)
     const worldW = width * TILE_SIZE;
     const worldH = height * TILE_FULL_H;
@@ -137,11 +162,14 @@ export class GameScene extends Phaser.Scene {
     // Player
     this.player = new Player(this, spawn);
 
+    // GridEngine — collision tilemap + character registration
+    this.setupGridEngine(cells, width, height, spawn);
+
     // Movement arrows around player
     this.createMoveArrows();
 
-    // Camera follow — centered on player, smooth lerp, NO deadzone
-    this.cameras.main.startFollow(this.player.sprite, true, CAMERA_LERP, CAMERA_LERP);
+    // Camera follow — centered on player, smooth lerp
+    this.cameras.main.startFollow(this.player.sprite, true, CAMERA_LERP, CAMERA_LERP, -32, -32);
 
     // Stairs
     this.stairs = new Stairs(this, stairs);
@@ -177,7 +205,7 @@ export class GameScene extends Phaser.Scene {
     );
 
     // Fog of war
-    this.fogOfWar = new FogOfWar(this, width, height, cells);
+    this.fogOfWar = new FogOfWar(this, width, height);
     const radius = this.energyManager.getVisionRadius();
     this.fogOfWar.update(spawn, radius);
 
@@ -255,6 +283,87 @@ export class GameScene extends Phaser.Scene {
     return "wall-fill";
   }
 
+  private setupGridEngine(cells: CellType[][], w: number, h: number, spawn: TilePos) {
+    // Convert cells to tilemap data: 0 = walkable (floor), 1 = blocked (void/wall)
+    const mapData: number[][] = [];
+    for (let y = 0; y < h; y++) {
+      const row: number[] = [];
+      for (let x = 0; x < w; x++) {
+        row.push(cells[y][x] === CellType.FLOOR ? 0 : 1);
+      }
+      mapData.push(row);
+    }
+
+    const map = this.make.tilemap({
+      data: mapData,
+      tileWidth: TILE_SIZE,
+      tileHeight: TILE_SIZE,
+    });
+
+    // Create a blank texture for the collision tileset (invisible layer)
+    if (!this.textures.exists("ge-blank")) {
+      const gfx = this.make.graphics({});
+      gfx.generateTexture("ge-blank", TILE_SIZE * 2, TILE_SIZE);
+      gfx.destroy();
+    }
+
+    const tileset = map.addTilesetImage("ge-blank")!;
+    const layer = map.createLayer(0, tileset, 0, 0)!;
+    layer.setVisible(false);
+    map.setCollision(1); // Tile index 1 = wall/void
+
+    this.collisionMap = map;
+
+    // Initialize GridEngine with player character
+    this.gridEngine.create(map, {
+      characters: [
+        {
+          id: "player",
+          sprite: this.player.dummySprite,
+          startPosition: { x: spawn.x, y: spawn.y },
+          speed: 6,
+          offsetX: TILE_SIZE / 2,
+          offsetY: TILE_SIZE / 2,
+        },
+      ],
+      numberOfDirections: 4,
+    });
+
+    // Subscribe to position changes for turn flow
+    this.geSubscription = this.gridEngine.positionChangeFinished().subscribe(
+      ({ charId }: { charId: string }) => {
+        if (charId === "player") {
+          // Update logical position from GridEngine
+          const gePos = this.gridEngine.getPosition("player");
+          this.player.pos = { x: gePos.x, y: gePos.y };
+          this.turnManager.onPlayerMoveComplete();
+        }
+      },
+    );
+  }
+
+  private createCheckeredOverlay(cells: CellType[][], w: number, h: number) {
+    const rt = this.add.renderTexture(0, 0, w * TILE_SIZE, h * TILE_SIZE);
+    rt.setOrigin(0, 0);
+    rt.setDepth(101); // Just above floor tiles (100)
+
+    const stamp = this.add.graphics();
+    stamp.fillStyle(0x000000, 0.12);
+    stamp.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+    stamp.setVisible(false);
+
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        if (cells[y][x] === CellType.FLOOR && (x + y) % 2 === 1) {
+          rt.draw(stamp, x * TILE_SIZE, y * TILE_SIZE);
+        }
+      }
+    }
+
+    stamp.destroy();
+    this.checkeredOverlay = rt;
+  }
+
   private cleanupFloor() {
     this.player?.destroy();
     this.moveArrows?.up.destroy();
@@ -269,6 +378,15 @@ export class GameScene extends Phaser.Scene {
     this.statueSprite?.destroy();
     this.statueSprite = null;
     this.fogOfWar?.destroy();
+    this.checkeredOverlay?.destroy();
+    this.vfxManager?.destroy();
+    this.checkeredOverlay = null;
+
+    // GridEngine cleanup
+    this.geSubscription?.unsubscribe();
+    this.geSubscription = null;
+    this.collisionMap?.destroy();
+    this.collisionMap = null;
 
     for (const s of this.tileSprites.values()) s.destroy();
     this.tileSprites.clear();
@@ -280,19 +398,106 @@ export class GameScene extends Phaser.Scene {
   }
 
   update() {
-    if (this.chatFocused) return;
-    if (this.turnManager.phase !== TurnPhase.PLAYER_INPUT) return;
-
-    const kb = Phaser.Input.Keyboard;
-    if (kb.JustDown(this.cursors.up) || kb.JustDown(this.wasd.W)) {
-      this.turnManager.handleInput(0, -1);
-    } else if (kb.JustDown(this.cursors.down) || kb.JustDown(this.wasd.S)) {
-      this.turnManager.handleInput(0, 1);
-    } else if (kb.JustDown(this.cursors.left) || kb.JustDown(this.wasd.A)) {
-      this.turnManager.handleInput(-1, 0);
-    } else if (kb.JustDown(this.cursors.right) || kb.JustDown(this.wasd.D)) {
-      this.turnManager.handleInput(1, 0);
+    // Sync player visual sprite with GridEngine-controlled dummy
+    if (this.player?.dummySprite) {
+      this.player.syncWithGridEngine();
     }
+
+    // Desaturation VFX — update only when energy changes
+    const energy = this.energyManager.energy;
+    if (energy !== this.lastEnergy) {
+      this.lastEnergy = energy;
+      this.vfxManager.updateDesaturation(energy, this.energyManager.maxEnergy);
+    }
+
+    if (this.chatFocused) return;
+
+    // Read directional input
+    const kb = Phaser.Input.Keyboard;
+    let dx = 0, dy = 0;
+    if (kb.JustDown(this.cursors.up) || kb.JustDown(this.wasd.W)) {
+      dy = -1;
+    } else if (kb.JustDown(this.cursors.down) || kb.JustDown(this.wasd.S)) {
+      dy = 1;
+    } else if (kb.JustDown(this.cursors.left) || kb.JustDown(this.wasd.A)) {
+      dx = -1;
+    } else if (kb.JustDown(this.cursors.right) || kb.JustDown(this.wasd.D)) {
+      dx = 1;
+    }
+
+    if (dx !== 0 || dy !== 0) {
+      if (this.isProcessingAction) {
+        // Queue for after current action completes (MoG pendingMove)
+        this.pendingMove = { dx, dy };
+      } else if (this.turnManager.phase === TurnPhase.PLAYER_INPUT) {
+        this.executeMove(dx, dy);
+      }
+    }
+  }
+
+  /** Execute a move or queued move */
+  private executeMove(dx: number, dy: number) {
+    this.isProcessingAction = true;
+
+    // 8-second safety timeout (MoG pattern)
+    this.actionTimeout = setTimeout(() => {
+      this.isProcessingAction = false;
+      this.pendingMove = null;
+    }, 8000);
+
+    this.turnManager.handleInput(dx, dy);
+  }
+
+  /** Called by TurnManager when action completes */
+  onActionComplete() {
+    if (this.actionTimeout) {
+      clearTimeout(this.actionTimeout);
+      this.actionTimeout = null;
+    }
+    this.isProcessingAction = false;
+
+    // Execute pending move if walkable (MoG pattern: only walk, not attacks)
+    if (this.pendingMove) {
+      const { dx, dy } = this.pendingMove;
+      this.pendingMove = null;
+
+      const target: TilePos = {
+        x: this.player.pos.x + dx,
+        y: this.player.pos.y + dy,
+      };
+
+      // Only execute pending if it's a walkable tile (no enemy = walk only)
+      const map = this.floorMap;
+      const walkable = target.x >= 0 && target.y >= 0 &&
+        target.x < map.width && target.y < map.height &&
+        map.cells[target.y][target.x] !== CellType.VOID;
+
+      if (walkable && this.turnManager.phase === TurnPhase.PLAYER_INPUT) {
+        this.executeMove(dx, dy);
+      }
+    }
+  }
+
+  /** Snap player to exact tile position (for desync correction, floor transitions) */
+  snapPlayerToPosition(x: number, y: number) {
+    this.player.pos = { x, y };
+    const px = x * TILE_SIZE + TILE_SIZE / 2;
+    const py = y * TILE_SIZE + TILE_SIZE / 2;
+    this.player.sprite.setPosition(px, py);
+    this.player.dummySprite.setPosition(px, py);
+
+    // Also update GridEngine's internal position
+    if (this.gridEngine) {
+      this.gridEngine.setPosition("player", { x, y });
+    }
+  }
+
+  /** Convert dx/dy to GridEngine Direction */
+  toDirection(dx: number, dy: number): Direction {
+    if (dy < 0) return Direction.UP;
+    if (dy > 0) return Direction.DOWN;
+    if (dx < 0) return Direction.LEFT;
+    return Direction.RIGHT;
   }
 
   // ── Public helpers used by systems ──

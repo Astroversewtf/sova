@@ -1,8 +1,8 @@
 import { EnemyType, TreasureType, type UpgradeDef } from "./types";
 
 // ── Resolution & Tiles ──
-export const GAME_WIDTH = 800;
-export const GAME_HEIGHT = 600;
+export const GAME_WIDTH = 1600;
+export const GAME_HEIGHT = 900;
 export const TILE_SIZE = 32;
 export const TILE_DEPTH = 0; // Square tiles — no depth face
 export const TILE_FULL_H = TILE_SIZE + TILE_DEPTH; // 32
@@ -102,7 +102,7 @@ export const ENEMY_MOVE_MS = 80;
 
 // ── Camera ──
 export const CAMERA_ZOOM = 2.0;
-export const CAMERA_LERP = 0.18;
+export const CAMERA_LERP = 0.1;
 
 // ── Colors (Maze of Gains teal dungeon palette) ──
 export const C = {

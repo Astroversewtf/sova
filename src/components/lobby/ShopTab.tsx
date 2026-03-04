@@ -48,10 +48,10 @@ function PackageSlot({ icon, label }: { icon: string; label: string }) {
   return (
     <div className="bg-black/40 border border-white/10 rounded-lg p-4 text-center backdrop-blur-sm">
       <span className="text-2xl">{icon}</span>
-      <div className="font-pixel text-sm text-white mt-2">{label}</div>
-      <div className="font-pixel text-xs text-gray-400 mt-1">-- AVAX</div>
+      <div className="font-pixel text-sm text-white mt-2 text-outline">{label}</div>
+      <div className="font-pixel text-xs text-gray-400 mt-1 text-outline">-- AVAX</div>
       <QuantitySelector quantity={quantity} setQuantity={setQuantity} />
-      <button className="w-full mt-3 bg-[#b8e550] hover:bg-[#c5ed65] text-gray-900 font-pixel text-[10px] py-2 rounded transition-all">
+      <button className="w-full mt-3 bg-[#b8e550] hover:bg-[#c5ed65] text-white font-pixel text-[10px] py-2 rounded transition-all text-outline">
         BUY NOW
       </button>
     </div>
@@ -62,7 +62,7 @@ export function ShopTab() {
   return (
     <div className="p-6 overflow-y-auto h-full">
       <div className="mb-8">
-        <h3 className="font-pixel text-sm text-amber-400 mb-4 uppercase">
+        <h3 className="font-pixel text-sm text-amber-400 mb-4 uppercase text-outline">
           Golden Tickets
         </h3>
         <div className="grid grid-cols-3 gap-4">
@@ -73,7 +73,7 @@ export function ShopTab() {
       </div>
 
       <div>
-        <h3 className="font-pixel text-sm text-blue-400 mb-4 uppercase">
+        <h3 className="font-pixel text-sm text-blue-400 mb-4 uppercase text-outline">
           Dungeon Keys
         </h3>
         <div className="grid grid-cols-3 gap-4">

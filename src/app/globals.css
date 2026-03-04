@@ -20,19 +20,17 @@ html, body {
   overflow: hidden;
 }
 
-/* Force pixel cursor everywhere — never switch to pointer */
-*,
-*:hover,
-a, a:hover,
-button, button:hover,
-[role="button"],
-input[type="submit"],
-select {
-  cursor: inherit !important;
+/* Custom pixel cursor — pointer everywhere */
+*, *::before, *::after {
+  cursor: url('/images/custom-cursor-pointer.png') 4 0, auto !important;
 }
 
 .font-pixel {
   font-family: "8bit Wonder", monospace;
+}
+
+.text-outline {
+  text-shadow: -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 -2px 0 #000, 0 2px 0 #000, -2px 0 0 #000, 2px 0 0 #000;
 }
 
 /* Custom scrollbar */

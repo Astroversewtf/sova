@@ -33,7 +33,7 @@ export function BottomNav() {
                 {tab.icon}
               </span>
               {isActive && (
-                <span className="font-pixel text-[8px] text-white uppercase">
+                <span className="font-pixel text-[8px] text-white uppercase text-outline">
                   {tab.label}
                 </span>
               )}
