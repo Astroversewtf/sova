@@ -13,4 +13,8 @@ export async function getBalance(address: Address) {
     return testNetClient.getBalance({ address });
 }
 
+export async function checkTransaction(hash: `0x${string}`) {
+    return testNetClient.waitForTransactionReceipt({ hash });
+}
+
 
