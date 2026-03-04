@@ -47,7 +47,6 @@ function ConnectView() {
     }
   })
 
-  // Re-hydrate wallet state when user is already authenticated (e.g. page refresh)
   useEffect(() => {
     if (ready && authenticated && user?.wallet) {
       const address = user.wallet.address;
@@ -120,7 +119,13 @@ function ConnectView() {
             onClick={login}
             className="w-full bg-[#b8e550] hover:bg-[#c5ed65] text-gray-900 font-pixel text-sm py-4 px-4 rounded-lg border-2 border-[#a0cc40]/50 transition-all uppercase tracking-wide shadow-[0_4px_0_#7a9e30] hover:shadow-[0_2px_0_#7a9e30] hover:translate-y-[2px] active:shadow-none active:translate-y-[4px]"
           >
-            CONNECT WALLET
+            CONNECT
+          </button>
+          <button
+            onClick={() => walletStoreConnect("DEV", 43113)}
+            className="my-5 w-full bg-[#b8e550] hover:bg-[#c5ed65] text-gray-900 font-pixel text-sm py-4 px-4 rounded-lg border-2 border-[#a0cc40]/50 transition-all uppercase tracking-wide shadow-[0_4px_0_#7a9e30] hover:shadow-[0_2px_0_#7a9e30] hover:translate-y-[2px] active:shadow-none active:translate-y-[4px]"
+          >
+            SKIP DEV
           </button>
         </div>
       </main>

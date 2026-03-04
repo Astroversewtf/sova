@@ -9,7 +9,7 @@ export function Providers({ children }: { children: ReactNode }) {
     <PrivyProvider
       appId= {process.env.NEXT_PUBLIC_PRIVY_APP_ID!}
       config={{
-        appearance: { theme: "light" },
+        appearance: { theme: "dark" },
         embeddedWallets: {
           ethereum: {
             createOnLogin: "users-without-wallets",
@@ -17,7 +17,7 @@ export function Providers({ children }: { children: ReactNode }) {
         },
         defaultChain: avalancheFuji,
         supportedChains: [avalancheFuji],
-        loginMethods: ["email", "wallet", "google", "apple"],
+        loginMethods: ["email"],
       }}
     >
       {children}

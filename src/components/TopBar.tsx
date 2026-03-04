@@ -41,7 +41,7 @@ export function TopBar() {
 
       {/* Player Stats */}
       <div className="flex items-center gap-2 sm:gap-4">
-        <button className="w-32 h-8 bg-black rounded-4xl text-white cursor-pointer" onClick={handleLogout}>Logout</button>
+        <button className="w-32 h-full bg-[#b8e550] hover:bg-[#c5ed65] text-gray-900 font-pixel text-sm py-4 px-4 rounded-lg border-2 border-[#a0cc40]/50 transition-all uppercase tracking-wide shadow-[0_4px_0_#7a9e30] hover:shadow-[0_2px_0_#7a9e30] hover:translate-y-[2px] active:shadow-none active:translate-y-[4px]" onClick={handleLogout}>Logout</button>
         <StatBadge icon="🪙" value={coins} color="text-amber-400" />
         <StatBadge icon="💎" value={gems} color="text-purple-400" />
         <StatBadge icon="🗝️" value={keys} color="text-blue-400" />
