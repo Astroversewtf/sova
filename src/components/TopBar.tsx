@@ -45,7 +45,8 @@ export function TopBar() {
   const { coins, gems, keys, goldenTickets, avaxBalance } = usePlayerStore();
   const countdown = useCountdownToFriday();
   const { logout } = useLogout();
-  const [hovered, setHovered] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const walletDisconnect = useWalletStore((s) => s.disconnect)
   const walletAdress = useWalletStore((s) => s.address)
   const truncatedAddress = walletAdress ? `${walletAdress.slice(0,6)}...${walletAdress.slice(-4)}`: "";
@@ -59,14 +60,60 @@ export function TopBar() {
   return (
     <div className="shrink-0 flex items-start px-3 pt-2 pb-1 sm:px-4 sm:pt-3">
       {/* Left — Menu button */}
-      <div className="shrink-0 pt-3">
-        <button className="w-11 h-11 sm:w-12 sm:h-12 bg-[#1a2332] rounded-xl border border-white/10 flex items-center justify-center hover:bg-[#243044] transition-colors">
+      <div className="shrink-0 pt-3 relative">
+        <button 
+        className="w-11 h-11 sm:w-12 sm:h-12 bg-[#1a2332] rounded-xl border border-white/10 flex items-center justify-center hover:bg-[#243044] transition-colors"
+        onClick={() => setMenuOpen((v) => !v)}
+        >
           <div className="space-y-1">
             <div className="w-4 h-0.5 bg-white rounded-full" />
             <div className="w-4 h-0.5 bg-white rounded-full" />
             <div className="w-4 h-0.5 bg-white rounded-full" />
           </div>
         </button>
+        {menuOpen && (
+    <>
+      {/* Backdrop to close menu */}
+      <div
+        className="fixed inset-0 z-40"
+        onClick={() => setMenuOpen(false)}
+      />
+      {/* Menu panel */}
+      <div className="absolute top-full left-0 mt-2 z-50 w-56 bg-[#1a2332] border border-white/10 rounded-xl p-3 space-y-3 shadow-lg">
+        {/* Wallet address */}
+        {truncatedAddress && (
+          <div onClick={() => {
+            if(walletAdress) {
+              navigator.clipboard.writeText(walletAdress)
+              setCopied(true);
+              setTimeout(() => setCopied(false), 2000)
+            }
+          }} 
+          className="flex items-center gap-2 px-2 py-1.5 bg-white/5 rounded-lg">
+            <span className="text-white/50 text-xs">Wallet:</span>
+            <span className="font-pixel text-[10px] text-white text-outline">
+              {truncatedAddress}
+            </span>
+          </div>
+        )}
+
+        {copied && (
+          <span className="text-green-400 text-xs px-2 font-pixel">Copied!</span>
+        )}
+
+        {/* Logout */}
+        <button
+          onClick={() => {
+            handleLogout();
+            setMenuOpen(false);
+          }}
+          className="w-full text-left px-2 py-1.5 text-sm text-red-400 hover:text-red-300 hover:bg-white/5 rounded-lg transition-colors"
+        >
+          Logout
+        </button>
+      </div>
+    </>
+  )}
       </div>
 
       {/* Center — Pool Cards using designer images */}
