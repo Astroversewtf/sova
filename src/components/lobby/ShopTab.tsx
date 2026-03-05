@@ -1,14 +1,9 @@
 "use client";
 
-import { checkTransaction } from "@/lib/avax";
 import { usePrivyTransaction } from "@/lib/privy";
 import { usePlayerStore } from "@/stores/playerStore";
-import { useWalletStore } from "@/stores/walletStore";
-import { send } from "@avalanche-sdk/client/methods/wallet";
-import { usePrivy } from "@privy-io/react-auth";
 import { useState } from "react";
 
-const WALLET =  process.env.NEXT_WALLET_HASH as `0x${string}`
 
 enum ITEMS {
   golden_ticket,
@@ -16,8 +11,8 @@ enum ITEMS {
 }
 
 const PRICES = {
-  goldenTicket: 0.5,
-  key: 0.1
+  goldenTicket: 5,
+  key: 1
 }
 
 function QuantitySelector({
@@ -102,13 +97,13 @@ function PackageSlot({ icon, label, unitPrice, item }: { icon: string; label: st
     <div className="bg-black/40 border border-white/10 rounded-lg p-4 text-center backdrop-blur-sm">
       <span className="text-2xl">{icon}</span>
       <div className="font-pixel text-sm text-white mt-2 text-outline">{label}</div>
-      <div className="font-pixel text-xs text-gray-400 mt-1 text-outline">{unitPrice} AVAX</div>
+      <div className="font-pixel text-xs text-gray-400 mt-1 text-outline">{unitPrice} USD</div>
       <QuantitySelector quantity={quantity} setQuantity={setQuantity} />
       <button className="w-full mt-3 bg-[#b8e550] hover:bg-[#c5ed65] text-white font-pixel text-[10px] py-2 rounded transition-all text-outline" 
       disabled={isLoading}
       onClick={handleBuy}
       >
-        BUY NOW {totalPrice}
+        BUY NOW {totalPrice} USD
       </button>
     </div>
   );
