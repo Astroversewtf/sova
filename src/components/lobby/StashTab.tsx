@@ -19,7 +19,7 @@ function EarningsContent() {
           Total Earnings
         </span>
         <div className="font-pixel text-2xl text-white mt-1 text-outline">
-          {totalEarnings.toFixed(2)} AVAX
+          {totalEarnings.toFixed(2)} USD
         </div>
       </div>
 
@@ -29,7 +29,7 @@ function EarningsContent() {
             Weekly
           </span>
           <div className="font-pixel text-sm text-white mt-1 text-outline">
-            {weeklyEarnings.toFixed(2)} AVAX
+            {weeklyEarnings.toFixed(2)} USD
           </div>
         </div>
         <div className="bg-black/40 border border-white/10 rounded-lg p-3 backdrop-blur-sm">
@@ -37,7 +37,7 @@ function EarningsContent() {
             Jackpot
           </span>
           <div className="font-pixel text-sm text-white mt-1 text-outline">
-            {jackpotEarnings.toFixed(2)} AVAX
+            {jackpotEarnings.toFixed(2)} USD
           </div>
         </div>
       </div>
