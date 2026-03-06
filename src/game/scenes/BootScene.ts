@@ -19,7 +19,7 @@ export class BootScene extends Phaser.Scene {
       // Fallback to Press Start 2P (loaded via Google Fonts in layout)
     });
 
-    // Player sprite frames (64×64 PNGs)
+    // Player sprite frames — idle, walk, attack for all directions
     const dirs = ["front", "back", "side"] as const;
     for (const dir of dirs) {
       for (let i = 1; i <= 4; i++) {
@@ -27,12 +27,48 @@ export class BootScene extends Phaser.Scene {
           `player-idle-${dir}-${i}`,
           `sprites/player/idle/astro_idle_${dir}_0${i}.png`,
         );
+        this.load.image(
+          `player-walk-${dir}-${i}`,
+          `sprites/player/walk/astro_walk_${dir}_0${i}.png`,
+        );
+        this.load.image(
+          `player-attack-${dir}-${i}`,
+          `sprites/player/attack/astro_attack_${dir}_0${i}.png`,
+        );
       }
     }
+
+    // Rock enemy sprite frames (32×32 PNGs) — normal enemy visual
+    for (const dir of dirs) {
+      for (let i = 1; i <= 4; i++) {
+        this.load.image(
+          `enemy-rock-idle-${dir}-${i}`,
+          `sprites/enemies/rock/idle/rock_${dir}_idle_0${i}.png`,
+        );
+        this.load.image(
+          `enemy-rock-walk-${dir}-${i}`,
+          `sprites/enemies/rock/walk/rock_${dir}_walk_0${i}.png`,
+        );
+        this.load.image(
+          `enemy-rock-attack-${dir}-${i}`,
+          `sprites/enemies/rock/attack/rock_${dir}_attack_0${i}.png`,
+        );
+      }
+    }
+
+    // Ghost enemy frames (idle only, 32×32 PNGs) — second normal enemy visual
     for (let i = 1; i <= 4; i++) {
       this.load.image(
-        `player-attack-front-${i}`,
-        `sprites/player/attack/astro_attack_front_0${i}.png`,
+        `enemy-ghost-idle-${i}`,
+        `sprites/enemies/ghost/idle/ghost_idle_0${i}.png`,
+      );
+    }
+
+    // Boss Sova frames (idle only, 64×64 PNGs)
+    for (let i = 1; i <= 4; i++) {
+      this.load.image(
+        `enemy-sova-idle-${i}`,
+        `sprites/boss/sova/idle/boss_sova_idle_0${i}.png`,
       );
     }
 
@@ -56,6 +92,43 @@ export class BootScene extends Phaser.Scene {
     this.load.image("wall-corner-bl", "sprites/walls/wall_corner_bl_01.png");
     this.load.image("wall-corner-br", "sprites/walls/wall_corner_br_01.png");
     this.load.image("wall-fill", "sprites/walls/wall_fill_01.png");
+
+    // Stairs
+    this.load.image("stairs-unlocked", "sprites/tiles/stairs.png");
+    this.load.image("stairs-locked", "sprites/tiles/stairs.png");
+
+    // Enemy HP hearts
+    this.load.image("heart-full", "sprites/ui/mob_full_heart.png");
+    this.load.image("heart-empty", "sprites/ui/mob_empty_heart.png");
+
+    // Skill icon (upgrade cards)
+    this.load.image("skill-icon", "sprites/items/key/key_02.png");
+
+    // Loot boxes (chests)
+    this.load.image("loot-box-1", "sprites/props/loot_box_01.png");
+    this.load.image("loot-box-2", "sprites/props/loot_box_02.png");
+
+    // Coin animation frames
+    for (let i = 1; i <= 4; i++) {
+      this.load.image(`coin-${i}`, `sprites/items/coin/coin_0${i}.png`);
+    }
+
+    // Energy item frames (8 frames, animated)
+    for (let i = 1; i <= 8; i++) {
+      this.load.image(`energy-item-${i}`, `sprites/items/energy/energy_0${i}.png`);
+    }
+
+    // Orb
+    this.load.image("treasure-orb", "sprites/items/orb/item_orb_01.png");
+
+    // Fountain (4 frames)
+    for (let i = 1; i <= 4; i++) {
+      this.load.image(`fountain-${i}`, `sprites/props/fountain/fountain_idle_0${i}.png`);
+    }
+
+    // Decorative props (rocks)
+    this.load.image("prop-rock-small", "sprites/props/rock_small.png");
+    this.load.image("prop-rock-big", "sprites/props/rock_big.png");
 
     this.load.on("loaderror", () => {
       // Silently ignore — procedural fallback will be used
@@ -84,25 +157,70 @@ export class BootScene extends Phaser.Scene {
     }
 
     // ── Enemies ──
-    this.genBlobEnemy(g, "enemy-basic", C.ENEMY_BASIC, C.ENEMY_BASIC_DARK);
-    this.genGolemEnemy(g, "enemy-tanky", C.ENEMY_TANKY, C.ENEMY_TANKY_DARK);
-    this.genBossTexture(g);
+    if (this.textures.exists("enemy-rock-idle-front-1")) {
+      this.createRockAnimations();
+    } else {
+      // Fallback if Rock assets are missing
+      this.genBlobEnemy(g, "enemy-basic", C.ENEMY_BASIC, C.ENEMY_BASIC_DARK);
+    }
+    if (this.textures.exists("enemy-ghost-idle-1")) {
+      this.createGhostAnimations();
+    } else {
+      // Fallback if Ghost assets are missing
+      this.genGolemEnemy(g, "enemy-tanky", C.ENEMY_TANKY, C.ENEMY_TANKY_DARK);
+    }
+    if (this.textures.exists("enemy-sova-idle-1")) {
+      this.createSovaAnimations();
+    } else {
+      // Fallback if Sova assets are missing
+      this.genBossTexture(g);
+    }
 
     // ── Treasure ──
-    this.genCoinTexture(g);
-    this.genGemTexture(g);
+    if (this.textures.exists("coin-1")) {
+      this.anims.create({
+        key: "coin-spin",
+        frames: [1, 2, 3, 4].map((i) => ({ key: `coin-${i}` })),
+        frameRate: 8,
+        repeat: -1,
+      });
+    } else {
+      this.genCoinTexture(g);
+    }
+    if (this.textures.exists("energy-item-1")) {
+      this.anims.create({
+        key: "energy-pulse",
+        frames: [1, 2, 3, 4, 5, 6, 7, 8].map((i) => ({ key: `energy-item-${i}` })),
+        frameRate: 8,
+        repeat: -1,
+      });
+    }
+    if (!this.textures.exists("treasure-orb")) {
+      this.genOrbTexture(g);
+    }
+    // Fountain animation
+    if (this.textures.exists("fountain-1")) {
+      this.anims.create({
+        key: "fountain-idle",
+        frames: [1, 2, 3, 4].map((i) => ({ key: `fountain-${i}` })),
+        frameRate: 6,
+        repeat: -1,
+      });
+    }
     this.genRareTexture(g);
 
-    // ── Stairs ──
-    this.genStairsTexture(g, "stairs-locked", true);
-    this.genStairsTexture(g, "stairs-unlocked", false);
+    // ── Stairs (PNG) ──
+    // stairs-locked/unlocked both use the same PNG now
+    // (loaded in preload)
 
     // ── Statue ──
     this.genStatueTexture(g);
 
-    // ── Chests ──
-    this.genChestTexture(g, "chest-closed", false);
-    this.genChestTexture(g, "chest-open", true);
+    // ── Chests (fallback if PNGs missing) ──
+    if (!this.textures.exists("loot-box-1")) {
+      this.genChestTexture(g, "chest-closed", false);
+      this.genChestTexture(g, "chest-open", true);
+    }
 
     // ── Traps ──
     this.genTrapSpike(g);
@@ -162,12 +280,62 @@ export class BootScene extends Phaser.Scene {
         frameRate: 6,
         repeat: -1,
       });
+      this.anims.create({
+        key: `player-walk-${dir}`,
+        frames: (dir === "front" || dir === "back" ? [2, 3] : [1, 2, 3, 4])
+          .map((i) => ({ key: `player-walk-${dir}-${i}` })),
+        frameRate: 8,
+        repeat: -1,
+      });
+      this.anims.create({
+        key: `player-attack-${dir}`,
+        frames: [1, 2, 3, 4].map((i) => ({ key: `player-attack-${dir}-${i}` })),
+        frameRate: 12,
+        repeat: 0,
+      });
     }
+  }
+
+  private createRockAnimations() {
+    const dirs = ["front", "back", "side"] as const;
+
+    for (const dir of dirs) {
+      this.anims.create({
+        key: `enemy-rock-idle-${dir}`,
+        frames: [1, 2, 3, 4].map((i) => ({ key: `enemy-rock-idle-${dir}-${i}` })),
+        frameRate: 6,
+        repeat: -1,
+      });
+      this.anims.create({
+        key: `enemy-rock-walk-${dir}`,
+        frames: [1, 2, 3, 4].map((i) => ({ key: `enemy-rock-walk-${dir}-${i}` })),
+        frameRate: 8,
+        repeat: -1,
+      });
+      this.anims.create({
+        key: `enemy-rock-attack-${dir}`,
+        frames: [1, 2, 3, 4].map((i) => ({ key: `enemy-rock-attack-${dir}-${i}` })),
+        frameRate: 10,
+        repeat: 0,
+      });
+    }
+  }
+
+  private createGhostAnimations() {
     this.anims.create({
-      key: "player-attack-front",
-      frames: [1, 2, 3, 4].map((i) => ({ key: `player-attack-front-${i}` })),
-      frameRate: 12,
-      repeat: 0,
+      key: "enemy-ghost-idle",
+      frames: [1, 2, 3, 4].map((i) => ({ key: `enemy-ghost-idle-${i}` })),
+      frameRate: 7,
+      repeat: -1,
+    });
+  }
+
+  private createSovaAnimations() {
+    this.anims.create({
+      key: "enemy-sova-idle",
+      frames: [1, 2, 3, 4].map((i) => ({ key: `enemy-sova-idle-${i}` })),
+      frameRate: 6,
+      repeat: -1,
     });
   }
 
@@ -383,15 +551,15 @@ export class BootScene extends Phaser.Scene {
     g.generateTexture("treasure-coin", s, s);
   }
 
-  // ── Gem treasure ──
-  private genGemTexture(g: Phaser.GameObjects.Graphics) {
+  // ── Orb treasure (procedural fallback) ──
+  private genOrbTexture(g: Phaser.GameObjects.Graphics) {
     const s = 20;
     g.clear();
 
-    g.fillStyle(C.TREASURE_GEM_DARK);
+    g.fillStyle(C.TREASURE_ORB_DARK);
     g.fillTriangle(s / 2, 1, 1, s / 2, s / 2, s - 1);
     g.fillTriangle(s / 2, 1, s - 1, s / 2, s / 2, s - 1);
-    g.fillStyle(C.TREASURE_GEM);
+    g.fillStyle(C.TREASURE_ORB);
     g.fillTriangle(s / 2, 3, 3, s / 2, s / 2, s - 3);
     g.fillTriangle(s / 2, 3, s - 3, s / 2, s / 2, s - 3);
     g.fillStyle(0xffffff, 0.35);
@@ -399,7 +567,7 @@ export class BootScene extends Phaser.Scene {
     g.fillStyle(0xffffff, 0.2);
     g.fillRect(s / 2 + 1, s / 2 - 4, 2, 3);
 
-    g.generateTexture("treasure-gem", s, s);
+    g.generateTexture("treasure-orb", s, s);
   }
 
   // ── Rare artifact treasure ──

@@ -1,8 +1,8 @@
 import type { GameScene } from "../scenes/GameScene";
 import type { Player } from "../entities/Player";
 import type { Enemy } from "../entities/Enemy";
-import { EnemyType, TreasureType, CellType } from "../types";
-import { TILE_SIZE, TILE_FULL_H, C, TREASURE_VALUES } from "../constants";
+import { EnemyType, TreasureType } from "../types";
+import { TREASURE_VALUES } from "../constants";
 import { Treasure } from "../entities/Treasure";
 import { useGameStore } from "@/stores/gameStore";
 
@@ -22,16 +22,22 @@ export class CombatSystem {
     const store = useGameStore.getState();
     const atk = store.atk;
 
+    // Enemy damage to player = its current HP
+    const damageTaken = enemy.hp;
+
     // Player attacks enemy
-    const damageTaken = enemy.hp; // Enemy damage = its current HP
     enemy.takeDamage(atk);
 
     // Enemy attacks player
     this.scene.energyManager.takeDamage(damageTaken);
     player.flashDamage();
+    this.scene.vfxManager.flashDamageOverlay();
 
-    // Combat text popup
-    this.showCombatText(enemy.pos.x, enemy.pos.y, "SMASH!");
+    // Popup: damage dealt to enemy
+    this.scene.popupManager.showDamageNumber(enemy.pos.x, enemy.pos.y, atk);
+
+    // Popup: damage received by player
+    this.scene.popupManager.showPlayerDamageNumber(player.pos.x, player.pos.y, damageTaken);
 
     this.scene.events.emit("combat:hit", { damage: damageTaken });
 
@@ -67,108 +73,48 @@ export class CombatSystem {
    * Only the player takes damage.
    */
   resolveEnemyBump(enemy: Enemy, player: Player) {
+    enemy.playAttack();
+
     const damageTaken = enemy.hp;
     this.scene.energyManager.takeDamage(damageTaken);
     player.flashDamage();
+    this.scene.vfxManager.flashDamageOverlay();
 
-    // Combat text
-    this.showCombatText(player.pos.x, player.pos.y, `-${damageTaken}`);
+    // Popup: damage received by player
+    this.scene.popupManager.showPlayerDamageNumber(player.pos.x, player.pos.y, damageTaken);
 
     this.scene.events.emit("combat:hit", { damage: damageTaken });
   }
 
   /**
-   * Drop 1-3 loot items around a killed enemy's position.
-   * Boss drops more and rarer loot.
+   * Drop 1 loot item at the killed enemy's position.
+   * Normal: 65% Energy, 20% Coin, 10% Orb, 5% Nothing
+   * Boss:   40% Energy, 30% Coin, 15% Orb, 8% Golden Ticket, 7% Nothing
    */
   private dropLoot(tileX: number, tileY: number, enemyType: EnemyType) {
-    const map = this.scene.floorMap;
-    const dirs = [
-      { x: 0, y: 0 },
-      { x: 0, y: -1 }, { x: 0, y: 1 },
-      { x: -1, y: 0 }, { x: 1, y: 0 },
-    ];
-
-    // Find empty floor tiles at/around kill position
-    const spots: { x: number; y: number }[] = [];
-    for (const d of dirs) {
-      const nx = tileX + d.x;
-      const ny = tileY + d.y;
-      if (
-        nx >= 0 && ny >= 0 && nx < map.width && ny < map.height &&
-        map.cells[ny][nx] === CellType.FLOOR
-      ) {
-        spots.push({ x: nx, y: ny });
-      }
-    }
-    if (spots.length === 0) return;
-
+    const pos = { x: tileX, y: tileY };
     const isBoss = enemyType === EnemyType.BOSS;
-    const count = isBoss ? Math.min(3, spots.length) : Math.min(1 + Math.floor(Math.random() * 2), spots.length);
+    const roll = Math.random();
 
-    for (let i = 0; i < count; i++) {
-      const roll = Math.random();
-      let type: TreasureType;
-      if (isBoss) {
-        if (roll < 0.3) type = TreasureType.COIN;
-        else if (roll < 0.7) type = TreasureType.GEM;
-        else type = TreasureType.GOLDEN_TICKET;
-      } else {
-        if (roll < 0.6) type = TreasureType.COIN;
-        else if (roll < 0.9) type = TreasureType.GEM;
-        else type = TreasureType.GOLDEN_TICKET;
-      }
-
-      const pos = spots[i];
-      const id = `enemy-loot-${Date.now()}-${i}`;
-      const t = new Treasure(this.scene, pos, type, TREASURE_VALUES[type], id);
-      this.scene.treasures.push(t);
-      t.setVisible(this.scene.fogOfWar.isVisible(pos));
+    let type: TreasureType | null;
+    if (isBoss) {
+      if (roll < 0.40) type = TreasureType.ENERGY;
+      else if (roll < 0.70) type = TreasureType.COIN;
+      else if (roll < 0.85) type = TreasureType.ORB;
+      else if (roll < 0.93) type = TreasureType.GOLDEN_TICKET;
+      else type = null; // 7% nothing
+    } else {
+      if (roll < 0.65) type = TreasureType.ENERGY;
+      else if (roll < 0.85) type = TreasureType.COIN;
+      else if (roll < 0.95) type = TreasureType.ORB;
+      else type = null; // 5% nothing
     }
-  }
 
-  /**
-   * Animated "SMASH!" or damage text popup at a tile position
-   */
-  private showCombatText(tileX: number, tileY: number, label: string) {
-    const worldX = tileX * TILE_SIZE + TILE_SIZE / 2;
-    const worldY = tileY * TILE_FULL_H;
+    if (!type) return;
 
-    const isSmash = label === "SMASH!";
-    const color = isSmash ? "#fbbf24" : "#ef4444";
-    const fontSize = isSmash ? "11px" : "9px";
-
-    const text = this.scene.add
-      .text(worldX, worldY, label, {
-        fontFamily: '"8bit Wonder"',
-        fontSize,
-        color,
-        stroke: "#000000",
-        strokeThickness: 3,
-      })
-      .setOrigin(0.5)
-      .setDepth(1500)
-      .setAlpha(0);
-
-    // Pop in + float up + fade out
-    this.scene.tweens.add({
-      targets: text,
-      alpha: { from: 0, to: 1 },
-      scaleX: { from: 0.5, to: 1.2 },
-      scaleY: { from: 0.5, to: 1.2 },
-      duration: 150,
-      onComplete: () => {
-        this.scene.tweens.add({
-          targets: text,
-          y: text.y - 28,
-          alpha: 0,
-          scaleX: 0.8,
-          scaleY: 0.8,
-          duration: 500,
-          ease: "Power2",
-          onComplete: () => text.destroy(),
-        });
-      },
-    });
+    const id = `enemy-loot-${Date.now()}`;
+    const t = new Treasure(this.scene, pos, type, TREASURE_VALUES[type], id);
+    this.scene.treasures.push(t);
+    t.setVisible(this.scene.fogOfWar.isVisible(pos));
   }
 }

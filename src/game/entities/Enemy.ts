@@ -2,9 +2,10 @@ import Phaser from "phaser";
 import { EnemyType, type TilePos } from "../types";
 import { TILE_SIZE, TILE_FULL_H, ENEMY_MOVE_MS, getEnemyHP, getDetectionRange } from "../constants";
 
+type Facing = "front" | "back" | "side";
+
 export class Enemy {
-  sprite: Phaser.GameObjects.Image;
-  hpBar: Phaser.GameObjects.Graphics;
+  sprite: Phaser.GameObjects.Sprite | Phaser.GameObjects.Image;
   pos: TilePos;
   type: EnemyType;
   hp: number;
@@ -13,6 +14,12 @@ export class Enemy {
   active: boolean;
   id: string;
   private scene: Phaser.Scene;
+  private hearts: Phaser.GameObjects.Image[] = [];
+  private hitFlashTimer: Phaser.Time.TimerEvent | null = null;
+  private animatedRock = false;
+  private animatedGhost = false;
+  private animatedSova = false;
+  private facing: Facing = "front";
 
   constructor(scene: Phaser.Scene, pos: TilePos, type: EnemyType, floor: number, id: string) {
     this.scene = scene;
@@ -24,25 +31,52 @@ export class Enemy {
     this.detectionRange = getDetectionRange(type);
     this.active = type === EnemyType.BOSS;
 
-    const textureKey =
-      type === EnemyType.BASIC
-        ? "enemy-basic"
-        : type === EnemyType.TANKY
-          ? "enemy-tanky"
-          : "enemy-boss";
+    const px = pos.x * TILE_SIZE + TILE_SIZE / 2;
+    const py = pos.y * TILE_FULL_H + TILE_SIZE / 2;
 
-    this.sprite = scene.add.image(
-      pos.x * TILE_SIZE + TILE_SIZE / 2,
-      pos.y * TILE_FULL_H + TILE_SIZE / 2,
-      textureKey,
-    );
+    const canUseRock =
+      type === EnemyType.BASIC &&
+      scene.textures.exists("enemy-rock-idle-front-1") &&
+      scene.anims.exists("enemy-rock-idle-front");
+    const canUseGhost =
+      type === EnemyType.TANKY &&
+      scene.textures.exists("enemy-ghost-idle-1") &&
+      scene.anims.exists("enemy-ghost-idle");
+    const canUseSova =
+      type === EnemyType.BOSS &&
+      scene.textures.exists("enemy-sova-idle-1") &&
+      scene.anims.exists("enemy-sova-idle");
+
+    if (canUseRock) {
+      const spr = scene.add.sprite(px, py, "enemy-rock-idle-front-1");
+      spr.play("enemy-rock-idle-front");
+      this.sprite = spr;
+      this.animatedRock = true;
+    } else if (canUseSova) {
+      const spr = scene.add.sprite(px, py, "enemy-sova-idle-1");
+      spr.play("enemy-sova-idle");
+      this.sprite = spr;
+      this.animatedSova = true;
+    } else if (canUseGhost) {
+      const spr = scene.add.sprite(px, py, "enemy-ghost-idle-1");
+      spr.play("enemy-ghost-idle");
+      this.sprite = spr;
+      this.animatedGhost = true;
+    } else {
+      const textureKey =
+        type === EnemyType.BASIC
+          ? "enemy-basic"
+          : type === EnemyType.TANKY
+            ? "enemy-tanky"
+            : "enemy-boss";
+      this.sprite = scene.add.image(px, py, textureKey);
+    }
+
     this.sprite.setDepth(400);
     this.sprite.setOrigin(0.5, 0.5);
 
-    // HP bar (only for multi-HP enemies)
-    this.hpBar = scene.add.graphics();
-    this.hpBar.setDepth(410);
-    this.updateHpBar();
+    // Heart icons above enemy
+    this.createHearts();
   }
 
   isAlive(): boolean {
@@ -51,17 +85,46 @@ export class Enemy {
 
   takeDamage(amount: number) {
     this.hp = Math.max(0, this.hp - amount);
-    this.updateHpBar();
+    this.updateHearts();
 
-    // Flash
-    this.sprite.setTint(0xffffff);
-    this.scene.time.delayedCall(150, () => {
-      if (this.sprite.active) this.sprite.clearTint();
-    });
+    // Subtle white impact flash
+    if (this.sprite.active) {
+      this.sprite.setTintFill(0xffffff);
+      this.hitFlashTimer?.remove(false);
+      this.hitFlashTimer = this.scene.time.delayedCall(85, () => {
+        if (this.sprite.active) this.sprite.clearTint();
+        this.hitFlashTimer = null;
+      });
+    }
+  }
+
+  private clearHitFlash() {
+    this.hitFlashTimer?.remove(false);
+    this.hitFlashTimer = null;
+    if (this.sprite.active) {
+      this.sprite.clearTint();
+    }
   }
 
   moveTo(target: TilePos, onComplete: () => void) {
+    const dx = target.x - this.pos.x;
+    const dy = target.y - this.pos.y;
     this.pos = { ...target };
+
+    if (this.animatedRock) {
+      this.updateFacingFromDir(dx, dy);
+      const spr = this.sprite as Phaser.GameObjects.Sprite;
+      spr.play(`enemy-rock-walk-${this.facing}`, true);
+    } else if (this.animatedSova) {
+      // Sova has idle-only frames for now.
+      const spr = this.sprite as Phaser.GameObjects.Sprite;
+      spr.play("enemy-sova-idle", true);
+    } else if (this.animatedGhost) {
+      // Ghost has only idle frames; keep idle loop while moving.
+      const spr = this.sprite as Phaser.GameObjects.Sprite;
+      spr.play("enemy-ghost-idle", true);
+    }
+
     this.scene.tweens.add({
       targets: this.sprite,
       x: target.x * TILE_SIZE + TILE_SIZE / 2,
@@ -69,54 +132,105 @@ export class Enemy {
       duration: ENEMY_MOVE_MS,
       ease: "Power2",
       onComplete: () => {
-        this.updateHpBar();
+        if (this.animatedRock && this.sprite.active) {
+          (this.sprite as Phaser.GameObjects.Sprite).play(`enemy-rock-idle-${this.facing}`);
+        } else if (this.animatedSova && this.sprite.active) {
+          (this.sprite as Phaser.GameObjects.Sprite).play("enemy-sova-idle");
+        } else if (this.animatedGhost && this.sprite.active) {
+          (this.sprite as Phaser.GameObjects.Sprite).play("enemy-ghost-idle");
+        }
+        this.positionHearts();
         onComplete();
       },
     });
   }
 
-  private updateHpBar() {
-    this.hpBar.clear();
-    if (this.maxHp <= 1) return; // No bar for 1HP enemies
+  playAttack(onComplete?: () => void) {
+    if (!this.animatedRock || !this.sprite.active) {
+      onComplete?.();
+      return;
+    }
 
-    const barW = 24;
-    const barH = 3;
-    const x = this.sprite.x - barW / 2;
-    const y = this.sprite.y - TILE_SIZE / 2 - 6;
+    const spr = this.sprite as Phaser.GameObjects.Sprite;
+    spr.play(`enemy-rock-attack-${this.facing}`);
+    spr.once("animationcomplete", () => {
+      if (this.sprite.active) {
+        spr.play(`enemy-rock-idle-${this.facing}`);
+      }
+      onComplete?.();
+    });
+  }
 
-    // Background
-    this.hpBar.fillStyle(0x000000, 0.6);
-    this.hpBar.fillRect(x, y, barW, barH);
+  private updateFacingFromDir(dx: number, dy: number) {
+    if (!this.animatedRock) return;
 
-    // Fill
-    const pct = this.hp / this.maxHp;
-    const color = pct > 0.5 ? 0x22c55e : pct > 0.25 ? 0xeab308 : 0xef4444;
-    this.hpBar.fillStyle(color);
-    this.hpBar.fillRect(x, y, barW * pct, barH);
+    if (dy > 0) this.facing = "front";
+    else if (dy < 0) this.facing = "back";
+    else if (dx !== 0) this.facing = "side";
+
+    const spr = this.sprite as Phaser.GameObjects.Sprite;
+    spr.setFlipX(this.facing === "side" && dx < 0);
+  }
+
+  private createHearts() {
+    const heartW = 7;
+    const gap = 1;
+    const totalW = this.maxHp * heartW + (this.maxHp - 1) * gap;
+    const startX = this.sprite.x - totalW / 2 + heartW / 2;
+    const y = this.sprite.y - TILE_SIZE / 2 - 5;
+
+    for (let i = 0; i < this.maxHp; i++) {
+      const hx = startX + i * (heartW + gap);
+      const heart = this.scene.add.image(hx, y, "heart-full");
+      heart.setDepth(410);
+      heart.setOrigin(0.5, 0.5);
+      this.hearts.push(heart);
+    }
+  }
+
+  private updateHearts() {
+    for (let i = 0; i < this.hearts.length; i++) {
+      this.hearts[i].setTexture(i < this.hp ? "heart-full" : "heart-empty");
+    }
+  }
+
+  private positionHearts() {
+    const heartW = 7;
+    const gap = 1;
+    const totalW = this.maxHp * heartW + (this.maxHp - 1) * gap;
+    const startX = this.sprite.x - totalW / 2 + heartW / 2;
+    const y = this.sprite.y - TILE_SIZE / 2 - 5;
+
+    for (let i = 0; i < this.hearts.length; i++) {
+      this.hearts[i].setPosition(startX + i * (heartW + gap), y);
+    }
   }
 
   setVisible(v: boolean) {
     this.sprite.setVisible(v);
-    this.hpBar.setVisible(v);
+    for (const h of this.hearts) h.setVisible(v);
   }
 
   die() {
-    // Fade out
+    this.clearHitFlash();
     this.scene.tweens.add({
-      targets: [this.sprite],
+      targets: [this.sprite, ...this.hearts],
       alpha: 0,
       scaleX: 0.5,
       scaleY: 0.5,
       duration: 200,
       onComplete: () => {
         this.sprite.destroy();
-        this.hpBar.destroy();
+        for (const h of this.hearts) h.destroy();
+        this.hearts = [];
       },
     });
   }
 
   destroy() {
+    this.clearHitFlash();
     this.sprite.destroy();
-    this.hpBar.destroy();
+    for (const h of this.hearts) h.destroy();
+    this.hearts = [];
   }
 }

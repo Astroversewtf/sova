@@ -14,12 +14,14 @@ import { EnemyAI } from "../systems/EnemyAI";
 import { CombatSystem } from "../systems/CombatSystem";
 import { TreasureManager } from "../systems/TreasureManager";
 import { VFXManager } from "../systems/VFXManager";
+import { PopupManager } from "../systems/PopupManager";
 import { UpgradeManager } from "../systems/UpgradeManager";
 import { Player } from "../entities/Player";
 import { Enemy } from "../entities/Enemy";
 import { Treasure } from "../entities/Treasure";
 import { Chest } from "../entities/Chest";
 import { Trap } from "../entities/Trap";
+import { Fountain } from "../entities/Fountain";
 import { Stairs } from "../entities/Stairs";
 import { useGameStore } from "@/stores/gameStore";
 
@@ -37,6 +39,7 @@ export class GameScene extends Phaser.Scene {
   combatSystem!: CombatSystem;
   treasureManager!: TreasureManager;
   vfxManager!: VFXManager;
+  popupManager!: PopupManager;
   upgradeManager!: UpgradeManager;
 
   // Track last energy for dirty-check
@@ -48,8 +51,10 @@ export class GameScene extends Phaser.Scene {
   treasures: Treasure[] = [];
   chests: Chest[] = [];
   traps: Trap[] = [];
+  fountain: Fountain | null = null;
   stairs!: Stairs;
   statueSprite: Phaser.GameObjects.Image | null = null;
+  props: Phaser.GameObjects.Image[] = [];
 
   // Map
   floorMap!: FloorMap;
@@ -96,6 +101,7 @@ export class GameScene extends Phaser.Scene {
     this.enemyAI = new EnemyAI(this);
     this.treasureManager = new TreasureManager(this);
     this.vfxManager = new VFXManager(this);
+    this.popupManager = new PopupManager(this);
     this.upgradeManager = new UpgradeManager(this);
 
     // Init store
@@ -115,11 +121,14 @@ export class GameScene extends Phaser.Scene {
     // Chat focus bridge
     const onChatFocus = () => { this.chatFocused = true; };
     const onChatBlur = () => { this.chatFocused = false; };
+    const onSkipTurn = () => { this.executeSkip(); };
     window.addEventListener("sova:chat-focus", onChatFocus);
     window.addEventListener("sova:chat-blur", onChatBlur);
+    window.addEventListener("sova:skip-turn", onSkipTurn);
     this.events.on("shutdown", () => {
       window.removeEventListener("sova:chat-focus", onChatFocus);
       window.removeEventListener("sova:chat-blur", onChatBlur);
+      window.removeEventListener("sova:skip-turn", onSkipTurn);
     });
 
     // Build first floor
@@ -129,12 +138,20 @@ export class GameScene extends Phaser.Scene {
   buildFloor(floor: number) {
     this.currentFloor = floor;
 
+    // Reset action state so input isn't blocked on the new floor
+    if (this.actionTimeout) {
+      clearTimeout(this.actionTimeout);
+      this.actionTimeout = null;
+    }
+    this.isProcessingAction = false;
+    this.pendingMove = null;
+
     // Cleanup previous floor
     this.cleanupFloor();
 
     // Generate new floor
     this.floorMap = generateFloor(floor);
-    const { width, height, cells, spawn, stairs, enemySpawns, treasureSpawns, chestSpawns, trapSpawns, bossSpawn, statuePos } = this.floorMap;
+    const { width, height, cells, spawn, stairs, enemySpawns, treasureSpawns, chestSpawns, trapSpawns, fountainSpawn, propSpawns, bossSpawn, statuePos } = this.floorMap;
 
     // Update store
     const store = useGameStore.getState();
@@ -212,6 +229,24 @@ export class GameScene extends Phaser.Scene {
     this.traps = trapSpawns.map((t, i) =>
       new Trap(this, t.pos, t.type, `trap-${i}`),
     );
+
+    // Fountain
+    this.fountain = fountainSpawn
+      ? new Fountain(this, fountainSpawn, "fountain-0")
+      : null;
+
+    // Decorative props (rocks on floor, no interaction)
+    this.props = propSpawns.map((p) => {
+      const texKey = p.type === "rock_small" ? "prop-rock-small" : "prop-rock-big";
+      const img = this.add.image(
+        p.pos.x * TILE_SIZE + TILE_SIZE / 2,
+        p.pos.y * TILE_SIZE + TILE_SIZE / 2,
+        texKey,
+      );
+      img.setDepth(100);
+      img.setData("tilePos", p.pos);
+      return img;
+    });
 
     // Fog of war
     this.fogOfWar = new FogOfWar(this, width, height);
@@ -394,6 +429,10 @@ export class GameScene extends Phaser.Scene {
     this.treasures.forEach((t) => t.destroy());
     this.chests.forEach((c) => c.destroy());
     this.traps.forEach((tr) => tr.destroy());
+    this.fountain?.destroy();
+    this.fountain = null;
+    this.props.forEach((p) => p.destroy());
+    this.props = [];
     this.stairs?.destroy();
     this.statueSprite?.destroy();
     this.statueSprite = null;
@@ -432,7 +471,7 @@ export class GameScene extends Phaser.Scene {
 
     if (this.chatFocused) return;
 
-    // Read directional input
+    // Read directional input (single press event)
     const kb = Phaser.Input.Keyboard;
     let dx = 0, dy = 0;
     if (kb.JustDown(this.cursors.up) || kb.JustDown(this.wasd.W)) {
@@ -455,6 +494,14 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  private getHeldInputDirection(): { dx: number; dy: number } | null {
+    if (this.cursors.up.isDown || this.wasd.W.isDown) return { dx: 0, dy: -1 };
+    if (this.cursors.down.isDown || this.wasd.S.isDown) return { dx: 0, dy: 1 };
+    if (this.cursors.left.isDown || this.wasd.A.isDown) return { dx: -1, dy: 0 };
+    if (this.cursors.right.isDown || this.wasd.D.isDown) return { dx: 1, dy: 0 };
+    return null;
+  }
+
   /** Execute a move or queued move */
   private executeMove(dx: number, dy: number) {
     this.isProcessingAction = true;
@@ -466,6 +513,31 @@ export class GameScene extends Phaser.Scene {
     }, 8000);
 
     this.turnManager.handleInput(dx, dy);
+  }
+
+  /** Execute a skip/pass turn action (spend turn without movement) */
+  private executeSkip() {
+    if (this.isProcessingAction || this.turnManager.phase !== TurnPhase.PLAYER_INPUT) return;
+
+    this.isProcessingAction = true;
+
+    // 8-second safety timeout (MoG pattern)
+    this.actionTimeout = setTimeout(() => {
+      this.isProcessingAction = false;
+      this.pendingMove = null;
+    }, 8000);
+
+    this.turnManager.handleSkip();
+  }
+
+  /** Reset action state without chaining held-direction (used by cancelInput) */
+  resetActionState() {
+    if (this.actionTimeout) {
+      clearTimeout(this.actionTimeout);
+      this.actionTimeout = null;
+    }
+    this.isProcessingAction = false;
+    this.pendingMove = null;
   }
 
   /** Called by TurnManager when action completes */
@@ -495,6 +567,14 @@ export class GameScene extends Phaser.Scene {
       if (walkable && this.turnManager.phase === TurnPhase.PLAYER_INPUT) {
         this.executeMove(dx, dy);
       }
+      return;
+    }
+
+    // If the player is still holding a direction, immediately chain next turn
+    // without relying on OS keyboard auto-repeat delays.
+    const heldDir = this.getHeldInputDirection();
+    if (heldDir && this.turnManager.phase === TurnPhase.PLAYER_INPUT) {
+      this.executeMove(heldDir.dx, heldDir.dy);
     }
   }
 
@@ -540,6 +620,14 @@ export class GameScene extends Phaser.Scene {
     );
   }
 
+  getFountainAt(pos: TilePos): Fountain | null {
+    if (!this.fountain || this.fountain.used) return null;
+    if (this.fountain.pos.x === pos.x && this.fountain.pos.y === pos.y) {
+      return this.fountain;
+    }
+    return null;
+  }
+
   removeEnemy(_enemy: Enemy) {
     // Mark as dead — AI skips dead enemies
   }
@@ -565,6 +653,14 @@ export class GameScene extends Phaser.Scene {
     for (const tr of this.traps) {
       tr.setVisible(this.fogOfWar.isVisible(tr.pos));
     }
+    if (this.fountain) {
+      this.fountain.setVisible(
+        this.fogOfWar.isVisible(this.fountain.pos) ||
+        this.fogOfWar.isExplored(this.fountain.pos) ||
+        this.fogOfWar.isVisible(this.fountain.topPos) ||
+        this.fogOfWar.isExplored(this.fountain.topPos),
+      );
+    }
     this.stairs.setVisible(
       this.fogOfWar.isVisible(this.stairs.pos) ||
       this.fogOfWar.isExplored(this.stairs.pos),
@@ -574,6 +670,10 @@ export class GameScene extends Phaser.Scene {
       this.statueSprite.setVisible(
         !!sPos && (this.fogOfWar.isVisible(sPos) || this.fogOfWar.isExplored(sPos)),
       );
+    }
+    for (const p of this.props) {
+      const pos = p.getData("tilePos") as TilePos;
+      p.setVisible(this.fogOfWar.isVisible(pos) || this.fogOfWar.isExplored(pos));
     }
   }
 
@@ -662,17 +762,28 @@ export class GameScene extends Phaser.Scene {
 
   private showUpgradeScreen() {
     this.scene.pause();
-    this.scene.launch("UpgradeScene", {
-      floor: this.currentFloor,
-      onComplete: (chosenUpgrade: string) => {
-        this.upgradeManager.applyUpgrade(chosenUpgrade as any);
-        this.scene.resume();
-        this.buildFloor(this.currentFloor + 1);
-        // Fade in to reveal the new floor
-        this.cameras.main.fadeIn(500, 0, 0, 0);
-      },
-    });
+
+    // Apply +10 energy bonus
+    const store = useGameStore.getState();
+    const energyBonus = 10;
+    store.setEnergy(Math.min(store.energy + energyBonus, store.maxEnergy));
+
+    // Show React upgrade overlay
+    store.showUpgradeScreen(this.currentFloor);
+
+    // Store callback for React overlay to call
+    GameScene.upgradeCallback = (chosenUpgrade: string) => {
+      GameScene.upgradeCallback = null;
+      this.upgradeManager.applyUpgrade(chosenUpgrade as any);
+      useGameStore.getState().hideUpgradeScreen();
+      this.scene.resume();
+      this.buildFloor(this.currentFloor + 1);
+      this.cameras.main.fadeIn(500, 0, 0, 0);
+    };
   }
+
+  /** Module-level callback for React upgrade overlay */
+  static upgradeCallback: ((upgradeId: string) => void) | null = null;
 
   endRun(_reason: "energy" | "exit") {
     this.scene.start("RunEndScene", {

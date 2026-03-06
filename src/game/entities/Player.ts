@@ -11,6 +11,7 @@ export class Player {
   pos: TilePos;
   private scene: Phaser.Scene;
   private dustEmitter: Phaser.GameObjects.Particles.ParticleEmitter | null = null;
+  private hitFlashTimer: Phaser.Time.TimerEvent | null = null;
   private animated: boolean;
   private facing: Facing = "front";
 
@@ -31,7 +32,6 @@ export class Player {
 
     if (this.animated) {
       const spr = scene.add.sprite(px, py, "player-idle-front-1");
-      spr.setScale(1.0); // 64×64 full size — character fills tile generously
       spr.play("player-idle-front");
       this.sprite = spr;
     } else {
@@ -67,8 +67,12 @@ export class Player {
     const dy = target.y - this.pos.y;
     this.pos = { ...target };
 
-    // Update facing direction
+    // Update facing and play walk animation
     this.updateFacingFromDir(dx, dy);
+    if (this.animated) {
+      const spr = this.sprite as Phaser.GameObjects.Sprite;
+      spr.play(`player-walk-${this.facing}`, true);
+    }
 
     // Dust puff at previous position
     if (this.dustEmitter) {
@@ -81,8 +85,26 @@ export class Player {
       y: target.y * TILE_FULL_H + TILE_SIZE / 2,
       duration: PLAYER_MOVE_MS,
       ease: "Power2",
-      onComplete,
+      onComplete: () => {
+        // Return to idle after arriving
+        if (this.animated) {
+          (this.sprite as Phaser.GameObjects.Sprite).play(`player-idle-${this.facing}`, true);
+        }
+        onComplete();
+      },
     });
+  }
+
+  /** Start walk animation in current facing direction */
+  playWalk() {
+    if (!this.animated) return;
+    (this.sprite as Phaser.GameObjects.Sprite).play(`player-walk-${this.facing}`);
+  }
+
+  /** Return to idle animation */
+  stopWalk() {
+    if (!this.animated) return;
+    (this.sprite as Phaser.GameObjects.Sprite).play(`player-idle-${this.facing}`);
   }
 
   /** Emit dust particles at current position */
@@ -92,33 +114,40 @@ export class Player {
     }
   }
 
-  /** Update direction and play matching idle animation */
-  updateFacingFromDir(dx: number, dy: number) {
-    if (!this.animated) return;
-    const spr = this.sprite as Phaser.GameObjects.Sprite;
-
+  /** Update facing direction + flipX (no animation change) */
+  setFacing(dx: number, dy: number) {
     let newFacing: Facing = this.facing;
     if (dy > 0) newFacing = "front";
     else if (dy < 0) newFacing = "back";
     else if (dx !== 0) newFacing = "side";
 
-    // Flip for left movement
-    spr.setFlipX(dx < 0);
+    this.facing = newFacing;
 
-    if (newFacing !== this.facing) {
-      this.facing = newFacing;
-      spr.play(`player-idle-${newFacing}`);
+    if (this.animated) {
+      const spr = this.sprite as Phaser.GameObjects.Sprite;
+      if (this.facing === "side" && dx !== 0) {
+        spr.setFlipX(dx < 0);
+      } else {
+        spr.setFlipX(false);
+      }
     }
   }
 
-  /** Play bump attack animation, then return to idle */
+  /** Update direction and play matching idle animation */
+  updateFacingFromDir(dx: number, dy: number) {
+    this.setFacing(dx, dy);
+    if (!this.animated) return;
+    (this.sprite as Phaser.GameObjects.Sprite).play(`player-idle-${this.facing}`, true);
+  }
+
+  /** Play attack animation in current facing direction, then return to idle */
   playAttack(onComplete?: () => void) {
     if (!this.animated) {
       onComplete?.();
       return;
     }
     const spr = this.sprite as Phaser.GameObjects.Sprite;
-    spr.play("player-attack-front");
+    spr.play(`player-attack-${this.facing}`);
     spr.once("animationcomplete", () => {
       spr.play(`player-idle-${this.facing}`);
       onComplete?.();
@@ -127,9 +156,23 @@ export class Player {
 
   /** Flash white on damage */
   flashDamage() {
-    this.sprite.setTint(0xffffff);
-    this.scene.time.delayedCall(200, () => {
-      this.sprite.clearTint();
+    if (!this.sprite.active) return;
+    this.sprite.setTintFill(0xffffff);
+    this.hitFlashTimer?.remove(false);
+    this.hitFlashTimer = this.scene.time.delayedCall(85, () => {
+      if (this.sprite.active) this.sprite.clearTint();
+      this.hitFlashTimer = null;
+    });
+  }
+
+  /** Flash green on heal */
+  flashHeal() {
+    if (!this.sprite.active) return;
+    this.sprite.setTintFill(0x4ade80);
+    this.hitFlashTimer?.remove(false);
+    this.hitFlashTimer = this.scene.time.delayedCall(120, () => {
+      if (this.sprite.active) this.sprite.clearTint();
+      this.hitFlashTimer = null;
     });
   }
 
@@ -143,6 +186,9 @@ export class Player {
   }
 
   destroy() {
+    this.hitFlashTimer?.remove(false);
+    this.hitFlashTimer = null;
+    this.sprite.clearTint();
     this.dustEmitter?.destroy();
     this.dummySprite.destroy();
     this.sprite.destroy();

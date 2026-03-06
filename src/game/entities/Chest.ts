@@ -14,10 +14,16 @@ export class Chest {
     this.pos = { ...pos };
     this.id = id;
 
+    // Pick random loot box variant, fallback to procedural
+    const usePng = scene.textures.exists("loot-box-1");
+    const textureKey = usePng
+      ? (Math.random() < 0.5 ? "loot-box-1" : "loot-box-2")
+      : "chest-closed";
+
     this.sprite = scene.add.image(
       pos.x * TILE_SIZE + TILE_SIZE / 2,
       pos.y * TILE_FULL_H + TILE_SIZE / 2,
-      "chest-closed",
+      textureKey,
     );
     this.sprite.setDepth(300);
     this.sprite.setOrigin(0.5, 0.5);
@@ -27,37 +33,24 @@ export class Chest {
     if (this.opened) return;
     this.opened = true;
 
-    // Swap to open texture
-    this.sprite.setTexture("chest-open");
-
-    // Pop animation
+    // Break animation: shake → shrink → disappear
     this.scene.tweens.add({
       targets: this.sprite,
       scaleX: 1.3,
       scaleY: 1.3,
-      duration: 150,
+      duration: 100,
       yoyo: true,
       ease: "Back.easeOut",
-    });
-
-    // Floating label
-    const text = this.scene.add
-      .text(this.sprite.x, this.sprite.y - 12, "OPEN!", {
-        fontFamily: '"8bit Wonder"',
-        fontSize: "7px",
-        color: "#fbbf24",
-        stroke: "#000000",
-        strokeThickness: 2,
-      })
-      .setOrigin(0.5)
-      .setDepth(900);
-
-    this.scene.tweens.add({
-      targets: text,
-      y: text.y - 20,
-      alpha: 0,
-      duration: 600,
-      onComplete: () => text.destroy(),
+      onComplete: () => {
+        this.scene.tweens.add({
+          targets: this.sprite,
+          alpha: 0,
+          scaleX: 0.5,
+          scaleY: 0.5,
+          duration: 200,
+          onComplete: () => this.sprite.setVisible(false),
+        });
+      },
     });
   }
 

@@ -31,16 +31,33 @@ export class TreasureManager {
   }
 
   private collectAt(pos: TilePos) {
-    const t = this.scene.treasures.find(
-      (tr) => !tr.collected && tr.pos.x === pos.x && tr.pos.y === pos.y,
-    );
-    if (t) this.collectTreasure(t);
+    for (const t of this.scene.treasures) {
+      if (!t.collected && t.pos.x === pos.x && t.pos.y === pos.y) {
+        this.collectTreasure(t);
+      }
+    }
   }
 
   private collectTreasure(t: Treasure) {
     t.collect();
-    const typeKey = t.type === "coin" ? "coin" : t.type === "gem" ? "gem" : "golden_ticket";
-    useGameStore.getState().addTreasure(typeKey, t.value);
+
+    const { popupManager } = this.scene;
+
+    if (t.type === "energy") {
+      this.scene.energyManager.heal(t.value);
+      popupManager.showEnergyBonus(t.pos.x, t.pos.y, t.value);
+    } else if (t.type === "coin") {
+      useGameStore.getState().addTreasure("coin", t.value);
+      popupManager.showCoinPickup(t.pos.x, t.pos.y, t.value);
+    } else if (t.type === "orb") {
+      useGameStore.getState().addTreasure("orb", t.value);
+      popupManager.showOrbPickup(t.pos.x, t.pos.y, t.value);
+    } else {
+      // golden_ticket
+      useGameStore.getState().addTreasure("golden_ticket", t.value);
+      popupManager.showTicketPickup(t.pos.x, t.pos.y, t.value);
+    }
+
     this.scene.events.emit("treasure:collected", t);
   }
 }

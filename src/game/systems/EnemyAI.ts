@@ -15,44 +15,83 @@ export class EnemyAI {
 
   processAllEnemies(onComplete: () => void) {
     const alive = this.scene.enemies.filter((e) => e.isAlive());
-    this.processNext(alive, 0, onComplete);
-  }
-
-  private processNext(queue: Enemy[], idx: number, onComplete: () => void) {
-    if (idx >= queue.length) {
+    if (alive.length === 0) {
       onComplete();
       return;
     }
 
-    const enemy = queue[idx];
-    const move = this.decideMove(enemy);
-
-    if (!move) {
-      this.processNext(queue, idx + 1, onComplete);
-      return;
-    }
-
     const playerPos = this.scene.player.pos;
+    const targetByEnemy = new Map<Enemy, TilePos | null>();
+    const attackIntents: Enemy[] = [];
+    const moveIntents: { enemy: Enemy; target: TilePos }[] = [];
 
-    // Enemy tries to move onto player → attack
-    if (move.x === playerPos.x && move.y === playerPos.y) {
+    for (const enemy of alive) {
+      const target = this.decideMove(enemy);
+      targetByEnemy.set(enemy, target);
+      if (!target) continue;
+
+      if (target.x === playerPos.x && target.y === playerPos.y) {
+        attackIntents.push(enemy);
+      } else {
+        moveIntents.push({ enemy, target });
+      }
+    }
+
+    // Resolve enemy bumps first (same turn, before movement completes)
+    for (const enemy of attackIntents) {
       this.scene.combatSystem.resolveEnemyBump(enemy, this.scene.player);
-      this.processNext(queue, idx + 1, onComplete);
+    }
+
+    const byStartPos = new Map<string, Enemy>();
+    for (const enemy of alive) {
+      byStartPos.set(this.posKey(enemy.pos), enemy);
+    }
+
+    // Filter impossible moves and bucket collisions to same target tile.
+    const moveBuckets = new Map<string, { enemy: Enemy; target: TilePos }[]>();
+    for (const intent of moveIntents) {
+      const occupant = byStartPos.get(this.posKey(intent.target));
+      if (occupant && occupant !== intent.enemy) {
+        const occupantTarget = targetByEnemy.get(occupant) ?? null;
+        // Occupied by a stationary enemy.
+        if (!occupantTarget) continue;
+        // Block direct swap A<->B.
+        if (
+          occupantTarget.x === intent.enemy.pos.x &&
+          occupantTarget.y === intent.enemy.pos.y
+        ) {
+          continue;
+        }
+      }
+
+      const key = this.posKey(intent.target);
+      const list = moveBuckets.get(key);
+      if (list) list.push(intent);
+      else moveBuckets.set(key, [intent]);
+    }
+
+    const winners: { enemy: Enemy; target: TilePos }[] = [];
+    for (const bucket of moveBuckets.values()) {
+      // Deterministic priority: closest enemy to player moves first.
+      bucket.sort(
+        (a, b) =>
+          manhattan(a.enemy.pos, playerPos) - manhattan(b.enemy.pos, playerPos),
+      );
+      winners.push(bucket[0]);
+    }
+
+    if (winners.length === 0) {
+      onComplete();
       return;
     }
 
-    // Check no other enemy occupies target
-    const occupied = this.scene.enemies.some(
-      (e) => e !== enemy && e.isAlive() && e.pos.x === move.x && e.pos.y === move.y,
-    );
-    if (occupied) {
-      this.processNext(queue, idx + 1, onComplete);
-      return;
+    let pending = winners.length;
+    for (const { enemy, target } of winners) {
+      enemy.moveTo(target, () => {
+        pending--;
+        if (pending === 0) onComplete();
+      });
     }
-
-    enemy.moveTo(move, () => {
-      this.processNext(queue, idx + 1, onComplete);
-    });
   }
 
   private decideMove(enemy: Enemy): TilePos | null {
@@ -118,6 +157,15 @@ export class EnemyAI {
   private isWalkable(pos: TilePos): boolean {
     const map = this.scene.floorMap;
     if (pos.x < 0 || pos.y < 0 || pos.x >= map.width || pos.y >= map.height) return false;
-    return map.cells[pos.y][pos.x] !== CellType.VOID;
+    if (map.cells[pos.y][pos.x] === CellType.VOID) return false;
+    // Other enemies, chests and fountain block enemy movement
+    if (this.scene.getEnemyAt(pos)) return false;
+    if (this.scene.getChestAt(pos)) return false;
+    if (this.scene.fountain?.occupies(pos)) return false;
+    return true;
+  }
+
+  private posKey(pos: TilePos): string {
+    return `${pos.x},${pos.y}`;
   }
 }

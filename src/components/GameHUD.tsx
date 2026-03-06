@@ -2,17 +2,20 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useGameStore } from "@/stores/gameStore";
+import { TurnPhase } from "@/game/types";
 
 export function GameHUD() {
   const isRunning = useGameStore((s) => s.isRunning);
   const energy = useGameStore((s) => s.energy);
   const maxEnergy = useGameStore((s) => s.maxEnergy);
   const coins = useGameStore((s) => s.coinsCollected);
-  const gems = useGameStore((s) => s.gemsCollected);
+  const orbs = useGameStore((s) => s.orbsCollected);
   const tickets = useGameStore((s) => s.goldenTicketsCollected);
   const floor = useGameStore((s) => s.floor);
+  const turnPhase = useGameStore((s) => s.turnPhase);
 
   const pct = maxEnergy > 0 ? (energy / maxEnergy) * 100 : 0;
+  const canSkip = turnPhase === TurnPhase.PLAYER_INPUT;
 
   // Floor label animation
   const [floorLabel, setFloorLabel] = useState<string | null>(null);
@@ -82,10 +85,10 @@ export function GameHUD() {
             <div className="w-3 h-3 rounded-full bg-amber-400 border border-amber-600 shrink-0" />
             <span className="font-pixel text-[10px] text-amber-300">{coins}</span>
           </div>
-          {/* Gems */}
+          {/* Orbs */}
           <div className="flex items-center gap-1.5">
             <div className="w-3 h-3 rounded-full bg-teal-400 border border-teal-600 shrink-0" />
-            <span className="font-pixel text-[10px] text-teal-300">{gems}</span>
+            <span className="font-pixel text-[10px] text-teal-300">{orbs}</span>
           </div>
           {/* Tickets */}
           <div className="flex items-center gap-1.5">
@@ -111,6 +114,30 @@ export function GameHUD() {
           </span>
         </div>
       )}
+
+      {/* Skip / pass-turn button */}
+      <div className="absolute bottom-4 left-3 pointer-events-auto">
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new Event("sova:skip-turn"))}
+          disabled={!canSkip}
+          className={`relative overflow-hidden font-pixel text-sm pl-12 pr-5 py-3 rounded-2xl border transition-all ${
+            canSkip
+              ? "bg-[#0f172a]/95 border-[#334155] text-[#b8e550] hover:brightness-110 active:scale-95"
+              : "bg-[#0f172a]/70 border-[#334155]/50 text-gray-500 cursor-not-allowed"
+          }`}
+        >
+          <span
+            className={`absolute left-3 top-1/2 -translate-y-1/2 font-black text-2xl leading-none ${
+              canSkip ? "text-[#b8e550]/35" : "text-gray-500/30"
+            }`}
+            aria-hidden
+          >
+            {'>>'}
+          </span>
+          <span className="relative z-10">PASS</span>
+        </button>
+      </div>
     </div>
   );
 }

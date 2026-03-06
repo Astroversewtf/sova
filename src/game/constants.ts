@@ -29,12 +29,14 @@ export function getVisionRadius(energy: number, eagleEyeStacks: number): number 
 
 // ── Floor size scaling ──
 export function getFloorSize(floor: number): { w: number; h: number } {
-  // Visible area at zoom 2x = 800x450 px = 25x14 tiles
-  // Floors must be >= visible area to avoid exposing void
-  if (floor <= 3) return { w: 28, h: 18 };
-  if (floor <= 6) return { w: 32, h: 22 };
-  if (floor <= 9) return { w: 36, h: 26 };
-  return { w: 40, h: 30 };
+  // Visible area at zoom 2x = 800×450 px = 25×14 tiles
+  // Grids sized to fit 5-15 rooms with 2-wide passages
+  if (floor <= 2) return { w: 34, h: 22 };
+  if (floor <= 4) return { w: 38, h: 26 };
+  if (floor <= 6) return { w: 42, h: 28 };
+  if (floor <= 8) return { w: 48, h: 32 };
+  if (floor <= 10) return { w: 52, h: 34 };
+  return { w: 56, h: 38 };
 }
 
 // ── Enemy counts per floor ──
@@ -79,14 +81,16 @@ export function getTreasureCount(floor: number): number {
 }
 
 export const TREASURE_WEIGHTS: Record<TreasureType, number> = {
-  [TreasureType.COIN]: 0.6,
-  [TreasureType.GEM]: 0.3,
+  [TreasureType.ENERGY]: 0.3,
+  [TreasureType.COIN]: 0.4,
+  [TreasureType.ORB]: 0.2,
   [TreasureType.GOLDEN_TICKET]: 0.1,
 };
 
 export const TREASURE_VALUES: Record<TreasureType, number> = {
+  [TreasureType.ENERGY]: 5,
   [TreasureType.COIN]: 1,
-  [TreasureType.GEM]: 5,
+  [TreasureType.ORB]: 5,
   [TreasureType.GOLDEN_TICKET]: 20,
 };
 
@@ -139,8 +143,8 @@ export const C = {
   // Treasure
   TREASURE_COIN: 0xfbbf24,   // gold coin
   TREASURE_COIN_DARK: 0xd97706,
-  TREASURE_GEM: 0xa78bfa,    // purple gem
-  TREASURE_GEM_DARK: 0x7c3aed,
+  TREASURE_ORB: 0xa78bfa,    // purple gem
+  TREASURE_ORB_DARK: 0x7c3aed,
   TREASURE_RARE: 0x34d399,   // rare artifact (green glow)
   TREASURE_RARE_DARK: 0x059669,
 

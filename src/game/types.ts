@@ -20,6 +20,8 @@ export interface FloorMap {
   treasureSpawns: TreasureSpawnData[];
   chestSpawns: TilePos[];
   trapSpawns: TrapSpawnData[];
+  fountainSpawn: TilePos | null;
+  propSpawns: PropSpawnData[];
   bossSpawn: TilePos | null;
   statuePos: TilePos | null;
 }
@@ -48,8 +50,9 @@ export enum EnemyType {
 }
 
 export enum TreasureType {
+  ENERGY = "energy",
   COIN = "coin",
-  GEM = "gem",
+  ORB = "orb",
   GOLDEN_TICKET = "golden_ticket",
 }
 
@@ -61,6 +64,13 @@ export enum TrapType {
 export interface TrapSpawnData {
   pos: TilePos;
   type: TrapType;
+}
+
+export type PropType = "rock_small" | "rock_big";
+
+export interface PropSpawnData {
+  pos: TilePos;
+  type: PropType;
 }
 
 export type UpgradeId =
@@ -91,7 +101,7 @@ export interface RunStats {
   floorsCleared: number;
   totalTreasure: number;
   coinsCollected: number;
-  gemsCollected: number;
+  orbsCollected: number;
   goldenTicketsCollected: number;
   enemiesKilled: number;
   bossesKilled: number;

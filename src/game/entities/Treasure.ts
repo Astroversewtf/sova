@@ -3,7 +3,7 @@ import { TreasureType, type TilePos } from "../types";
 import { TILE_SIZE, TILE_FULL_H } from "../constants";
 
 export class Treasure {
-  sprite: Phaser.GameObjects.Image;
+  sprite: Phaser.GameObjects.Image | Phaser.GameObjects.Sprite;
   pos: TilePos;
   type: TreasureType;
   value: number;
@@ -25,18 +25,30 @@ export class Treasure {
     this.value = value;
     this.id = id;
 
-    const textureKey =
-      type === TreasureType.COIN
-        ? "treasure-coin"
-        : type === TreasureType.GEM
-          ? "treasure-gem"
-          : "treasure-golden-ticket";
+    const px = pos.x * TILE_SIZE + TILE_SIZE / 2;
+    const py = pos.y * TILE_FULL_H + TILE_SIZE / 2;
 
-    this.sprite = scene.add.image(
-      pos.x * TILE_SIZE + TILE_SIZE / 2,
-      pos.y * TILE_FULL_H + TILE_SIZE / 2,
-      textureKey,
-    );
+    // Animated sprites for coin/energy, static image for others
+    if (type === TreasureType.COIN && scene.anims.exists("coin-spin")) {
+      const spr = scene.add.sprite(px, py, "coin-1");
+      spr.play("coin-spin");
+      this.sprite = spr;
+    } else if (type === TreasureType.ENERGY && scene.anims.exists("energy-pulse")) {
+      const spr = scene.add.sprite(px, py, "energy-item-1");
+      spr.play("energy-pulse");
+      this.sprite = spr;
+    } else {
+      const textureKey =
+        type === TreasureType.ENERGY
+          ? "energy-item-1"
+          : type === TreasureType.COIN
+            ? "treasure-coin"
+            : type === TreasureType.ORB
+              ? "treasure-orb"
+              : "treasure-golden-ticket";
+      this.sprite = scene.add.image(px, py, textureKey);
+    }
+
     this.sprite.setDepth(300);
     this.sprite.setOrigin(0.5, 0.5);
 
@@ -72,8 +84,10 @@ export class Treasure {
     });
 
     // Floating text
-    const label = this.type === TreasureType.COIN ? "+1" : this.type === TreasureType.GEM ? "+5" : "+20";
-    const color = this.type === TreasureType.COIN ? "#fbbf24" : this.type === TreasureType.GEM ? "#a78bfa" : "#fbbf24";
+    const label = this.type === TreasureType.ENERGY ? `+${this.value}`
+      : this.type === TreasureType.COIN ? "+1" : this.type === TreasureType.ORB ? "+5" : "+20";
+    const color = this.type === TreasureType.ENERGY ? "#b8e550"
+      : this.type === TreasureType.COIN ? "#fbbf24" : this.type === TreasureType.ORB ? "#a78bfa" : "#fbbf24";
     const text = this.scene.add
       .text(this.sprite.x, this.sprite.y - 8, label, {
         fontFamily: '"8bit Wonder"',

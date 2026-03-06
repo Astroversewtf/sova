@@ -20,8 +20,8 @@ export class HUDScene extends Phaser.Scene {
   private badgeBg!: Phaser.GameObjects.Graphics;
   private coinDot!: Phaser.GameObjects.Graphics;
   private coinText!: Phaser.GameObjects.Text;
-  private gemDot!: Phaser.GameObjects.Graphics;
-  private gemText!: Phaser.GameObjects.Text;
+  private orbDot!: Phaser.GameObjects.Graphics;
+  private orbText!: Phaser.GameObjects.Text;
   private ticketDot!: Phaser.GameObjects.Graphics;
   private ticketText!: Phaser.GameObjects.Text;
   private floorDot!: Phaser.GameObjects.Graphics;
@@ -91,8 +91,8 @@ export class HUDScene extends Phaser.Scene {
     this.coinText = this.add.text(0, 0, "0", {
       fontFamily: '"Press Start 2P", monospace', fontSize: "9px", color: "#fbbf24",
     }).setOrigin(0, 0.5);
-    this.gemDot = this.add.graphics();
-    this.gemText = this.add.text(0, 0, "0", {
+    this.orbDot = this.add.graphics();
+    this.orbText = this.add.text(0, 0, "0", {
       fontFamily: '"Press Start 2P", monospace', fontSize: "9px", color: "#5eead4",
     }).setOrigin(0, 0.5);
     this.ticketDot = this.add.graphics();
@@ -150,14 +150,14 @@ export class HUDScene extends Phaser.Scene {
     this.coinDot.strokeCircle(cx1, midY, dotR);
     this.coinText.setPosition(cx1 + 12, midY);
 
-    // Gem
+    // Orb
     const cx2 = badgeX + 68;
-    this.gemDot.clear();
-    this.gemDot.fillStyle(0x2dd4bf);
-    this.gemDot.fillCircle(cx2, midY, dotR);
-    this.gemDot.lineStyle(1.5, 0x0d9488);
-    this.gemDot.strokeCircle(cx2, midY, dotR);
-    this.gemText.setPosition(cx2 + 12, midY);
+    this.orbDot.clear();
+    this.orbDot.fillStyle(0x2dd4bf);
+    this.orbDot.fillCircle(cx2, midY, dotR);
+    this.orbDot.lineStyle(1.5, 0x0d9488);
+    this.orbDot.strokeCircle(cx2, midY, dotR);
+    this.orbText.setPosition(cx2 + 12, midY);
 
     // Golden Ticket
     const cx3 = badgeX + 118;
@@ -189,7 +189,7 @@ export class HUDScene extends Phaser.Scene {
     this.drawEnergyFill(s.energy, s.maxEnergy);
     this.energyText.setText(`${s.energy}/${s.maxEnergy}`);
     this.coinText.setText(`${s.coinsCollected}`);
-    this.gemText.setText(`${s.gemsCollected}`);
+    this.orbText.setText(`${s.orbsCollected}`);
     this.ticketText.setText(`${s.goldenTicketsCollected}`);
     this.floorText.setText(`F${s.floor}`);
   }

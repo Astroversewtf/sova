@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { GAME_WIDTH, GAME_HEIGHT } from "../constants";
 
 /**
  * VFXManager — MoG-style desaturation when energy is low.
@@ -10,6 +11,8 @@ export class VFXManager {
   private scene: Phaser.Scene;
   private colorMatrix: Phaser.FX.ColorMatrix | null = null;
   private desatAmount = 0;
+  private damageOverlay: Phaser.GameObjects.Rectangle | null = null;
+  private damageTween: Phaser.Tweens.Tween | null = null;
 
   // Heartbeat state (ready for when audio is added)
   private heartbeatActive = false;
@@ -22,6 +25,21 @@ export class VFXManager {
     if (cam.postFX) {
       this.colorMatrix = cam.postFX.addColorMatrix();
     }
+
+    // Fullscreen dark-red hit overlay (very subtle / very fast)
+    this.damageOverlay = scene.add.rectangle(
+      GAME_WIDTH / 2,
+      GAME_HEIGHT / 2,
+      GAME_WIDTH,
+      GAME_HEIGHT,
+      0x8a1a24,
+      1,
+    );
+    this.damageOverlay
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(2400)
+      .setAlpha(0);
   }
 
   /**
@@ -59,11 +77,42 @@ export class VFXManager {
     }
   }
 
+  /** Very fast and subtle red screen flash when the player is hit */
+  flashDamageOverlay() {
+    if (!this.damageOverlay) return;
+
+    this.damageTween?.stop();
+    this.damageTween = null;
+
+    this.damageOverlay.setAlpha(0);
+    this.damageTween = this.scene.tweens.add({
+      targets: this.damageOverlay,
+      alpha: 0.14,
+      duration: 26,
+      ease: "Quad.Out",
+      onComplete: () => {
+        this.damageTween = this.scene.tweens.add({
+          targets: this.damageOverlay,
+          alpha: 0,
+          duration: 84,
+          ease: "Quad.In",
+          onComplete: () => {
+            this.damageTween = null;
+          },
+        });
+      },
+    });
+  }
+
   destroy() {
     if (this.colorMatrix) {
       this.colorMatrix.reset();
       // postFX cleanup handled by camera destroy
       this.colorMatrix = null;
     }
+    this.damageTween?.stop();
+    this.damageTween = null;
+    this.damageOverlay?.destroy();
+    this.damageOverlay = null;
   }
 }
