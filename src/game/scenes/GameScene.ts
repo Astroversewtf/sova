@@ -60,6 +60,7 @@ export class GameScene extends Phaser.Scene {
   floorMap!: FloorMap;
   tileSprites: Map<string, Phaser.GameObjects.Image> = new Map();
   currentFloor = 1;
+  private bossSpawnedInRun = false;
 
   // Checkered overlay
   private checkeredOverlay: Phaser.GameObjects.RenderTexture | null = null;
@@ -106,6 +107,7 @@ export class GameScene extends Phaser.Scene {
 
     // Init store
     useGameStore.getState().startRun();
+    this.bossSpawnedInRun = false;
 
     // Input
     if (this.input.keyboard) {
@@ -150,8 +152,9 @@ export class GameScene extends Phaser.Scene {
     this.cleanupFloor();
 
     // Generate new floor
-    this.floorMap = generateFloor(floor);
-    const { width, height, cells, spawn, stairs, enemySpawns, treasureSpawns, chestSpawns, trapSpawns, fountainSpawn, propSpawns, bossSpawn, statuePos } = this.floorMap;
+    this.floorMap = generateFloor(floor, this.bossSpawnedInRun);
+    const { width, height, cells, spawn, stairs, enemySpawns, treasureSpawns, chestSpawns, trapSpawns, fountainSpawn, propSpawns, wallPropSpawns, bossSpawn, statuePos } = this.floorMap;
+    if (bossSpawn) this.bossSpawnedInRun = true;
 
     // Update store
     const store = useGameStore.getState();
@@ -227,7 +230,7 @@ export class GameScene extends Phaser.Scene {
 
     // Traps
     this.traps = trapSpawns.map((t, i) =>
-      new Trap(this, t.pos, t.type, `trap-${i}`),
+      new Trap(this, t.pos, `trap-${i}`, this.currentFloor),
     );
 
     // Fountain
@@ -247,6 +250,26 @@ export class GameScene extends Phaser.Scene {
       img.setData("tilePos", p.pos);
       return img;
     });
+
+    // Wall decorative props (lights & planks on south-facing walls)
+    for (const wp of wallPropSpawns) {
+      const texKey = wp.type === "light" ? "prop-wall-light" : "prop-wall-plank";
+      if (!this.textures.exists(texKey)) continue;
+      const img = this.add.image(
+        wp.pos.x * TILE_SIZE + TILE_SIZE / 2,
+        wp.pos.y * TILE_SIZE + TILE_SIZE / 2 + 4,
+        texKey,
+      );
+      img.setDepth(200);
+      img.setOrigin(0.5, 0.5);
+      // Scale to fit within tile
+      const frame = img.frame;
+      const scale = (TILE_SIZE * 0.75) / Math.max(frame.width, frame.height);
+      img.setScale(scale);
+      // Use the floor tile below (y+1) for fog visibility — wall tiles are VOID and never revealed
+      img.setData("tilePos", { x: wp.pos.x, y: wp.pos.y + 1 });
+      this.props.push(img);
+    }
 
     // Fog of war
     this.fogOfWar = new FogOfWar(this, width, height);
@@ -491,15 +514,9 @@ export class GameScene extends Phaser.Scene {
       } else if (this.turnManager.phase === TurnPhase.PLAYER_INPUT) {
         this.executeMove(dx, dy);
       }
+      return;
     }
-  }
 
-  private getHeldInputDirection(): { dx: number; dy: number } | null {
-    if (this.cursors.up.isDown || this.wasd.W.isDown) return { dx: 0, dy: -1 };
-    if (this.cursors.down.isDown || this.wasd.S.isDown) return { dx: 0, dy: 1 };
-    if (this.cursors.left.isDown || this.wasd.A.isDown) return { dx: -1, dy: 0 };
-    if (this.cursors.right.isDown || this.wasd.D.isDown) return { dx: 1, dy: 0 };
-    return null;
   }
 
   /** Execute a move or queued move */
@@ -570,12 +587,8 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    // If the player is still holding a direction, immediately chain next turn
-    // without relying on OS keyboard auto-repeat delays.
-    const heldDir = this.getHeldInputDirection();
-    if (heldDir && this.turnManager.phase === TurnPhase.PLAYER_INPUT) {
-      this.executeMove(heldDir.dx, heldDir.dy);
-    }
+    // Do not auto-chain held keys here:
+    // one key press must result in exactly one tile movement.
   }
 
   /** Snap player to exact tile position (for desync correction, floor transitions) */
@@ -786,9 +799,12 @@ export class GameScene extends Phaser.Scene {
   static upgradeCallback: ((upgradeId: string) => void) | null = null;
 
   endRun(_reason: "energy" | "exit") {
-    this.scene.start("RunEndScene", {
-      stats: useGameStore.getState().getStats(),
-      floor: this.currentFloor,
+    const stats = useGameStore.getState().getStats();
+    const floor = this.currentFloor;
+
+    // Play player death animation before transitioning
+    this.player.playDeath(() => {
+      this.scene.start("RunEndScene", { stats, floor });
     });
   }
 }

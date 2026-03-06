@@ -39,33 +39,72 @@ export function getFloorSize(floor: number): { w: number; h: number } {
   return { w: 56, h: 38 };
 }
 
-// ── Enemy counts per floor ──
-export function getEnemyCount(floor: number): { basic: number; tanky: number } {
-  if (floor <= 3) return { basic: 2 + floor, tanky: 0 };
-  if (floor <= 6) return { basic: 3 + floor, tanky: Math.floor(floor / 2) };
-  if (floor <= 9) return { basic: 4 + floor, tanky: Math.floor(floor / 2) + 1 };
-  return { basic: 6 + floor, tanky: Math.floor(floor / 2) + 2 };
+// ── Enemy spawn config per floor ──
+export interface EnemySpawnConfig {
+  min: number;
+  max: number;
+  rockPct: number;
+  golemPct: number;
+  // ghostPct = 1 - rockPct - golemPct
 }
 
-// ── Enemy stats by type & floor ──
-export function getEnemyHP(type: EnemyType, floor: number): number {
+export function getEnemySpawnConfig(floor: number): EnemySpawnConfig {
+  let min: number, max: number;
+  if (floor <= 2)       { min = 5; max = 7; }
+  else if (floor <= 4)  { min = 5; max = 7; }
+  else if (floor <= 6)  { min = 6; max = 8; }
+  else if (floor <= 10) { min = 7; max = 9; }
+  else                  { min = 8; max = 10; }
+
+  let rockPct: number, golemPct: number;
+  if (floor <= 2) {
+    // 60% Rock, 40% Golem, 0% Ghost
+    rockPct = 0.6; golemPct = 0.4;
+  } else if (floor <= 4) {
+    // 40% Rock, 30% Golem, 30% Ghost
+    rockPct = 0.4; golemPct = 0.3;
+  } else {
+    // 30% Rock, 30% Golem, 40% Ghost
+    rockPct = 0.3; golemPct = 0.3;
+  }
+
+  return { min, max, rockPct, golemPct };
+}
+
+// ── Enemy base stats (fixed — tier multiplier applied separately) ──
+export function getEnemyHP(type: EnemyType): number {
   switch (type) {
-    case EnemyType.BASIC:
+    case EnemyType.ROCK:
       return 1;
-    case EnemyType.TANKY:
-      if (floor <= 6) return 3;
-      if (floor <= 9) return 4;
-      return 5;
+    case EnemyType.GOLEM:
+      return 1;
+    case EnemyType.GHOST:
+      return 3;
     case EnemyType.BOSS:
-      return 10 + Math.min(5, Math.floor(floor / 3));
+      return 15;
+  }
+}
+
+export function getEnemyDMG(type: EnemyType): number {
+  switch (type) {
+    case EnemyType.ROCK:
+      return 2;
+    case EnemyType.GOLEM:
+      return 2;
+    case EnemyType.GHOST:
+      return 4;
+    case EnemyType.BOSS:
+      return 12;
   }
 }
 
 export function getDetectionRange(type: EnemyType): number {
   switch (type) {
-    case EnemyType.BASIC:
+    case EnemyType.ROCK:
       return 5;
-    case EnemyType.TANKY:
+    case EnemyType.GOLEM:
+      return 5;
+    case EnemyType.GHOST:
       return 4;
     case EnemyType.BOSS:
       return 999; // Always active
@@ -96,7 +135,16 @@ export const TREASURE_VALUES: Record<TreasureType, number> = {
 
 // ── Boss ──
 export const BOSS_MIN_FLOOR = 7;
-export const BOSS_CHANCE = 0.08;
+
+/**
+ * Dynamic SOVA boss spawn chance by floor.
+ * F7: 8%, F8: 18%, F9: 28%, F10: 38%, F11+: 50% cap.
+ */
+export function getBossSpawnChance(floor: number): number {
+  if (floor < BOSS_MIN_FLOOR) return 0;
+  if (floor >= 11) return 0.5;
+  return 0.08 + (floor - BOSS_MIN_FLOOR) * 0.1;
+}
 
 // ── Spawn safety ──
 export const SPAWN_SAFE_RADIUS = 3;
@@ -115,13 +163,13 @@ export const C = {
   // Dungeon background — matches wall top so void blends with walls
   VOID_BG: 0x1a3832,
 
-  // Floor tiles — teal checkerboard (two alternating shades)
-  FLOOR_TOP: 0x2a9d8f,       // lighter teal
-  FLOOR_DEPTH: 0x1a6b62,     // depth face
-  FLOOR_HIGHLIGHT: 0x45c4b4, // edge highlight
-  FLOOR_TOP_ALT: 0x237a6e,   // darker teal (checkerboard)
-  FLOOR_DEPTH_ALT: 0x155850, // darker depth face
-  FLOOR_CRACK: 0x1e8578,     // subtle cracks on floor
+  // Floor tiles — sunset gold checkerboard
+  FLOOR_TOP: 0xffb463,       // light sunset gold
+  FLOOR_DEPTH: 0xa8682f,     // depth face
+  FLOOR_HIGHLIGHT: 0xffcb8f, // edge highlight
+  FLOOR_TOP_ALT: 0xd78435,   // dark sunset gold (checkerboard)
+  FLOOR_DEPTH_ALT: 0x8b5525, // darker depth face
+  FLOOR_CRACK: 0xa56a2e,     // subtle cracks on floor
 
   // Player — chibi knight (warm skin + armor)
   PLAYER_BODY: 0x4a90d9,     // blue armor
@@ -133,10 +181,12 @@ export const C = {
   PLAYER_EYES: 0x1a1a2e,     // dark eyes
 
   // Enemies
-  ENEMY_BASIC: 0xf472b6,     // pink blob
-  ENEMY_BASIC_DARK: 0xdb2777, // pink shadow
-  ENEMY_TANKY: 0x9ca3af,     // grey stone golem
-  ENEMY_TANKY_DARK: 0x6b7280, // grey shadow
+  ENEMY_ROCK: 0xf472b6,      // pink rock
+  ENEMY_ROCK_DARK: 0xdb2777, // pink shadow
+  ENEMY_GOLEM: 0x8b7355,     // brown/earth golem
+  ENEMY_GOLEM_DARK: 0x6b5635, // brown shadow
+  ENEMY_GHOST: 0x9ca3af,     // grey ghost
+  ENEMY_GHOST_DARK: 0x6b7280, // grey shadow
   ENEMY_BOSS: 0x8b5cf6,      // purple boss
   ENEMY_BOSS_DARK: 0x6d28d9, // boss shadow
 
@@ -185,6 +235,31 @@ export const C = {
   RARITY_RARE: 0x3b82f6,     // blue
   RARITY_EPIC: 0xa855f7,     // purple
 };
+
+// ── Floor Tier system (progressive difficulty) ──
+export interface TierData {
+  tier: number;
+  name: string;
+  hpMult: number;
+  dmgMult: number;
+  lootMult: number;
+}
+
+const TIERS: TierData[] = [
+  { tier: 1, name: "Tutorial", hpMult: 1.00, dmgMult: 1.00, lootMult: 1.00 },
+  { tier: 2, name: "Warmup",   hpMult: 1.20, dmgMult: 1.15, lootMult: 1.30 },
+  { tier: 3, name: "Shift",    hpMult: 1.30, dmgMult: 1.25, lootMult: 1.40 },
+  { tier: 4, name: "Danger",   hpMult: 1.40, dmgMult: 1.35, lootMult: 1.50 },
+  { tier: 5, name: "Pro",      hpMult: 1.50, dmgMult: 1.45, lootMult: 1.60 },
+];
+
+export function getTier(floor: number): TierData {
+  if (floor <= 2) return TIERS[0];
+  if (floor <= 4) return TIERS[1];
+  if (floor <= 6) return TIERS[2];
+  if (floor <= 10) return TIERS[3];
+  return TIERS[4];
+}
 
 // ── Upgrade definitions ──
 export const UPGRADES: UpgradeDef[] = [

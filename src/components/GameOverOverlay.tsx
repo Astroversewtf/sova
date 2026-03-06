@@ -110,7 +110,11 @@ export function GameOverOverlay() {
           {/* Golden Tickets row (if any) */}
           {stats.goldenTicketsCollected > 0 && (
             <div className="flex items-center">
-              <div className="w-4 h-4 rounded-full bg-emerald-400 border-2 border-emerald-600 shrink-0" />
+              <img
+                src="/sprites/items/golden_ticket/golden_ticket_big_01.png"
+                alt="Golden Ticket"
+                className="w-6 h-6 shrink-0 object-contain"
+              />
               <span className="font-pixel text-[11px] text-gray-200 ml-3">
                 TICKETS
               </span>

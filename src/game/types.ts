@@ -22,6 +22,7 @@ export interface FloorMap {
   trapSpawns: TrapSpawnData[];
   fountainSpawn: TilePos | null;
   propSpawns: PropSpawnData[];
+  wallPropSpawns: WallPropSpawnData[];
   bossSpawn: TilePos | null;
   statuePos: TilePos | null;
 }
@@ -44,8 +45,9 @@ export enum FogState {
 }
 
 export enum EnemyType {
-  BASIC = "basic",
-  TANKY = "tanky",
+  ROCK = "rock",
+  GOLEM = "golem",
+  GHOST = "ghost",
   BOSS = "boss",
 }
 
@@ -58,7 +60,6 @@ export enum TreasureType {
 
 export enum TrapType {
   SPIKE = "spike",
-  POISON = "poison",
 }
 
 export interface TrapSpawnData {
@@ -67,10 +68,16 @@ export interface TrapSpawnData {
 }
 
 export type PropType = "rock_small" | "rock_big";
+export type WallPropType = "light" | "plank";
 
 export interface PropSpawnData {
   pos: TilePos;
   type: PropType;
+}
+
+export interface WallPropSpawnData {
+  pos: TilePos;
+  type: WallPropType;
 }
 
 export type UpgradeId =

@@ -1,74 +1,68 @@
 import Phaser from "phaser";
-import { TrapType, type TilePos } from "../types";
+import { type TilePos } from "../types";
 import { TILE_SIZE, TILE_FULL_H } from "../constants";
+import type { GameScene } from "../scenes/GameScene";
 
 export class Trap {
   sprite: Phaser.GameObjects.Image;
   pos: TilePos;
-  type: TrapType;
-  triggered: boolean = false;
   id: string;
-  private scene: Phaser.Scene;
+  private scene: GameScene;
+  private floor: number;
+  private baseScale: number = 1;
 
-  constructor(scene: Phaser.Scene, pos: TilePos, type: TrapType, id: string) {
+  constructor(scene: GameScene, pos: TilePos, id: string, floor: number) {
     this.scene = scene;
     this.pos = { ...pos };
-    this.type = type;
     this.id = id;
+    this.floor = floor;
 
-    const textureKey = type === TrapType.SPIKE ? "trap-spike" : "trap-poison";
+    // Use spike sprite if available, fallback to procedural
+    const textureKey = scene.textures.exists("trap-spike-1")
+      ? "trap-spike-1"
+      : "trap-spike";
 
     this.sprite = scene.add.image(
       pos.x * TILE_SIZE + TILE_SIZE / 2,
       pos.y * TILE_FULL_H + TILE_SIZE / 2,
       textureKey,
     );
-    this.sprite.setDepth(150); // below entities, above floor
+    this.sprite.setDepth(150);
     this.sprite.setOrigin(0.5, 0.5);
+
+    // Scale sprite to fill tile
+    if (scene.textures.exists("trap-spike-1")) {
+      const frame = this.sprite.frame;
+      const scale = TILE_SIZE / Math.max(frame.width, frame.height);
+      this.sprite.setScale(scale);
+      this.baseScale = scale;
+    }
   }
 
-  /** Trigger the trap. Returns energy damage dealt. */
+  /** Base 6 damage at floor 3, +1 per floor after. Reduced by thick skin. */
+  getBaseDamage(): number {
+    return 6 + Math.max(0, this.floor - 3);
+  }
+
+  /** Trigger the trap. Always active — deals damage every step. */
   trigger(thickSkinStacks: number): number {
-    if (this.triggered && this.type === TrapType.SPIKE) return 0;
+    const base = this.getBaseDamage();
+    const dmg = Math.max(1, base - thickSkinStacks);
 
-    let dmg: number;
-    if (this.type === TrapType.SPIKE) {
-      dmg = Math.max(1, 4 - thickSkinStacks); // 4 base, reduced by thick skin
-      this.triggered = true;
-
-      // Spike retract animation
-      this.scene.tweens.add({
-        targets: this.sprite,
-        alpha: 0.3,
-        scaleY: 0.5,
-        duration: 200,
-        ease: "Power2",
-      });
-    } else {
-      // Poison: 1 dmg now + sets 3 turns of DoT (handled by store)
-      dmg = 1;
-      // Poison puddle stays — can be re-triggered
-    }
-
-    // Damage popup
-    const text = this.scene.add
-      .text(this.sprite.x, this.sprite.y - 8, `-${dmg}`, {
-        fontFamily: '"8bit Wonder"',
-        fontSize: "9px",
-        color: this.type === TrapType.SPIKE ? "#ef4444" : "#22c55e",
-        stroke: "#000000",
-        strokeThickness: 2,
-      })
-      .setOrigin(0.5)
-      .setDepth(900);
-
+    // Brief spike jab animation (squash & stretch)
+    this.scene.tweens.killTweensOf(this.sprite);
+    this.sprite.setScale(this.baseScale, this.baseScale);
     this.scene.tweens.add({
-      targets: text,
-      y: text.y - 24,
-      alpha: 0,
-      duration: 500,
-      onComplete: () => text.destroy(),
+      targets: this.sprite,
+      scaleY: this.baseScale * 1.3,
+      scaleX: this.baseScale * 0.85,
+      duration: 80,
+      yoyo: true,
+      ease: "Power2",
     });
+
+    // Damage popup via PopupManager
+    this.scene.popupManager.showPlayerDamageNumber(this.pos.x, this.pos.y, dmg);
 
     return dmg;
   }

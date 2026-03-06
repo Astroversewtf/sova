@@ -35,6 +35,14 @@ export function PhaserGame() {
       const game = new Phaser.Game(config);
       gameRef.current = game;
 
+      // Force custom cursor on Phaser canvas
+      game.events.once("ready", () => {
+        const canvas = game.canvas;
+        if (canvas) {
+          canvas.style.cursor = "url('/sprites/ui/cursor/cursor_arrow_01.png') 0 0, auto";
+        }
+      });
+
       game.events.on("go-to-lobby", () => {
         setView("lobby");
       });

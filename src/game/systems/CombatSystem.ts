@@ -89,7 +89,7 @@ export class CombatSystem {
   /**
    * Drop 1 loot item at the killed enemy's position.
    * Normal: 65% Energy, 20% Coin, 10% Orb, 5% Nothing
-   * Boss:   40% Energy, 30% Coin, 15% Orb, 8% Golden Ticket, 7% Nothing
+   * Boss:   50% Nothing, Golden Ticket by floor (8%→12% cap), rest split Coin/Orb
    */
   private dropLoot(tileX: number, tileY: number, enemyType: EnemyType) {
     const pos = { x: tileX, y: tileY };
@@ -98,11 +98,17 @@ export class CombatSystem {
 
     let type: TreasureType | null;
     if (isBoss) {
-      if (roll < 0.40) type = TreasureType.ENERGY;
-      else if (roll < 0.70) type = TreasureType.COIN;
-      else if (roll < 0.85) type = TreasureType.ORB;
-      else if (roll < 0.93) type = TreasureType.GOLDEN_TICKET;
-      else type = null; // 7% nothing
+      const floor = Math.max(7, this.scene.currentFloor);
+      const nothingChance = 0.5;
+      const goldenChance = Math.min(0.08 + (floor - 7) * 0.01, 0.12);
+      const coinChance = (1 - nothingChance - goldenChance) / 2;
+      const orbChance = coinChance;
+
+      if (roll < nothingChance) type = null;
+      else if (roll < nothingChance + goldenChance) type = TreasureType.GOLDEN_TICKET;
+      else if (roll < nothingChance + goldenChance + coinChance) type = TreasureType.COIN;
+      else if (roll < nothingChance + goldenChance + coinChance + orbChance) type = TreasureType.ORB;
+      else type = TreasureType.ORB; // float safety fallback
     } else {
       if (roll < 0.65) type = TreasureType.ENERGY;
       else if (roll < 0.85) type = TreasureType.COIN;

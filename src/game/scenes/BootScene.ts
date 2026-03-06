@@ -56,7 +56,25 @@ export class BootScene extends Phaser.Scene {
       }
     }
 
-    // Ghost enemy frames (idle only, 32×32 PNGs) — second normal enemy visual
+    // Golem enemy sprite frames (32×32 PNGs) — slow tanky enemy
+    for (const dir of dirs) {
+      for (let i = 1; i <= 4; i++) {
+        this.load.image(
+          `enemy-golem-idle-${dir}-${i}`,
+          `sprites/enemies/golem/idle/golem_${dir}_idle_0${i}.png`,
+        );
+        this.load.image(
+          `enemy-golem-walk-${dir}-${i}`,
+          `sprites/enemies/golem/walk/golem_${dir}_walk_0${i}.png`,
+        );
+        this.load.image(
+          `enemy-golem-attack-${dir}-${i}`,
+          `sprites/enemies/golem/attack/golem_${dir}_attack_0${i}.png`,
+        );
+      }
+    }
+
+    // Ghost enemy frames (idle only, 32×32 PNGs) — spectral enemy
     for (let i = 1; i <= 4; i++) {
       this.load.image(
         `enemy-ghost-idle-${i}`,
@@ -120,6 +138,8 @@ export class BootScene extends Phaser.Scene {
 
     // Orb
     this.load.image("treasure-orb", "sprites/items/orb/item_orb_01.png");
+    this.load.image("treasure-golden-ticket", "sprites/items/golden_ticket/golden_ticket_lil_01.png");
+    this.load.image("treasure-golden-ticket-big", "sprites/items/golden_ticket/golden_ticket_big_01.png");
 
     // Fountain (4 frames)
     for (let i = 1; i <= 4; i++) {
@@ -129,6 +149,20 @@ export class BootScene extends Phaser.Scene {
     // Decorative props (rocks)
     this.load.image("prop-rock-small", "sprites/props/rock_small.png");
     this.load.image("prop-rock-big", "sprites/props/rock_big.png");
+
+    // Wall decorative props
+    this.load.image("prop-wall-light", "sprites/props/wall/light_01.png");
+    this.load.image("prop-wall-plank", "sprites/props/wall/wooden_plank_01.png");
+
+    // Spike trap (4 frames)
+    for (let i = 1; i <= 4; i++) {
+      this.load.image(`trap-spike-${i}`, `sprites/props/spikes/spikes_0${i}.png`);
+    }
+
+    // Death animation (shared ghost/soul, 4 frames)
+    for (let i = 1; i <= 4; i++) {
+      this.load.image(`death-${i}`, `sprites/enemies/death/enemies_death_0${i}.png`);
+    }
 
     this.load.on("loaderror", () => {
       // Silently ignore — procedural fallback will be used
@@ -160,19 +194,21 @@ export class BootScene extends Phaser.Scene {
     if (this.textures.exists("enemy-rock-idle-front-1")) {
       this.createRockAnimations();
     } else {
-      // Fallback if Rock assets are missing
-      this.genBlobEnemy(g, "enemy-basic", C.ENEMY_BASIC, C.ENEMY_BASIC_DARK);
+      this.genBlobEnemy(g, "enemy-rock-fb", C.ENEMY_ROCK, C.ENEMY_ROCK_DARK);
+    }
+    if (this.textures.exists("enemy-golem-idle-front-1")) {
+      this.createGolemAnimations();
+    } else {
+      this.genGolemEnemy(g, "enemy-golem-fb", C.ENEMY_GOLEM, C.ENEMY_GOLEM_DARK);
     }
     if (this.textures.exists("enemy-ghost-idle-1")) {
       this.createGhostAnimations();
     } else {
-      // Fallback if Ghost assets are missing
-      this.genGolemEnemy(g, "enemy-tanky", C.ENEMY_TANKY, C.ENEMY_TANKY_DARK);
+      this.genBlobEnemy(g, "enemy-ghost-fb", C.ENEMY_GHOST, C.ENEMY_GHOST_DARK);
     }
     if (this.textures.exists("enemy-sova-idle-1")) {
       this.createSovaAnimations();
     } else {
-      // Fallback if Sova assets are missing
       this.genBossTexture(g);
     }
 
@@ -207,7 +243,19 @@ export class BootScene extends Phaser.Scene {
         repeat: -1,
       });
     }
-    this.genRareTexture(g);
+    // Death animation (ghost/soul rising)
+    if (this.textures.exists("death-1")) {
+      this.anims.create({
+        key: "death-soul",
+        frames: [1, 2, 3, 4].map((i) => ({ key: `death-${i}` })),
+        frameRate: 8,
+        repeat: -1,
+      });
+    }
+
+    if (!this.textures.exists("treasure-golden-ticket")) {
+      this.genRareTexture(g);
+    }
 
     // ── Stairs (PNG) ──
     // stairs-locked/unlocked both use the same PNG now
@@ -222,9 +270,10 @@ export class BootScene extends Phaser.Scene {
       this.genChestTexture(g, "chest-open", true);
     }
 
-    // ── Traps ──
-    this.genTrapSpike(g);
-    this.genTrapPoison(g);
+    // ── Traps (procedural fallback if PNG missing) ──
+    if (!this.textures.exists("trap-spike-1")) {
+      this.genTrapSpike(g);
+    }
 
     // ── Dust particle ──
     this.genParticleDust(g);
@@ -282,8 +331,13 @@ export class BootScene extends Phaser.Scene {
       });
       this.anims.create({
         key: `player-walk-${dir}`,
-        frames: (dir === "front" || dir === "back" ? [2, 3] : [1, 2, 3, 4])
-          .map((i) => ({ key: `player-walk-${dir}-${i}` })),
+        frames: (
+          dir === "front"
+            ? [1, 4]
+            : dir === "back"
+              ? [2, 3]
+              : [1, 2, 3, 4]
+        ).map((i) => ({ key: `player-walk-${dir}-${i}` })),
         frameRate: 8,
         repeat: -1,
       });
@@ -316,6 +370,31 @@ export class BootScene extends Phaser.Scene {
         key: `enemy-rock-attack-${dir}`,
         frames: [1, 2, 3, 4].map((i) => ({ key: `enemy-rock-attack-${dir}-${i}` })),
         frameRate: 10,
+        repeat: 0,
+      });
+    }
+  }
+
+  private createGolemAnimations() {
+    const dirs = ["front", "back", "side"] as const;
+
+    for (const dir of dirs) {
+      this.anims.create({
+        key: `enemy-golem-idle-${dir}`,
+        frames: [1, 2, 3, 4].map((i) => ({ key: `enemy-golem-idle-${dir}-${i}` })),
+        frameRate: 5,
+        repeat: -1,
+      });
+      this.anims.create({
+        key: `enemy-golem-walk-${dir}`,
+        frames: [1, 2, 3, 4].map((i) => ({ key: `enemy-golem-walk-${dir}-${i}` })),
+        frameRate: 6,
+        repeat: -1,
+      });
+      this.anims.create({
+        key: `enemy-golem-attack-${dir}`,
+        frames: [1, 2, 3, 4].map((i) => ({ key: `enemy-golem-attack-${dir}-${i}` })),
+        frameRate: 8,
         repeat: 0,
       });
     }
@@ -776,23 +855,6 @@ export class BootScene extends Phaser.Scene {
     g.generateTexture("trap-spike", s, s);
   }
 
-  // ── Poison trap (green puddle) ──
-  private genTrapPoison(g: Phaser.GameObjects.Graphics) {
-    const s = 20;
-    g.clear();
-
-    g.fillStyle(0x166534, 0.6);
-    g.fillEllipse(s / 2, s / 2 + 2, 16, 10);
-    g.fillStyle(0x22c55e, 0.5);
-    g.fillEllipse(s / 2, s / 2, 14, 8);
-
-    g.fillStyle(0x4ade80, 0.7);
-    g.fillCircle(s / 2 - 3, s / 2 - 1, 2);
-    g.fillCircle(s / 2 + 2, s / 2 + 1, 1.5);
-    g.fillCircle(s / 2 + 4, s / 2 - 2, 1);
-
-    g.generateTexture("trap-poison", s, s);
-  }
 
   // ── Dust particle (4×4 white circle) ──
   private genParticleDust(g: Phaser.GameObjects.Graphics) {

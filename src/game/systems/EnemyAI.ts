@@ -99,12 +99,17 @@ export class EnemyAI {
     const d = manhattan(enemy.pos, playerPos);
 
     switch (enemy.type) {
-      case EnemyType.BASIC:
+      case EnemyType.ROCK:
         if (d <= enemy.detectionRange) enemy.active = true;
         if (enemy.active) return this.moveToward(enemy.pos, playerPos);
         return this.randomStep(enemy.pos);
 
-      case EnemyType.TANKY:
+      case EnemyType.GOLEM:
+        if (d <= enemy.detectionRange) enemy.active = true;
+        if (enemy.active) return this.moveToward(enemy.pos, playerPos);
+        return null; // Stays still
+
+      case EnemyType.GHOST:
         if (d <= enemy.detectionRange) enemy.active = true;
         if (enemy.active) return this.moveToward(enemy.pos, playerPos);
         return null; // Stays still

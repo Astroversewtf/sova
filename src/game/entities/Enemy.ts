@@ -17,6 +17,7 @@ export class Enemy {
   private hearts: Phaser.GameObjects.Image[] = [];
   private hitFlashTimer: Phaser.Time.TimerEvent | null = null;
   private animatedRock = false;
+  private animatedGolem = false;
   private animatedGhost = false;
   private animatedSova = false;
   private facing: Facing = "front";
@@ -26,7 +27,7 @@ export class Enemy {
     this.pos = { ...pos };
     this.type = type;
     this.id = id;
-    this.hp = getEnemyHP(type, floor);
+    this.hp = getEnemyHP(type);
     this.maxHp = this.hp;
     this.detectionRange = getDetectionRange(type);
     this.active = type === EnemyType.BOSS;
@@ -35,11 +36,15 @@ export class Enemy {
     const py = pos.y * TILE_FULL_H + TILE_SIZE / 2;
 
     const canUseRock =
-      type === EnemyType.BASIC &&
+      type === EnemyType.ROCK &&
       scene.textures.exists("enemy-rock-idle-front-1") &&
       scene.anims.exists("enemy-rock-idle-front");
+    const canUseGolem =
+      type === EnemyType.GOLEM &&
+      scene.textures.exists("enemy-golem-idle-front-1") &&
+      scene.anims.exists("enemy-golem-idle-front");
     const canUseGhost =
-      type === EnemyType.TANKY &&
+      type === EnemyType.GHOST &&
       scene.textures.exists("enemy-ghost-idle-1") &&
       scene.anims.exists("enemy-ghost-idle");
     const canUseSova =
@@ -52,6 +57,11 @@ export class Enemy {
       spr.play("enemy-rock-idle-front");
       this.sprite = spr;
       this.animatedRock = true;
+    } else if (canUseGolem) {
+      const spr = scene.add.sprite(px, py, "enemy-golem-idle-front-1");
+      spr.play("enemy-golem-idle-front");
+      this.sprite = spr;
+      this.animatedGolem = true;
     } else if (canUseSova) {
       const spr = scene.add.sprite(px, py, "enemy-sova-idle-1");
       spr.play("enemy-sova-idle");
@@ -64,16 +74,21 @@ export class Enemy {
       this.animatedGhost = true;
     } else {
       const textureKey =
-        type === EnemyType.BASIC
-          ? "enemy-basic"
-          : type === EnemyType.TANKY
-            ? "enemy-tanky"
-            : "enemy-boss";
+        type === EnemyType.ROCK
+          ? "enemy-rock-fb"
+          : type === EnemyType.GOLEM
+            ? "enemy-golem-fb"
+            : type === EnemyType.GHOST
+              ? "enemy-ghost-fb"
+              : "enemy-boss";
       this.sprite = scene.add.image(px, py, textureKey);
     }
 
     this.sprite.setDepth(400);
-    this.sprite.setOrigin(0.5, 0.5);
+    // Boss sprite is 64x64 and visually taller than a tile.
+    // Raise it so feet align around the lower 3/4 of the tile.
+    const originY = type === EnemyType.BOSS ? 0.7 : 0.5;
+    this.sprite.setOrigin(0.5, originY);
 
     // Heart icons above enemy
     this.createHearts();
@@ -115,12 +130,14 @@ export class Enemy {
       this.updateFacingFromDir(dx, dy);
       const spr = this.sprite as Phaser.GameObjects.Sprite;
       spr.play(`enemy-rock-walk-${this.facing}`, true);
+    } else if (this.animatedGolem) {
+      this.updateFacingFromDir(dx, dy);
+      const spr = this.sprite as Phaser.GameObjects.Sprite;
+      spr.play(`enemy-golem-walk-${this.facing}`, true);
     } else if (this.animatedSova) {
-      // Sova has idle-only frames for now.
       const spr = this.sprite as Phaser.GameObjects.Sprite;
       spr.play("enemy-sova-idle", true);
     } else if (this.animatedGhost) {
-      // Ghost has only idle frames; keep idle loop while moving.
       const spr = this.sprite as Phaser.GameObjects.Sprite;
       spr.play("enemy-ghost-idle", true);
     }
@@ -134,6 +151,8 @@ export class Enemy {
       onComplete: () => {
         if (this.animatedRock && this.sprite.active) {
           (this.sprite as Phaser.GameObjects.Sprite).play(`enemy-rock-idle-${this.facing}`);
+        } else if (this.animatedGolem && this.sprite.active) {
+          (this.sprite as Phaser.GameObjects.Sprite).play(`enemy-golem-idle-${this.facing}`);
         } else if (this.animatedSova && this.sprite.active) {
           (this.sprite as Phaser.GameObjects.Sprite).play("enemy-sova-idle");
         } else if (this.animatedGhost && this.sprite.active) {
@@ -146,23 +165,32 @@ export class Enemy {
   }
 
   playAttack(onComplete?: () => void) {
-    if (!this.animatedRock || !this.sprite.active) {
+    if (!this.sprite.active) {
       onComplete?.();
       return;
     }
 
     const spr = this.sprite as Phaser.GameObjects.Sprite;
-    spr.play(`enemy-rock-attack-${this.facing}`);
-    spr.once("animationcomplete", () => {
-      if (this.sprite.active) {
-        spr.play(`enemy-rock-idle-${this.facing}`);
-      }
+
+    if (this.animatedRock) {
+      spr.play(`enemy-rock-attack-${this.facing}`);
+      spr.once("animationcomplete", () => {
+        if (this.sprite.active) spr.play(`enemy-rock-idle-${this.facing}`);
+        onComplete?.();
+      });
+    } else if (this.animatedGolem) {
+      spr.play(`enemy-golem-attack-${this.facing}`);
+      spr.once("animationcomplete", () => {
+        if (this.sprite.active) spr.play(`enemy-golem-idle-${this.facing}`);
+        onComplete?.();
+      });
+    } else {
       onComplete?.();
-    });
+    }
   }
 
   private updateFacingFromDir(dx: number, dy: number) {
-    if (!this.animatedRock) return;
+    if (!this.animatedRock && !this.animatedGolem) return;
 
     if (dy > 0) this.facing = "front";
     else if (dy < 0) this.facing = "back";
@@ -211,19 +239,91 @@ export class Enemy {
     for (const h of this.hearts) h.setVisible(v);
   }
 
+  /** MoG-style death: white flash → particle burst → soul rises + fades */
   die() {
     this.clearHitFlash();
-    this.scene.tweens.add({
-      targets: [this.sprite, ...this.hearts],
-      alpha: 0,
-      scaleX: 0.5,
-      scaleY: 0.5,
-      duration: 200,
-      onComplete: () => {
-        this.sprite.destroy();
-        for (const h of this.hearts) h.destroy();
-        this.hearts = [];
-      },
+    const sx = this.sprite.x;
+    const sy = this.sprite.y;
+
+    // 1. Flash white
+    this.sprite.setTintFill(0xffffff);
+
+    // 2. White particle burst (8 particles)
+    for (let i = 0; i < 8; i++) {
+      const size = 3 + 4 * Math.random();
+      const pg = this.scene.add.graphics();
+      pg.fillStyle(0xffffff, 1);
+      pg.fillCircle(0, 0, size / 2);
+      pg.setPosition(sx, sy);
+      pg.setDepth(550);
+      const angle = (i / 8) * Math.PI * 2 + 0.5 * Math.random();
+      const radius = 20 + 25 * Math.random();
+      this.scene.tweens.add({
+        targets: pg,
+        x: sx + Math.cos(angle) * radius,
+        y: sy + Math.sin(angle) * radius - 10,
+        alpha: { from: 1, to: 0 },
+        scale: { from: 1.2, to: 0.2 },
+        duration: 530 + 260 * Math.random(),
+        ease: "Quad.easeOut",
+        onComplete: () => pg.destroy(),
+      });
+    }
+
+    // 3. Hearts float up + fade
+    for (const h of this.hearts) {
+      this.scene.tweens.add({
+        targets: h,
+        alpha: 0,
+        y: h.y - 20,
+        duration: 460,
+        ease: "Power2.easeOut",
+        onComplete: () => h.destroy(),
+      });
+    }
+    this.hearts = [];
+
+    // 4. After 80ms flash, hide sprite → spawn soul → float up + shrink + fade
+    this.scene.time.delayedCall(80, () => {
+      this.sprite.setVisible(false);
+
+      const hasSoulAnim = this.scene.anims.exists("death-soul");
+      if (hasSoulAnim) {
+        const soul = this.scene.add.sprite(sx, sy, "death-1");
+        soul.setDepth(550);
+        soul.setOrigin(0.5, 0.5);
+        const frame = soul.frame;
+        const scale = TILE_SIZE / Math.max(frame.width, frame.height);
+        soul.setScale(scale);
+        soul.play("death-soul");
+
+        this.scene.tweens.add({
+          targets: soul,
+          alpha: 0,
+          y: sy - 50,
+          scaleX: scale * 0.3,
+          scaleY: scale * 0.3,
+          duration: 920,
+          ease: "Power2.easeOut",
+          onComplete: () => {
+            soul.destroy();
+            this.sprite.destroy();
+          },
+        });
+      } else {
+        this.sprite.setVisible(true);
+        this.sprite.clearTint();
+        this.scene.tweens.add({
+          targets: this.sprite,
+          alpha: 0,
+          y: sy - 50,
+          scaleX: 0.3,
+          scaleY: 0.3,
+          duration: 920,
+          ease: "Power2.easeOut",
+          onComplete: () => this.sprite.destroy(),
+        });
+      }
     });
   }
 

@@ -144,43 +144,24 @@ export class TurnManager {
     this.advanceToEnemyPhase();
   }
 
-  private static readonly MIN_TURN_MS = 120;
-
   private advanceToEnemyPhase() {
     this.phase = TurnPhase.ENEMY_MOVE;
     useGameStore.getState().setTurnPhase(TurnPhase.ENEMY_MOVE);
 
-    const t0 = performance.now();
     this.scene.enemyAI.processAllEnemies(() => {
       if (this.scene.energyManager.isDead()) {
         this.scene.endRun("energy");
         return;
       }
-      const elapsed = performance.now() - t0;
-      const remaining = TurnManager.MIN_TURN_MS - elapsed;
-      if (remaining > 0) {
-        this.scene.time.delayedCall(remaining, () => this.endTurn());
-      } else {
-        this.endTurn();
-      }
+      // End turn immediately after enemy resolution (MoG-like pacing).
+      this.endTurn();
     });
   }
 
   private endTurn() {
     this.phase = TurnPhase.CHECK_CONDITIONS;
 
-    // Tick poison DoT
     const store = useGameStore.getState();
-    const poisonDmg = store.tickPoison();
-    if (poisonDmg > 0) {
-      this.scene.energyManager.energy = store.energy;
-      this.scene.player.flashDamage();
-      this.scene.vfxManager.flashDamageOverlay();
-      if (this.scene.energyManager.isDead()) {
-        this.scene.endRun("energy");
-        return;
-      }
-    }
 
     // Update fog
     const radius = this.scene.energyManager.getVisionRadius();
@@ -265,12 +246,6 @@ export class TurnManager {
       store.setEnergy(this.scene.energyManager.energy);
       this.scene.player.flashDamage();
       this.scene.vfxManager.flashDamageOverlay();
-    }
-
-    // Poison trap: set 3 turns of DoT
-    if (trap.type === "poison") {
-      const current = store.poisonTurns;
-      store.setPoisonTurns(Math.max(current, 3));
     }
   }
 

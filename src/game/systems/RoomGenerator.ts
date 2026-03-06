@@ -10,15 +10,17 @@ import {
   type TrapSpawnData,
   type PropSpawnData,
   type PropType,
+  type WallPropSpawnData,
+  type WallPropType,
 } from "../types";
 import {
   getFloorSize,
-  getEnemyCount,
+  getEnemySpawnConfig,
   getTreasureCount,
   TREASURE_WEIGHTS,
   TREASURE_VALUES,
   BOSS_MIN_FLOOR,
-  BOSS_CHANCE,
+  getBossSpawnChance,
 } from "../constants";
 
 // ══════════════════════════════════════════════════════
@@ -556,7 +558,7 @@ function carveExactPassage(
 // PUBLIC API — generateFloor
 // ══════════════════════════════════════════════════════
 
-export function generateFloor(floor: number): FloorMap {
+export function generateFloor(floor: number, hasSpawnedBossThisRun = false): FloorMap {
   const { w, h } = getFloorSize(floor);
 
   // 1. Initialize grid
@@ -599,18 +601,23 @@ export function generateFloor(floor: number): FloorMap {
 
   // NO thickenWalls — passages must stay exactly 1×2
 
-  // 7. Spawn/stairs via graph diameter (BFS)
-  const edgePairs: [number, number][] = allConnections.map(c => [c.a, c.b]);
-  const adj = buildAdjList(rooms.length, edgePairs);
-  const spawnIdx = bfsFarthest(adj, 0);
-  const stairsIdx = bfsFarthest(adj, spawnIdx);
+  // 7. Spawn = most central room, stairs = random different room
+  const mapCx = Math.floor(w / 2);
+  const mapCy = Math.floor(h / 2);
+  const spawnIdx = rooms.reduce((best, r, i) =>
+    dist({ x: r.cx, y: r.cy }, { x: mapCx, y: mapCy }) <
+    dist({ x: rooms[best].cx, y: rooms[best].cy }, { x: mapCx, y: mapCy })
+      ? i : best, 0);
+  let stairsIdx = randInt(0, rooms.length - 2);
+  if (stairsIdx >= spawnIdx) stairsIdx++;
   const spawnRoom = rooms[spawnIdx];
-  const stairsRoom = rooms[stairsIdx === spawnIdx ? (spawnIdx + 1) % rooms.length : stairsIdx];
+  const stairsRoom = rooms[stairsIdx];
   const spawn: TilePos = { x: spawnRoom.cx, y: spawnRoom.cy };
   const stairs: TilePos = { x: stairsRoom.cx, y: stairsRoom.cy };
 
-  // 8. Boss check
-  const isBossFloor = floor >= BOSS_MIN_FLOOR && Math.random() < BOSS_CHANCE;
+  // 8. Boss check (dynamic chance, only once per run)
+  const bossChance = hasSpawnedBossThisRun ? 0 : getBossSpawnChance(floor);
+  const isBossFloor = floor >= BOSS_MIN_FLOOR && Math.random() < bossChance;
   let bossSpawn: TilePos | null = null;
   let statuePos: TilePos | null = null;
 
@@ -679,6 +686,9 @@ export function generateFloor(floor: number): FloorMap {
   // 14. Decorative props (inside rooms only, not in passages)
   const propSpawns = placeProps(cells, occupied, rooms, w, h);
 
+  // 15. Wall decorative props (lights & planks on south-facing walls)
+  const wallPropSpawns = placeWallProps(cells, rooms, spawn, stairs, w, h);
+
   return {
     width: w,
     height: h,
@@ -691,6 +701,7 @@ export function generateFloor(floor: number): FloorMap {
     trapSpawns,
     fountainSpawn,
     propSpawns,
+    wallPropSpawns,
     bossSpawn,
     statuePos,
   };
@@ -730,7 +741,12 @@ function placeEnemies(
     return [{ pos: bossSpawn, type: EnemyType.BOSS }];
   }
 
-  const { basic, tanky } = getEnemyCount(floor);
+  const cfg = getEnemySpawnConfig(floor);
+  const total = randInt(cfg.min, cfg.max);
+  const rockCount = Math.round(total * cfg.rockPct);
+  const golemCount = Math.round(total * cfg.golemPct);
+  const ghostCount = Math.max(0, total - rockCount - golemCount);
+
   const candidates = shuffle(
     getAllFloorTiles(cells, w, h).filter(
       (t) =>
@@ -741,11 +757,14 @@ function placeEnemies(
 
   const enemies: EnemySpawnData[] = [];
   let idx = 0;
-  for (let i = 0; i < basic && idx < candidates.length; i++, idx++) {
-    enemies.push({ pos: candidates[idx], type: EnemyType.BASIC });
+  for (let i = 0; i < rockCount && idx < candidates.length; i++, idx++) {
+    enemies.push({ pos: candidates[idx], type: EnemyType.ROCK });
   }
-  for (let i = 0; i < tanky && idx < candidates.length; i++, idx++) {
-    enemies.push({ pos: candidates[idx], type: EnemyType.TANKY });
+  for (let i = 0; i < golemCount && idx < candidates.length; i++, idx++) {
+    enemies.push({ pos: candidates[idx], type: EnemyType.GOLEM });
+  }
+  for (let i = 0; i < ghostCount && idx < candidates.length; i++, idx++) {
+    enemies.push({ pos: candidates[idx], type: EnemyType.GHOST });
   }
   return enemies;
 }
@@ -782,8 +801,8 @@ function placeChests(
 }
 
 function getTrapCount(floor: number): number {
-  if (floor <= 2) return randInt(2, 3);
-  if (floor <= 5) return randInt(3, 4);
+  if (floor < 3) return 0; // No traps before floor 3
+  if (floor <= 5) return randInt(2, 3);
   return randInt(3, 5);
 }
 
@@ -833,8 +852,7 @@ function placeTraps(
 
   const traps: TrapSpawnData[] = [];
   for (let i = 0; i < count && i < candidates.length; i++) {
-    const type = Math.random() < 0.6 ? TrapType.SPIKE : TrapType.POISON;
-    traps.push({ pos: candidates[i], type });
+    traps.push({ pos: candidates[i], type: TrapType.SPIKE });
   }
   return traps;
 }
@@ -896,6 +914,104 @@ function placeProps(
       props.push({ pos, type });
       usedTiles.add(`${pos.x},${pos.y}`);
       placed++;
+    }
+  }
+
+  return props;
+}
+
+/**
+ * Place decorative wall props (lights, planks) on south-facing walls.
+ * South-facing = VOID tile with a FLOOR tile directly below it.
+ */
+function placeWallProps(
+  cells: CellType[][],
+  rooms: Room[],
+  spawn: TilePos,
+  stairs: TilePos,
+  w: number,
+  h: number,
+): WallPropSpawnData[] {
+  const props: WallPropSpawnData[] = [];
+  const usedKeys = new Set<string>();
+
+  const isFloor = (x: number, y: number) =>
+    x >= 0 && y >= 0 && x < w && y < h && cells[y][x] === CellType.FLOOR;
+
+  const isSouthFacingWall = (x: number, y: number) =>
+    y >= 0 && y < h && x >= 0 && x < w &&
+    cells[y][x] === CellType.VOID && isFloor(x, y + 1);
+
+  // Minimum Manhattan distance between any two wall props.
+  // 2 => prevents side-by-side adjacency and leaves at least one empty tile between them.
+  const MIN_DIST = 2;
+  const tooClose = (pos: TilePos) => {
+    for (const key of usedKeys) {
+      const [px, py] = key.split(",").map(Number);
+      if (Math.abs(pos.x - px) + Math.abs(pos.y - py) < MIN_DIST) return true;
+    }
+    return false;
+  };
+
+  // Skip walls adjacent to spawn/stairs
+  const isNearSpecial = (x: number, y: number) =>
+    (Math.abs(x - spawn.x) <= 1 && Math.abs(y - spawn.y) <= 1) ||
+    (Math.abs(x - stairs.x) <= 1 && Math.abs(y - stairs.y) <= 1);
+
+  for (const room of rooms) {
+    // Collect south-facing wall tiles belonging to this room
+    // Check one row above the room (y = room.y - 1) and all interior rows
+    const candidates: TilePos[] = [];
+    for (let y = room.y - 1; y < room.y + room.h; y++) {
+      for (let x = room.x; x < room.x + room.w; x++) {
+        if (!isSouthFacingWall(x, y)) continue;
+        if (isNearSpecial(x, y)) continue;
+        candidates.push({ x, y });
+      }
+    }
+    shuffle(candidates);
+
+    // Room size determines min lights: >= 5x3 → min 2, otherwise min 1
+    const isLargeRoom = (room.w >= 5 && room.h >= 3) || (room.w >= 3 && room.h >= 5);
+    const minLights = isLargeRoom ? 2 : 1;
+    const maxLights = Math.max(minLights, randInt(minLights, 3));
+    const maxPlanks = randInt(2, 4);
+    let lights = 0;
+    let planks = 0;
+
+    // First pass: guarantee minimum lights
+    for (const pos of candidates) {
+      if (lights >= minLights) break;
+      const key = `${pos.x},${pos.y}`;
+      if (usedKeys.has(key) || tooClose(pos)) continue;
+      props.push({ pos, type: "light" });
+      usedKeys.add(key);
+      lights++;
+    }
+
+    // Second pass: fill remaining lights + planks with probability
+    for (const pos of candidates) {
+      if (lights >= maxLights && planks >= maxPlanks) break;
+      const key = `${pos.x},${pos.y}`;
+      if (usedKeys.has(key) || tooClose(pos)) continue;
+
+      // ~20% chance per eligible tile
+      if (Math.random() > 0.20) continue;
+
+      let type: WallPropType;
+      if (lights < maxLights && planks < maxPlanks) {
+        type = Math.random() < 0.35 ? "light" : "plank";
+      } else if (lights < maxLights) {
+        type = "light";
+      } else {
+        type = "plank";
+      }
+
+      if (type === "light") lights++;
+      else planks++;
+
+      props.push({ pos, type });
+      usedKeys.add(key);
     }
   }
 

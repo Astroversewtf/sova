@@ -176,6 +176,84 @@ export class Player {
     });
   }
 
+  /** MoG-style death: white flash → particle burst → soul rises + fades */
+  playDeath(onComplete?: () => void) {
+    this.hitFlashTimer?.remove(false);
+    this.hitFlashTimer = null;
+    const sx = this.sprite.x;
+    const sy = this.sprite.y;
+
+    // 1. Flash white
+    this.sprite.setTintFill(0xffffff);
+
+    // 2. Purple particle burst (14 particles, MoG player death style)
+    const purples = [0x9b59b6, 0x8e44ad, 0xbb6bd9, 0x7d3c98];
+    for (let i = 0; i < 14; i++) {
+      const size = 4 + 5 * Math.random();
+      const color = purples[Math.floor(Math.random() * purples.length)];
+      const pg = this.scene.add.graphics();
+      pg.fillStyle(color, 1);
+      pg.fillCircle(0, 0, size / 2);
+      pg.setPosition(sx, sy);
+      pg.setDepth(550);
+      const angle = (i / 14) * Math.PI * 2 + 0.5 * Math.random();
+      const radius = 30 + 35 * Math.random();
+      this.scene.tweens.add({
+        targets: pg,
+        x: sx + Math.cos(angle) * radius,
+        y: sy + Math.sin(angle) * radius - 10,
+        alpha: { from: 1, to: 0 },
+        scale: { from: 1.5, to: 0.3 },
+        duration: 700 + 350 * Math.random(),
+        ease: "Quad.easeOut",
+        onComplete: () => pg.destroy(),
+      });
+    }
+
+    // 3. After 130ms flash, hide sprite → spawn soul → float up + fade
+    this.scene.time.delayedCall(130, () => {
+      this.sprite.setVisible(false);
+
+      const hasSoulAnim = this.scene.anims.exists("death-soul");
+      if (hasSoulAnim) {
+        const soul = this.scene.add.sprite(sx, sy, "death-1");
+        soul.setDepth(550);
+        soul.setOrigin(0.5, 0.5);
+        const frame = soul.frame;
+        const scale = TILE_SIZE / Math.max(frame.width, frame.height);
+        soul.setScale(scale);
+        soul.play("death-soul");
+
+        this.scene.tweens.add({
+          targets: soul,
+          alpha: 0,
+          y: sy - 70,
+          scaleX: scale * 0.3,
+          scaleY: scale * 0.3,
+          duration: 1320,
+          ease: "Power2.easeOut",
+          onComplete: () => {
+            soul.destroy();
+            onComplete?.();
+          },
+        });
+      } else {
+        this.sprite.setVisible(true);
+        this.sprite.clearTint();
+        this.scene.tweens.add({
+          targets: this.sprite,
+          alpha: 0,
+          y: sy - 70,
+          scaleX: 0.3,
+          scaleY: 0.3,
+          duration: 1320,
+          ease: "Power2.easeOut",
+          onComplete: () => onComplete?.(),
+        });
+      }
+    });
+  }
+
   /** Snap position without tween */
   teleport(pos: TilePos) {
     this.pos = { ...pos };

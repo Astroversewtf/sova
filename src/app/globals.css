@@ -20,9 +20,13 @@ html, body {
   overflow: hidden;
 }
 
-/* Custom pixel cursor — pointer everywhere */
-*, *::before, *::after {
-  cursor: url('/images/custom-cursor-pointer.png') 4 0, auto !important;
+/* Custom pixel cursors */
+*, *::before, *::after, canvas {
+  cursor: url('/sprites/ui/cursor/cursor_arrow_01.png') 0 0, auto !important;
+}
+a, button, [role="button"], input[type="submit"], input[type="button"],
+select, label, summary, [onclick], .cursor-pointer {
+  cursor: url('/sprites/ui/cursor/cursor_hand_01.png') 6 0, pointer !important;
 }
 
 .font-pixel {
