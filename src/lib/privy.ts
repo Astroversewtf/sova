@@ -4,13 +4,13 @@ import { Address, encodeFunctionData, erc20Abi, parseEther, parseUnits } from "v
 
 const CHAIN_ID = Number(process.env.NEXT_PUBLIC_CHAIN_ID)
 const WALLET_ADDRESS = process.env.NEXT_PUBLIC_WALLET_ADDRESS as `0x${string}`
-const USDC_ADDRESS = process.env.NEXT_PUBLIC_USDC_ADDRESS as `0x${string}`
+const USDT_ADDRESS = process.env.NEXT_PUBLIC_USDT_ADDRESS as `0x${string}`
 
 
 export function usePrivyTransaction() {
     const { sendTransaction } = useSendTransaction();
     
-    async function sendTransactionBuy(amount: string) {
+    async function sendTransactionBuyUSDT(amount: string) {
         const data = encodeFunctionData({
             abi: erc20Abi,
             functionName: "transfer",
@@ -19,11 +19,19 @@ export function usePrivyTransaction() {
         });
 
         return sendTransaction({
-            to: USDC_ADDRESS,
+            to: USDT_ADDRESS,
             data,
             chainId: CHAIN_ID
         });
     }
 
-    return { sendTransactionBuy }
+    async function sendTransactionBuyAVAX(amount: string) {
+        return sendTransaction({
+            to: WALLET_ADDRESS,
+            value: parseEther(amount),
+            chainId: CHAIN_ID
+        })
+    }
+
+    return { sendTransactionBuyUSDT: sendTransactionBuyUSDT, sendTransactionBuyAVAX: sendTransactionBuyAVAX }
 }
