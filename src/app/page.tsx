@@ -57,6 +57,15 @@ function PrivyConnectView() {
     }
   }, [ready, authenticated, user]);
 
+  async function verifyCode() {
+    const res = await fetch("/api/beta", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code }),
+    });
+    if(res.ok) setUnlocked(true);
+  }
+
   if (!unlocked) {
     return (
       <div className="h-dvh relative overflow-hidden flex flex-col items-center justify-center bg-[#0c1220]">
@@ -83,17 +92,13 @@ function PrivyConnectView() {
               value={code}
               onChange={(e) => setCode(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && code === process.env.NEXT_PUBLIC_BETA_CODE) {
-                  setUnlocked(true);
-                }
+                if (e.key === "Enter") verifyCode();
               }}
               placeholder="Enter access code..."
               className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-sm text-white text-center placeholder-gray-500 focus:outline-none focus:border-[#b8e550]/50 focus:ring-1 focus:ring-[#b8e550]/30 transition-all"
             />
             <button
-              onClick={() => {
-                if (code === process.env.NEXT_PUBLIC_BETA_CODE) setUnlocked(true);
-              }}
+              onClick={verifyCode}
               className="w-full bg-[#b8e550] hover:bg-[#c5ed65] text-white font-pixel text-sm py-3 px-8 rounded-lg border-2 border-[#a0cc40]/50 transition-all uppercase tracking-wide shadow-[0_4px_0_#7a9e30] hover:shadow-[0_2px_0_#7a9e30] hover:translate-y-[2px] active:shadow-none active:translate-y-[4px]"
               style={{ textShadow: "-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000" }}
             >
