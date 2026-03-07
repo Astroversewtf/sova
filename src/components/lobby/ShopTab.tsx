@@ -109,15 +109,6 @@ function PackageSlot({ itemKey }: { itemKey: ShopItemKey}) {
 export function ShopTab() {
   return (
     <div className="p-6 overflow-y-auto h-full">
-      <div className="mb-8">
-        <h3 className="font-pixel text-sm text-amber-400 mb-4 uppercase text-outline">
-          Golden Tickets
-        </h3>
-        <div className="grid grid-cols-1 gap-4">
-          <PackageSlot itemKey="golden_ticket" />
-        </div>
-      </div>
-
       <div>
         <h3 className="font-pixel text-sm text-blue-400 mb-4 uppercase text-outline">
           Dungeon Keys
