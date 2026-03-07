@@ -1,5 +1,12 @@
 import { create } from "zustand";
-import { createUser, updateUser } from "@/lib/firestore";
+
+function updateUser(address : string, data : Record<string, unknown>) {
+  fetch("/api/user", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ address, ...data }),
+  });
+}
 
 export interface LeaderboardEntry {
   rank: number;
@@ -52,20 +59,26 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   weeklyLeaderboard: [],
 
   loadFromDB: async (wallet) => {
-    const user = await createUser(wallet);
-    set({
-      walletAddress: wallet,
-      coins: user.coins,
-      orbs: user.gems,
-      keys: user.keys,
-      gems: user.gems,
-      goldenTickets: user.goldenTickets,
-      totalEarnings: user.totalEarnings,
-      weeklyEarnings: user.weeklyEarnings,
-      jackpotEarnings: user.jackpotEarnings,
-      bestScore: user.bestScore,
-      weeklyScore: user.weeklyScore,
+    const res = await fetch("/api/user", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ address: wallet }),
     });
+    const user = await res.json();
+    if (user) {
+      set({
+        walletAddress: wallet,
+        coins: user.coins ?? 0,
+        gems: user.gems ?? 0,
+        keys: user.keys ?? 0,
+        goldenTickets: user.goldenTickets ?? 0,
+        totalEarnings: user.totalEarnings ?? 0,
+        weeklyEarnings: user.weeklyEarnings ?? 0,
+        jackpotEarnings: user.jackpotEarnings ?? 0,
+        bestScore: user.bestScore ?? 0,
+        weeklyScore: user.weeklyScore ?? 0,
+      });
+    }
   },
 
   addCoins: (amount) => {
