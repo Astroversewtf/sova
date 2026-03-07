@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useWalletStore } from "@/stores/walletStore";
 import { TopBar } from "@/components/TopBar";
 import { BottomNav } from "@/components/BottomNav";
@@ -31,7 +31,7 @@ const PhaserGame = dynamic(
 function ConnectView() {
   const { ready, authenticated, user} = usePrivy();
   const walletStoreConnect = useWalletStore((s) => s.connect);
-  const { setAvaxBalance } = usePlayerStore();
+  const { setAvaxBalance, loadFromDB } = usePlayerStore();
   const { login } = useLogin({
     onComplete: async ({ user }) => {
       const wallet = user?.wallet;
@@ -39,8 +39,8 @@ function ConnectView() {
       if(wallet) {
         walletStoreConnect(wallet.address, 43113)
         const balance = await getBalance(wallet?.address as `0x${string}`);
-        console.log(Number(balance) / 1e18);
         setAvaxBalance(Number(balance) / 1e18);
+        await loadFromDB(wallet.address);
       }
     }
   })
@@ -52,6 +52,7 @@ function ConnectView() {
       getBalance(address as `0x${string}`).then((balance) => {
         setAvaxBalance(Number(balance) / 1e18);
       });
+      loadFromDB(address);
     }
   }, [ready, authenticated, user]);
 

@@ -80,7 +80,7 @@ function PackageSlot({ icon, label, unitPrice, item }: { icon: string; label: st
     try {
       const receipt = await sendTransactionBuyAVAX(totalPrice);
       console.log("Transaction success", receipt);
-      // TODO NEED TO CHECK IF THE EVENTS ON CHAIN ARE CONFIRMED
+      //TODO CHECK IN CHAIN TRANSACTION
       if(item === ITEMS.golden_ticket) {
         playerStore.addTickets(quantity);
       } else if (item === ITEMS.key) {
