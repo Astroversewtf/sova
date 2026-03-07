@@ -40,6 +40,7 @@ export interface PurchaseDoc {
   purchasedAt: unknown;
 }
 
+
 export interface LeaderboardDoc {
   player: string;
   score: number;
