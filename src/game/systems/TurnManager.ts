@@ -1,6 +1,6 @@
 import { TurnPhase, TreasureType, CellType, type TilePos } from "../types";
 import type { GameScene } from "../scenes/GameScene";
-import { TREASURE_VALUES } from "../constants";
+import { TREASURE_VALUES, getTier } from "../constants";
 import { Treasure } from "../entities/Treasure";
 import { useGameStore } from "@/stores/gameStore";
 
@@ -213,8 +213,11 @@ export class TurnManager {
     }
 
     const id = `chest-loot-${Date.now()}`;
+    const tier = getTier(this.scene.currentFloor);
+    const baseValue = TREASURE_VALUES[type];
+    const finalValue = type === TreasureType.ORB ? baseValue : Math.floor(baseValue * tier.lootMult);
     const t = new Treasure(
-      this.scene, pos, type, TREASURE_VALUES[type], id,
+      this.scene, pos, type, finalValue, id,
     );
     this.scene.treasures.push(t);
     t.setVisible(this.scene.fogOfWar.isVisible(pos));

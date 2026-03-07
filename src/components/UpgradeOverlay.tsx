@@ -3,14 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useGameStore } from "@/stores/gameStore";
 import { UPGRADES } from "@/game/constants";
-import type { UpgradeDef, UpgradeId } from "@/game/types";
+import type { UpgradeDef, UpgradeId, UpgradeRarity } from "@/game/types";
 
-// Rarity classification
-function getRarity(upgrade: UpgradeDef): "Common" | "Rare" | "Epic" {
-  const epicIds = ["life_steal", "second_wind", "treasure_magnet"];
-  const rareIds = ["sharp_blade", "vitality_surge", "eagle_eye"];
-  if (epicIds.includes(upgrade.id)) return "Epic";
-  if (rareIds.includes(upgrade.id)) return "Rare";
+function getRarityLabel(rarity: UpgradeRarity): "Common" | "Rare" | "Epic" {
+  if (rarity === "epic") return "Epic";
+  if (rarity === "rare") return "Rare";
   return "Common";
 }
 
@@ -49,8 +46,40 @@ function rollChoices(upgrades: Record<string, number>): UpgradeDef[] {
     if (!u.stackable && (upgrades[u.id] ?? 0) > 0) return false;
     return true;
   });
-  const shuffled = [...available].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, Math.min(3, shuffled.length));
+
+  const byRarity = {
+    common: available.filter((u) => u.rarity === "common"),
+    rare: available.filter((u) => u.rarity === "rare"),
+    epic: available.filter((u) => u.rarity === "epic"),
+  };
+
+  const picked: UpgradeDef[] = [];
+  const usedIds = new Set<UpgradeId>();
+
+  for (let i = 0; i < 3; i++) {
+    const roll = Math.random();
+    let target: "common" | "rare" | "epic";
+    if (roll < 0.6) target = "common";
+    else if (roll < 0.9) target = "rare";
+    else target = "epic";
+
+    const fallback: ("common" | "rare" | "epic")[] =
+      target === "epic" ? ["epic", "rare", "common"]
+        : target === "rare" ? ["rare", "common"]
+          : ["common", "rare"];
+
+    for (const r of fallback) {
+      const pool = byRarity[r].filter((u) => !usedIds.has(u.id));
+      if (pool.length > 0) {
+        const choice = pool[Math.floor(Math.random() * pool.length)];
+        picked.push(choice);
+        usedIds.add(choice.id);
+        break;
+      }
+    }
+  }
+
+  return picked;
 }
 
 export function UpgradeOverlay() {
@@ -252,7 +281,7 @@ function UpgradeCard({
     );
   }
 
-  const rarity = getRarity(upgrade);
+  const rarity = getRarityLabel(upgrade.rarity);
   const styles = RARITY_STYLES[rarity];
 
   return (

@@ -113,9 +113,9 @@ export const useGameStore = create<GameState>((set, get) => ({
   addTreasure: (type, value) =>
     set((s) => ({
       treasureScore: s.treasureScore + value,
-      coinsCollected: s.coinsCollected + (type === "coin" ? 1 : 0),
-      orbsCollected: s.orbsCollected + (type === "orb" ? 1 : 0),
-      goldenTicketsCollected: s.goldenTicketsCollected + (type === "golden_ticket" ? 1 : 0),
+      coinsCollected: s.coinsCollected + (type === "coin" ? value : 0),
+      orbsCollected: s.orbsCollected + (type === "orb" ? value : 0),
+      goldenTicketsCollected: s.goldenTicketsCollected + (type === "golden_ticket" ? value : 0),
     })),
 
   setTurnPhase: (phase) => set({ turnPhase: phase }),

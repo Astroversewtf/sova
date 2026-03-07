@@ -4,12 +4,13 @@ import { TILE_SIZE, TILE_FULL_H } from "../constants";
 import type { GameScene } from "../scenes/GameScene";
 
 export class Trap {
-  sprite: Phaser.GameObjects.Image;
+  sprite: Phaser.GameObjects.Sprite | Phaser.GameObjects.Image;
   pos: TilePos;
   id: string;
   private scene: GameScene;
   private floor: number;
   private baseScale: number = 1;
+  private animated = false;
 
   constructor(scene: GameScene, pos: TilePos, id: string, floor: number) {
     this.scene = scene;
@@ -17,26 +18,35 @@ export class Trap {
     this.id = id;
     this.floor = floor;
 
-    // Use spike sprite if available, fallback to procedural
-    const textureKey = scene.textures.exists("trap-spike-1")
-      ? "trap-spike-1"
-      : "trap-spike";
+    const px = pos.x * TILE_SIZE + TILE_SIZE / 2;
+    const py = pos.y * TILE_FULL_H + TILE_SIZE / 2;
 
-    this.sprite = scene.add.image(
-      pos.x * TILE_SIZE + TILE_SIZE / 2,
-      pos.y * TILE_FULL_H + TILE_SIZE / 2,
-      textureKey,
-    );
-    this.sprite.setDepth(150);
-    this.sprite.setOrigin(0.5, 0.5);
+    const canAnimate =
+      scene.textures.exists("trap-spike-1") &&
+      scene.anims.exists("trap-spike-idle");
 
-    // Scale sprite to fill tile
-    if (scene.textures.exists("trap-spike-1")) {
+    if (canAnimate) {
+      const spr = scene.add.sprite(px, py, "trap-spike-1");
+      spr.play("trap-spike-idle");
+      this.sprite = spr;
+      this.animated = true;
+
+      const frame = spr.frame;
+      const scale = TILE_SIZE / Math.max(frame.width, frame.height);
+      spr.setScale(scale);
+      this.baseScale = scale;
+    } else if (scene.textures.exists("trap-spike-1")) {
+      this.sprite = scene.add.image(px, py, "trap-spike-1");
       const frame = this.sprite.frame;
       const scale = TILE_SIZE / Math.max(frame.width, frame.height);
       this.sprite.setScale(scale);
       this.baseScale = scale;
+    } else {
+      this.sprite = scene.add.image(px, py, "trap-spike");
     }
+
+    this.sprite.setDepth(150);
+    this.sprite.setOrigin(0.5, 0.5);
   }
 
   /** Base 6 damage at floor 3, +1 per floor after. Reduced by thick skin. */
@@ -49,17 +59,26 @@ export class Trap {
     const base = this.getBaseDamage();
     const dmg = Math.max(1, base - thickSkinStacks);
 
-    // Brief spike jab animation (squash & stretch)
-    this.scene.tweens.killTweensOf(this.sprite);
-    this.sprite.setScale(this.baseScale, this.baseScale);
-    this.scene.tweens.add({
-      targets: this.sprite,
-      scaleY: this.baseScale * 1.3,
-      scaleX: this.baseScale * 0.85,
-      duration: 80,
-      yoyo: true,
-      ease: "Power2",
-    });
+    // Play jab animation (4 frames: retracted → full → retracting)
+    if (this.animated) {
+      const spr = this.sprite as Phaser.GameObjects.Sprite;
+      spr.play("trap-spike-jab");
+      spr.once("animationcomplete", () => {
+        if (spr.active) spr.play("trap-spike-idle");
+      });
+    } else {
+      // Fallback: squash & stretch tween
+      this.scene.tweens.killTweensOf(this.sprite);
+      this.sprite.setScale(this.baseScale, this.baseScale);
+      this.scene.tweens.add({
+        targets: this.sprite,
+        scaleY: this.baseScale * 1.3,
+        scaleX: this.baseScale * 0.85,
+        duration: 80,
+        yoyo: true,
+        ease: "Power2",
+      });
+    }
 
     // Damage popup via PopupManager
     this.scene.popupManager.showPlayerDamageNumber(this.pos.x, this.pos.y, dmg);

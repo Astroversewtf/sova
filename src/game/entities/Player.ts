@@ -98,7 +98,8 @@ export class Player {
   /** Start walk animation in current facing direction */
   playWalk() {
     if (!this.animated) return;
-    (this.sprite as Phaser.GameObjects.Sprite).play(`player-walk-${this.facing}`);
+    // Keep walk loop continuous across chained moves (avoid restarting every tile).
+    (this.sprite as Phaser.GameObjects.Sprite).play(`player-walk-${this.facing}`, true);
   }
 
   /** Return to idle animation */
@@ -183,6 +184,11 @@ export class Player {
     const sx = this.sprite.x;
     const sy = this.sprite.y;
 
+    // Stop any current animation
+    if (this.animated) {
+      (this.sprite as Phaser.GameObjects.Sprite).stop();
+    }
+
     // 1. Flash white
     this.sprite.setTintFill(0xffffff);
 
@@ -210,12 +216,13 @@ export class Player {
       });
     }
 
-    // 3. After 130ms flash, hide sprite → spawn soul → float up + fade
-    this.scene.time.delayedCall(130, () => {
-      this.sprite.setVisible(false);
+    // 3. After 100ms flash, clear tint → death anim → float up 200px + fade
+    this.scene.time.delayedCall(100, () => {
+      this.sprite.clearTint();
 
       const hasSoulAnim = this.scene.anims.exists("death-soul");
       if (hasSoulAnim) {
+        this.sprite.setVisible(false);
         const soul = this.scene.add.sprite(sx, sy, "death-1");
         soul.setDepth(550);
         soul.setOrigin(0.5, 0.5);
@@ -227,10 +234,10 @@ export class Player {
         this.scene.tweens.add({
           targets: soul,
           alpha: 0,
-          y: sy - 70,
+          y: sy - 200,
           scaleX: scale * 0.3,
           scaleY: scale * 0.3,
-          duration: 1320,
+          duration: 1400,
           ease: "Power2.easeOut",
           onComplete: () => {
             soul.destroy();
@@ -238,15 +245,14 @@ export class Player {
           },
         });
       } else {
-        this.sprite.setVisible(true);
-        this.sprite.clearTint();
+        // Fallback: sprite floats up + fades (MoG style — 200px rise, 1400ms)
         this.scene.tweens.add({
           targets: this.sprite,
           alpha: 0,
-          y: sy - 70,
+          y: sy - 200,
           scaleX: 0.3,
           scaleY: 0.3,
-          duration: 1320,
+          duration: 1400,
           ease: "Power2.easeOut",
           onComplete: () => onComplete?.(),
         });

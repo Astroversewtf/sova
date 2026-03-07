@@ -3,10 +3,6 @@ import type { Treasure } from "../entities/Treasure";
 import type { GameScene } from "../scenes/GameScene";
 import { useGameStore } from "@/stores/gameStore";
 
-function manhattan(a: TilePos, b: TilePos): number {
-  return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
-}
-
 export class TreasureManager {
   private scene: GameScene;
 
@@ -15,19 +11,7 @@ export class TreasureManager {
   }
 
   checkPickup(playerPos: TilePos) {
-    // Direct pickup
     this.collectAt(playerPos);
-
-    // Treasure Magnet — auto-collect within radius
-    const magnetStacks = useGameStore.getState().getUpgradeStacks("treasure_magnet");
-    if (magnetStacks > 0) {
-      const magnetRadius = magnetStacks * 2;
-      for (const t of this.scene.treasures) {
-        if (!t.collected && manhattan(playerPos, t.pos) <= magnetRadius) {
-          this.collectTreasure(t);
-        }
-      }
-    }
   }
 
   private collectAt(pos: TilePos) {

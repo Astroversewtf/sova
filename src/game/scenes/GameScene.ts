@@ -82,13 +82,18 @@ export class GameScene extends Phaser.Scene {
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd!: Record<string, Phaser.Input.Keyboard.Key>;
   private chatFocused = false;
+  private heldInputDir: { dx: number; dy: number } | null = null;
+  private heldInputStartedAt = 0;
+  private heldInputLastRepeatAt = 0;
+  private static readonly INPUT_REPEAT_DELAY_MS = 190;
+  private static readonly INPUT_REPEAT_MS = 85;
 
   constructor() {
     super({ key: "GameScene" });
   }
 
   create() {
-    this.cameras.main.setBackgroundColor(0x000000);
+    this.cameras.main.setBackgroundColor(0x676767);
 
     // Camera — keep player locked to center while moving
     this.cameras.main.setZoom(CAMERA_ZOOM);
@@ -147,6 +152,9 @@ export class GameScene extends Phaser.Scene {
     }
     this.isProcessingAction = false;
     this.pendingMove = null;
+    this.heldInputDir = null;
+    this.heldInputStartedAt = 0;
+    this.heldInputLastRepeatAt = 0;
 
     // Cleanup previous floor
     this.cleanupFloor();
@@ -175,8 +183,7 @@ export class GameScene extends Phaser.Scene {
     const wallPad = halfVP + 7; // extra margin so camera never reaches the edge
     this.renderTiles(cells, width, height, wallPad);
 
-    // Checkered overlay — 12% black on alternating floor tiles (MoG depth 1)
-    this.createCheckeredOverlay(cells, width, height);
+    // No checkered overlay when using varied floor PNGs.
 
     // Camera bounds — tighter than wall-fill, so camera can never see past wall tiles
     const boundsPad = halfVP * TILE_SIZE;
@@ -238,18 +245,8 @@ export class GameScene extends Phaser.Scene {
       ? new Fountain(this, fountainSpawn, "fountain-0")
       : null;
 
-    // Decorative props (rocks on floor, no interaction)
-    this.props = propSpawns.map((p) => {
-      const texKey = p.type === "rock_small" ? "prop-rock-small" : "prop-rock-big";
-      const img = this.add.image(
-        p.pos.x * TILE_SIZE + TILE_SIZE / 2,
-        p.pos.y * TILE_SIZE + TILE_SIZE / 2,
-        texKey,
-      );
-      img.setDepth(100);
-      img.setData("tilePos", p.pos);
-      return img;
-    });
+    // Decorative floor props disabled
+    this.props = [];
 
     // Wall decorative props (lights & planks on south-facing walls)
     for (const wp of wallPropSpawns) {
@@ -296,6 +293,25 @@ export class GameScene extends Phaser.Scene {
       x >= 0 && y >= 0 && x < w && y < h && cells[y][x] === CellType.FLOOR;
 
     const usePngWalls = this.textures.exists("wall-fill");
+    const floorVariants: string[] = [];
+    const addWeighted = (key: string, weight: number) => {
+      if (!this.textures.exists(key) || weight <= 0) return;
+      for (let i = 0; i < weight; i++) floorVariants.push(key);
+    };
+
+    // Make clean tile appear much more often than the others.
+    addWeighted("tile-floor", 20);
+    addWeighted("tile-floor-alt", 2);
+    addWeighted("tile-floor-dirty-2", 1);
+    addWeighted("tile-floor-empty", 1);
+    addWeighted("tile-floor-cracked-lt", 1);
+    addWeighted("tile-floor-cracked-rt", 1);
+    addWeighted("tile-floor-cracked-lb", 1);
+    addWeighted("tile-floor-cracked-rb", 1);
+
+    if (floorVariants.length === 0) {
+      floorVariants.push("tile-floor");
+    }
 
     // Render map tiles + wall-fill border (pad tiles on each side)
     for (let y = -pad; y < h + pad; y++) {
@@ -305,9 +321,10 @@ export class GameScene extends Phaser.Scene {
         const inMap = x >= 0 && y >= 0 && x < w && y < h;
 
         if (inMap && cells[y][x] === CellType.FLOOR) {
-          // Floor tile
-          const isAlt = (x + y) % 2 === 0;
-          const img = this.add.image(px, py, isAlt ? "tile-floor" : "tile-floor-alt");
+          // Floor tile (no checkerboard): deterministic pseudo-random variant per tile.
+          const hash = Math.abs((x * 73856093) ^ (y * 19349663) ^ (this.currentFloor * 83492791));
+          const key = floorVariants[hash % floorVariants.length];
+          const img = this.add.image(px, py, key);
           img.setDepth(100).setOrigin(0.5, 0.5);
           this.tileSprites.set(`${x},${y}`, img);
         } else if (inMap && usePngWalls) {
@@ -492,31 +509,73 @@ export class GameScene extends Phaser.Scene {
       this.vfxManager.updateDesaturation(energy, this.energyManager.maxEnergy);
     }
 
-    if (this.chatFocused) return;
-
-    // Read directional input (single press event)
-    const kb = Phaser.Input.Keyboard;
-    let dx = 0, dy = 0;
-    if (kb.JustDown(this.cursors.up) || kb.JustDown(this.wasd.W)) {
-      dy = -1;
-    } else if (kb.JustDown(this.cursors.down) || kb.JustDown(this.wasd.S)) {
-      dy = 1;
-    } else if (kb.JustDown(this.cursors.left) || kb.JustDown(this.wasd.A)) {
-      dx = -1;
-    } else if (kb.JustDown(this.cursors.right) || kb.JustDown(this.wasd.D)) {
-      dx = 1;
-    }
-
-    if (dx !== 0 || dy !== 0) {
-      if (this.isProcessingAction) {
-        // Queue for after current action completes (MoG pendingMove)
-        this.pendingMove = { dx, dy };
-      } else if (this.turnManager.phase === TurnPhase.PLAYER_INPUT) {
-        this.executeMove(dx, dy);
-      }
+    if (this.chatFocused) {
+      this.heldInputDir = null;
       return;
     }
 
+    const now = this.time.now;
+    const justDown = this.getJustDownDirection();
+    const held = this.getHeldDirection();
+
+    // First press: always execute once (1 tap = 1 tile).
+    if (justDown) {
+      this.heldInputDir = justDown;
+      this.heldInputStartedAt = now;
+      this.heldInputLastRepeatAt = now;
+      this.submitDirectionalInput(justDown.dx, justDown.dy);
+      return;
+    }
+
+    // Nothing held: clear repeat state.
+    if (!held) {
+      this.heldInputDir = null;
+      return;
+    }
+
+    // Direction changed while keys are already held.
+    if (!this.heldInputDir || held.dx !== this.heldInputDir.dx || held.dy !== this.heldInputDir.dy) {
+      this.heldInputDir = held;
+      this.heldInputStartedAt = now;
+      this.heldInputLastRepeatAt = now;
+      return;
+    }
+
+    // Hold repeat with a delay to avoid accidental double-steps on a quick tap.
+    if (now - this.heldInputStartedAt < GameScene.INPUT_REPEAT_DELAY_MS) return;
+    if (now - this.heldInputLastRepeatAt < GameScene.INPUT_REPEAT_MS) return;
+
+    this.heldInputLastRepeatAt = now;
+    this.submitDirectionalInput(held.dx, held.dy);
+
+  }
+
+  private getJustDownDirection(): { dx: number; dy: number } | null {
+    const kb = Phaser.Input.Keyboard;
+    if (kb.JustDown(this.cursors.up) || kb.JustDown(this.wasd.W)) return { dx: 0, dy: -1 };
+    if (kb.JustDown(this.cursors.down) || kb.JustDown(this.wasd.S)) return { dx: 0, dy: 1 };
+    if (kb.JustDown(this.cursors.left) || kb.JustDown(this.wasd.A)) return { dx: -1, dy: 0 };
+    if (kb.JustDown(this.cursors.right) || kb.JustDown(this.wasd.D)) return { dx: 1, dy: 0 };
+    return null;
+  }
+
+  private getHeldDirection(): { dx: number; dy: number } | null {
+    if (this.cursors.up.isDown || this.wasd.W.isDown) return { dx: 0, dy: -1 };
+    if (this.cursors.down.isDown || this.wasd.S.isDown) return { dx: 0, dy: 1 };
+    if (this.cursors.left.isDown || this.wasd.A.isDown) return { dx: -1, dy: 0 };
+    if (this.cursors.right.isDown || this.wasd.D.isDown) return { dx: 1, dy: 0 };
+    return null;
+  }
+
+  private submitDirectionalInput(dx: number, dy: number) {
+    if (this.isProcessingAction) {
+      // Queue for after current action completes (single-slot latest direction).
+      this.pendingMove = { dx, dy };
+      return;
+    }
+    if (this.turnManager.phase === TurnPhase.PLAYER_INPUT) {
+      this.executeMove(dx, dy);
+    }
   }
 
   /** Execute a move or queued move */
@@ -691,14 +750,20 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createMoveArrows() {
-    const alpha = 0.4;
+    const alpha = 0.62;
     const depth = 450;
-    const scale = 0.75;
+    const scale = 0.88;
 
-    const up = this.add.image(0, 0, "arrow-up").setAlpha(alpha).setDepth(depth).setScale(scale).setVisible(false);
-    const down = this.add.image(0, 0, "arrow-down").setAlpha(alpha).setDepth(depth).setScale(scale).setVisible(false);
-    const left = this.add.image(0, 0, "arrow-side").setAlpha(alpha).setDepth(depth).setScale(scale).setVisible(false);
-    const right = this.add.image(0, 0, "arrow-side").setAlpha(alpha).setDepth(depth).setScale(scale).setFlipX(true).setVisible(false);
+    const upKey = this.textures.exists("move-mark-up") ? "move-mark-up" : "arrow-up";
+    const downKey = this.textures.exists("move-mark-down") ? "move-mark-down" : "arrow-down";
+    const leftKey = this.textures.exists("move-mark-left") ? "move-mark-left" : "arrow-side";
+    const rightKey = this.textures.exists("move-mark-right") ? "move-mark-right" : "arrow-side";
+
+    const up = this.add.image(0, 0, upKey).setAlpha(alpha).setDepth(depth).setScale(scale).setVisible(false);
+    const down = this.add.image(0, 0, downKey).setAlpha(alpha).setDepth(depth).setScale(scale).setVisible(false);
+    const left = this.add.image(0, 0, leftKey).setAlpha(alpha).setDepth(depth).setScale(scale).setVisible(false);
+    const right = this.add.image(0, 0, rightKey).setAlpha(alpha).setDepth(depth).setScale(scale).setVisible(false);
+    if (rightKey === "arrow-side") right.setFlipX(true);
 
     this.moveArrows = { up, down, left, right };
   }
@@ -801,10 +866,40 @@ export class GameScene extends Phaser.Scene {
   endRun(_reason: "energy" | "exit") {
     const stats = useGameStore.getState().getStats();
     const floor = this.currentFloor;
+    const cam = this.cameras.main;
 
-    // Play player death animation before transitioning
-    this.player.playDeath(() => {
-      this.scene.start("RunEndScene", { stats, floor });
+    // 1. Camera shake
+    cam.shake(200, 0.008);
+
+    // 2. Slow motion
+    this.time.timeScale = 0.35;
+    this.tweens.timeScale = 0.35;
+    this.anims.globalTimeScale = 0.35;
+
+    // 3. Camera zoom in (1.3× current)
+    const baseZoom = cam.zoom;
+    this.tweens.add({
+      targets: cam,
+      zoom: baseZoom * 1.3,
+      duration: 400,
+      ease: "Quad.easeOut",
+    });
+
+    // 4. Death desaturation
+    this.vfxManager.applyDeathDesaturation();
+
+    // 5. Player death animation (purple burst + soul rise)
+    this.player.playDeath();
+
+    // 6. After 400ms (MoG timing): pixelated fade to black → transition
+    this.time.delayedCall(400, () => {
+      this.vfxManager.playPixelatedFadeToBlack(1500, () => {
+        // Reset time scale before transitioning
+        this.time.timeScale = 1;
+        this.tweens.timeScale = 1;
+        this.anims.globalTimeScale = 1;
+        this.scene.start("RunEndScene", { stats, floor });
+      });
     });
   }
 }

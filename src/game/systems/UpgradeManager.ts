@@ -10,7 +10,7 @@ export class UpgradeManager {
     this.scene = scene;
   }
 
-  /** Roll 3 random upgrades (no duplicates, respect stackable rules) */
+  /** Roll 3 upgrades using rarity rates: 60% common, 30% rare, 10% epic */
   rollChoices(): UpgradeDef[] {
     const store = useGameStore.getState();
     const available = UPGRADES.filter((u) => {
@@ -18,9 +18,30 @@ export class UpgradeManager {
       return true;
     });
 
-    // Shuffle and pick 3
-    const shuffled = [...available].sort(() => Math.random() - 0.5);
-    return shuffled.slice(0, 3);
+    const byRarity = {
+      common: available.filter((u) => u.rarity === "common"),
+      rare: available.filter((u) => u.rarity === "rare"),
+      epic: available.filter((u) => u.rarity === "epic"),
+    };
+
+    const picked: UpgradeDef[] = [];
+    const usedIds = new Set<UpgradeId>();
+
+    for (let i = 0; i < 3; i++) {
+      const roll = Math.random();
+      let targetRarity: "common" | "rare" | "epic";
+      if (roll < 0.6) targetRarity = "common";
+      else if (roll < 0.9) targetRarity = "rare";
+      else targetRarity = "epic";
+
+      const upgrade = pickFromRarity(targetRarity, byRarity, usedIds);
+      if (upgrade) {
+        picked.push(upgrade);
+        usedIds.add(upgrade.id);
+      }
+    }
+
+    return picked;
   }
 
   /** Apply a chosen upgrade */
@@ -38,13 +59,33 @@ export class UpgradeManager {
       case "second_wind":
         this.scene.energyManager.heal(15);
         break;
-      case "eagle_eye":
       case "life_steal":
       case "thick_skin":
-      case "treasure_magnet":
       case "swift_feet":
-        // These are passive — checked at usage time
+        // Passive — checked at usage time
         break;
     }
   }
+}
+
+/** Pick a random upgrade from a rarity pool, falling back to lower rarities */
+function pickFromRarity(
+  target: "common" | "rare" | "epic",
+  pools: Record<string, UpgradeDef[]>,
+  used: Set<UpgradeId>,
+): UpgradeDef | null {
+  const fallbackOrder: ("common" | "rare" | "epic")[] =
+    target === "epic"
+      ? ["epic", "rare", "common"]
+      : target === "rare"
+        ? ["rare", "common"]
+        : ["common", "rare"];
+
+  for (const rarity of fallbackOrder) {
+    const candidates = pools[rarity].filter((u) => !used.has(u.id));
+    if (candidates.length > 0) {
+      return candidates[Math.floor(Math.random() * candidates.length)];
+    }
+  }
+  return null;
 }

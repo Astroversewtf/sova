@@ -98,6 +98,16 @@ export class BootScene extends Phaser.Scene {
     this.load.image("arrow-down", "sprites/ui/arrow-down.png");
     this.load.image("arrow-side", "sprites/ui/arrow-side.png");
 
+    // Floor tiles (PNG)
+    this.load.image("tile-floor", "sprites/tiles/floor/floor_clean_01.png");
+    this.load.image("tile-floor-alt", "sprites/tiles/floor/floor_dirty_01.png");
+    this.load.image("tile-floor-dirty-2", "sprites/tiles/floor/floor_dirty_02.png");
+    this.load.image("tile-floor-empty", "sprites/tiles/floor/floor_empty_01.png");
+    this.load.image("tile-floor-cracked-lt", "sprites/tiles/floor/floor_cracked_lt_01.png");
+    this.load.image("tile-floor-cracked-rt", "sprites/tiles/floor/floor_cracked_rt_01.png");
+    this.load.image("tile-floor-cracked-lb", "sprites/tiles/floor/floor_cracked_lb_01.png");
+    this.load.image("tile-floor-cracked-rb", "sprites/tiles/floor/floor_cracked_rb_01.png");
+
     // Wall tiles (32×32 PNGs)
     this.load.image("wall-straight-1", "sprites/walls/wall_straight_01.png");
     this.load.image("wall-straight-2", "sprites/walls/wall_straight_02.png");
@@ -172,9 +182,13 @@ export class BootScene extends Phaser.Scene {
   create() {
     const g = this.add.graphics();
 
-    // ── Floor tiles (flat two-color checkerboard) ──
-    this.genFloorTile(g, "tile-floor", C.FLOOR_TOP);
-    this.genFloorTile(g, "tile-floor-alt", C.FLOOR_TOP_ALT);
+    // ── Floor tiles (PNG preferred, procedural fallback) ──
+    if (!this.textures.exists("tile-floor")) {
+      this.genFloorTile(g, "tile-floor", C.FLOOR_TOP);
+    }
+    if (!this.textures.exists("tile-floor-alt")) {
+      this.genFloorTile(g, "tile-floor-alt", C.FLOOR_TOP_ALT);
+    }
 
     // ── Wall tiles: loaded from PNGs, procedural fallback if missing ──
     if (!this.textures.exists("wall-fill")) {
@@ -273,10 +287,38 @@ export class BootScene extends Phaser.Scene {
     // ── Traps (procedural fallback if PNG missing) ──
     if (!this.textures.exists("trap-spike-1")) {
       this.genTrapSpike(g);
+    } else if (!this.anims.exists("trap-spike-jab")) {
+      // 4-frame spike animation: retracted → extending → full → retracting
+      this.anims.create({
+        key: "trap-spike-jab",
+        frames: [
+          { key: "trap-spike-1" },
+          { key: "trap-spike-2" },
+          { key: "trap-spike-3" },
+          { key: "trap-spike-4" },
+        ],
+        frameRate: 10,
+        repeat: 0,
+      });
+      // Idle loop: stays retracted (frame 1), subtle pulse
+      this.anims.create({
+        key: "trap-spike-idle",
+        frames: [
+          { key: "trap-spike-1" },
+          { key: "trap-spike-2" },
+          { key: "trap-spike-1" },
+        ],
+        frameRate: 3,
+        repeat: -1,
+        repeatDelay: 1500,
+      });
     }
 
     // ── Dust particle ──
     this.genParticleDust(g);
+
+    // ── Move markers (chalk style) ──
+    this.genChalkMoveMarks(g);
 
     // ── D-pad buttons (mobile) ──
     this.genDPad(g);
@@ -338,7 +380,7 @@ export class BootScene extends Phaser.Scene {
               ? [2, 3]
               : [1, 2, 3, 4]
         ).map((i) => ({ key: `player-walk-${dir}-${i}` })),
-        frameRate: 8,
+        frameRate: 10,
         repeat: -1,
       });
       this.anims.create({
@@ -862,5 +904,83 @@ export class BootScene extends Phaser.Scene {
     g.fillStyle(0xffffff);
     g.fillCircle(2, 2, 2);
     g.generateTexture("particle-dust", 4, 4);
+  }
+
+  // ── Move markers (chalk-like hand-drawn strokes) ──
+  private genChalkMoveMarks(g: Phaser.GameObjects.Graphics) {
+    const s = TILE_SIZE;
+
+    const drawRoughPath = (pts: Array<[number, number]>) => {
+      const passes: Array<{ ox: number; oy: number; w: number; a: number }> = [
+        { ox: 0, oy: 0, w: 3.2, a: 0.50 },
+        { ox: -0.7, oy: 0.6, w: 2.4, a: 0.32 },
+        { ox: 0.8, oy: -0.5, w: 1.8, a: 0.24 },
+      ];
+      for (const p of passes) {
+        g.lineStyle(p.w, 0xd4e5ff, p.a);
+        g.beginPath();
+        g.moveTo(pts[0][0] + p.ox, pts[0][1] + p.oy);
+        for (let i = 1; i < pts.length; i++) {
+          g.lineTo(pts[i][0] + p.ox, pts[i][1] + p.oy);
+        }
+        g.strokePath();
+      }
+    };
+
+    const drawSpecks = (cx: number, cy: number) => {
+      g.fillStyle(0xd4e5ff, 0.24);
+      g.fillCircle(cx - 3, cy + 2, 0.8);
+      g.fillCircle(cx + 2, cy - 1, 0.9);
+      g.fillCircle(cx + 5, cy + 3, 0.7);
+    };
+
+    const drawMark = (
+      key: string,
+      shaft: Array<[number, number]>,
+      wingA: Array<[number, number]>,
+      wingB: Array<[number, number]>,
+      speckX: number,
+      speckY: number,
+    ) => {
+      g.clear();
+      drawRoughPath(shaft);
+      drawRoughPath(wingA);
+      drawRoughPath(wingB);
+      drawSpecks(speckX, speckY);
+      g.generateTexture(key, s, s);
+    };
+
+    drawMark(
+      "move-mark-up",
+      [[16, 23], [16, 11]],
+      [[16, 11], [12, 15]],
+      [[16, 11], [20, 15]],
+      16,
+      20,
+    );
+    drawMark(
+      "move-mark-down",
+      [[16, 9], [16, 21]],
+      [[16, 21], [12, 17]],
+      [[16, 21], [20, 17]],
+      16,
+      12,
+    );
+    drawMark(
+      "move-mark-left",
+      [[23, 16], [11, 16]],
+      [[11, 16], [15, 12]],
+      [[11, 16], [15, 20]],
+      20,
+      16,
+    );
+    drawMark(
+      "move-mark-right",
+      [[9, 16], [21, 16]],
+      [[21, 16], [17, 12]],
+      [[21, 16], [17, 20]],
+      12,
+      16,
+    );
   }
 }

@@ -84,17 +84,18 @@ export type UpgradeId =
   | "sharp_blade"
   | "vitality_surge"
   | "life_steal"
-  | "eagle_eye"
   | "thick_skin"
-  | "treasure_magnet"
   | "swift_feet"
   | "second_wind";
+
+export type UpgradeRarity = "common" | "rare" | "epic";
 
 export interface UpgradeDef {
   id: UpgradeId;
   name: string;
   description: string;
   stackable: boolean;
+  rarity: UpgradeRarity;
 }
 
 export enum TurnPhase {

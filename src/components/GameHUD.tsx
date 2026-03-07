@@ -4,6 +4,30 @@ import { useEffect, useRef, useState } from "react";
 import { useGameStore } from "@/stores/gameStore";
 import { TurnPhase } from "@/game/types";
 
+/* ── MoG dual-outline: black inner (2px, on top) + white outer (4px, behind) ── */
+function mogShadow(outerColor = "#fff") {
+  return [
+    // Black inner ring — listed first = drawn on top, closest to text
+    "-2px -2px 0 #000", "2px -2px 0 #000",
+    "-2px 2px 0 #000", "2px 2px 0 #000",
+    "0 -2px 0 #000", "0 2px 0 #000",
+    "-2px 0 0 #000", "2px 0 0 #000",
+    "-1px -1px 0 #000", "1px -1px 0 #000",
+    "-1px 1px 0 #000", "1px 1px 0 #000",
+    // White outer ring — listed last = drawn behind, peeks out around black
+    `-4px -4px 0 ${outerColor}`, `4px -4px 0 ${outerColor}`,
+    `-4px 4px 0 ${outerColor}`, `4px 4px 0 ${outerColor}`,
+    `0 -4px 0 ${outerColor}`, `0 4px 0 ${outerColor}`,
+    `-4px 0 0 ${outerColor}`, `4px 0 0 ${outerColor}`,
+    `-3px -3px 0 ${outerColor}`, `3px -3px 0 ${outerColor}`,
+    `-3px 3px 0 ${outerColor}`, `3px 3px 0 ${outerColor}`,
+    `0 -3px 0 ${outerColor}`, `0 3px 0 ${outerColor}`,
+    `-3px 0 0 ${outerColor}`, `3px 0 0 ${outerColor}`,
+  ].join(", ");
+}
+
+const MOG_SHADOW = mogShadow();
+
 export function GameHUD() {
   const isRunning = useGameStore((s) => s.isRunning);
   const energy = useGameStore((s) => s.energy);
@@ -32,110 +56,144 @@ export function GameHUD() {
 
   if (!isRunning) return null;
 
-  return (
-    <div className="absolute inset-0 pointer-events-none z-10">
-      {/* Top bar */}
-      <div className="flex items-start justify-between px-3 pt-2">
-        {/* Energy card */}
-        <div className="bg-[#0f172a]/92 rounded-2xl border border-[#334155]/50 px-4 pt-3 pb-3 min-w-[280px]">
-          {/* ENERGY label inside card */}
-          <span className="font-pixel text-sm text-gray-200 tracking-wider">
-            ENERGY
-          </span>
-          {/* Icon + bar row */}
-          <div className="flex items-center gap-3 mt-2">
-            {/* Lightning icon with green bg */}
-            <div className="w-10 h-10 rounded-lg bg-[#9ecc3c] border-2 border-[#7a9e30] flex items-center justify-center shrink-0">
-              <img
-                src="/sprites/energy-icon.png"
-                alt=""
-                className="w-6 h-6"
-                style={{ imageRendering: "pixelated" }}
-              />
-            </div>
-            {/* Bar */}
-            <div className="flex-1 relative h-9 bg-[#1e293b]/80 rounded-lg overflow-hidden">
-              <div
-                className="absolute inset-y-0 left-0 rounded-lg transition-all duration-200"
-                style={{
-                  width: `${pct}%`,
-                  background: "linear-gradient(to bottom, #d4f07a, #b8e550, #9ecc3c)",
-                }}
-              />
-              {/* Glossy highlight */}
-              <div
-                className="absolute top-0 left-0 h-1/2 rounded-t-lg opacity-15 bg-white"
-                style={{ width: `${pct}%` }}
-              />
-              {/* Text centered on bar */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="font-pixel text-sm text-[#1a1a2e]"
-                  style={{ textShadow: "0 1px 0 rgba(255,255,255,0.3)" }}>
-                  {energy}/{maxEnergy}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
+  // Energy bar color
+  const barBg =
+    pct > 50
+      ? "linear-gradient(to bottom, #d4f07a, #b8e550, #9ecc3c)"
+      : pct > 25
+        ? "linear-gradient(to bottom, #fde68a, #fbbf24, #d97706)"
+        : "linear-gradient(to bottom, #fca5a5, #ef4444, #b91c1c)";
 
-        {/* Resource badges */}
-        <div className="flex items-center bg-[#0f172a]/92 rounded-xl border border-[#334155]/50 px-3 py-2 gap-4 mt-3">
-          {/* Coins */}
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded-full bg-amber-400 border border-amber-600 shrink-0" />
-            <span className="font-pixel text-[10px] text-amber-300">{coins}</span>
-          </div>
-          {/* Orbs */}
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded-full bg-teal-400 border border-teal-600 shrink-0" />
-            <span className="font-pixel text-[10px] text-teal-300">{orbs}</span>
-          </div>
-          {/* Tickets */}
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded-full bg-yellow-400 border border-yellow-600 shrink-0" />
-            <span className="font-pixel text-[10px] text-yellow-200">{tickets}</span>
-          </div>
-          {/* Separator */}
-          <div className="w-px h-4 bg-[#334155]/60" />
-          {/* Floor */}
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded-full bg-slate-400 border border-slate-500 shrink-0" />
-            <span className="font-pixel text-[10px] text-slate-200">F{floor}</span>
+  return (
+    <div className="absolute inset-0 pointer-events-none z-10" style={{ cursor: "none" }}>
+      {/* ── Energy (centered top) ── */}
+      <div className="absolute top-3 left-1/2 -translate-x-1/2 flex flex-col items-center">
+        <span
+          className="font-pixel text-[18px] text-[#b8e550]"
+          style={{ textShadow: MOG_SHADOW }}
+        >
+          ENERGY
+        </span>
+
+        {/* Bar — dual-outline border: white outer + black inner */}
+        <div
+          className="relative w-[280px] h-[26px] mt-2 rounded-sm overflow-hidden"
+          style={{
+            boxShadow: "0 0 0 3px #fff, 0 0 0 5px #000",
+            background: "#111827",
+          }}
+        >
+          {/* Fill */}
+          <div
+            className="absolute inset-0 transition-all duration-200"
+            style={{ width: `${pct}%`, background: barBg }}
+          />
+          {/* Glossy highlight */}
+          <div
+            className="absolute top-0 left-0 h-1/2 opacity-20 bg-white"
+            style={{ width: `${pct}%` }}
+          />
+          {/* Number centered */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span
+              className="font-pixel text-[16px] text-white"
+              style={{ textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 0 -1px 0 #000, 0 1px 0 #000, -1px 0 0 #000, 1px 0 0 #000" }}
+            >
+              {energy}
+            </span>
           </div>
         </div>
       </div>
 
-      {/* Floor label (center, animated) */}
+      {/* ── Loot badges (top-right) ── */}
+      <div className="absolute top-3 right-3 flex items-center gap-4">
+        {/* Coins */}
+        <div className="flex items-center gap-1.5">
+          <img
+            src="/sprites/items/coin/coin_01.png"
+            alt=""
+            className="w-6 h-6"
+            style={{ imageRendering: "pixelated" }}
+          />
+          <span
+            className="font-pixel text-[11px] text-amber-300"
+            style={{ textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000" }}
+          >
+            {coins}
+          </span>
+        </div>
+        {/* Orbs */}
+        <div className="flex items-center gap-1.5">
+          <img
+            src="/sprites/items/orb/item_orb_01.png"
+            alt=""
+            className="w-6 h-6"
+            style={{ imageRendering: "pixelated" }}
+          />
+          <span
+            className="font-pixel text-[11px] text-teal-300"
+            style={{ textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000" }}
+          >
+            {orbs}
+          </span>
+        </div>
+        {/* Golden Tickets */}
+        <div className="flex items-center gap-1.5">
+          <img
+            src="/sprites/items/golden_ticket/golden_ticket_lil_01.png"
+            alt=""
+            className="w-6 h-6"
+            style={{ imageRendering: "pixelated" }}
+          />
+          <span
+            className="font-pixel text-[11px] text-yellow-200"
+            style={{ textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000" }}
+          >
+            {tickets}
+          </span>
+        </div>
+        {/* Floor */}
+        <span
+          className="font-pixel text-[11px] text-slate-300"
+          style={{ textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000" }}
+        >
+          F{floor}
+        </span>
+      </div>
+
+      {/* ── Floor label (center, animated) ── */}
       {floorLabel && (
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className="font-pixel text-lg text-white animate-floor-label"
-            style={{ textShadow: "0 0 8px rgba(0,0,0,0.8), 0 2px 4px rgba(0,0,0,0.6)" }}>
+          <span
+            className="font-pixel text-lg text-white animate-floor-label"
+            style={{ textShadow: "0 0 8px rgba(0,0,0,0.8), 0 2px 4px rgba(0,0,0,0.6)" }}
+          >
             {floorLabel}
           </span>
         </div>
       )}
 
-      {/* Skip / pass-turn button */}
-      <div className="absolute bottom-4 left-3 pointer-events-auto">
+      {/* ── PASS button (bottom center) ── */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-auto" style={{ cursor: "none" }}>
         <button
           type="button"
           onClick={() => window.dispatchEvent(new Event("sova:skip-turn"))}
           disabled={!canSkip}
-          className={`relative overflow-hidden font-pixel text-sm pl-12 pr-5 py-3 rounded-2xl border transition-all ${
+          className={`transition-all ${
             canSkip
-              ? "bg-[#0f172a]/95 border-[#334155] text-[#b8e550] hover:brightness-110 active:scale-95"
-              : "bg-[#0f172a]/70 border-[#334155]/50 text-gray-500 cursor-not-allowed"
+              ? "hover:scale-110 active:scale-95 cursor-pointer"
+              : "opacity-40 cursor-not-allowed"
           }`}
         >
           <span
-            className={`absolute left-3 top-1/2 -translate-y-1/2 font-black text-2xl leading-none ${
-              canSkip ? "text-[#b8e550]/35" : "text-gray-500/30"
-            }`}
-            aria-hidden
+            className="font-pixel text-[20px]"
+            style={{
+              color: canSkip ? "#b8e550" : "#6b7280",
+              textShadow: MOG_SHADOW,
+            }}
           >
-            {'>>'}
+            PASS
           </span>
-          <span className="relative z-10">PASS</span>
         </button>
       </div>
     </div>

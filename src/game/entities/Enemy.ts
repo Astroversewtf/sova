@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { EnemyType, type TilePos } from "../types";
-import { TILE_SIZE, TILE_FULL_H, ENEMY_MOVE_MS, getEnemyHP, getDetectionRange } from "../constants";
+import { TILE_SIZE, TILE_FULL_H, ENEMY_MOVE_MS, getEnemyHP, getDetectionRange, getTier } from "../constants";
 
 type Facing = "front" | "back" | "side";
 
@@ -27,7 +27,18 @@ export class Enemy {
     this.pos = { ...pos };
     this.type = type;
     this.id = id;
-    this.hp = getEnemyHP(type);
+    const baseHP = getEnemyHP(type);
+    if (type === EnemyType.BOSS) {
+      this.hp = 7; // Fixed, no scaling
+    } else {
+      const tier = getTier(floor);
+      this.hp = Math.ceil(baseHP * tier.hpMult);
+      if (type === EnemyType.ROCK || type === EnemyType.GOLEM) {
+        this.hp = Math.min(this.hp, 3); // base 1, max 3
+      } else if (type === EnemyType.GHOST) {
+        this.hp = Math.min(this.hp, 5); // base 3, max 5
+      }
+    }
     this.maxHp = this.hp;
     this.detectionRange = getDetectionRange(type);
     this.active = type === EnemyType.BOSS;
@@ -87,7 +98,7 @@ export class Enemy {
     this.sprite.setDepth(400);
     // Boss sprite is 64x64 and visually taller than a tile.
     // Raise it so feet align around the lower 3/4 of the tile.
-    const originY = type === EnemyType.BOSS ? 0.7 : 0.5;
+    const originY = type === EnemyType.BOSS ? 0.7 : type === EnemyType.GOLEM ? 0.65 : 0.5;
     this.sprite.setOrigin(0.5, originY);
 
     // Heart icons above enemy
@@ -164,10 +175,17 @@ export class Enemy {
     });
   }
 
-  playAttack(onComplete?: () => void) {
+  playAttack(targetPos?: TilePos, onComplete?: () => void) {
     if (!this.sprite.active) {
       onComplete?.();
       return;
+    }
+
+    // Face the target before attacking
+    if (targetPos && (this.animatedRock || this.animatedGolem)) {
+      const dx = targetPos.x - this.pos.x;
+      const dy = targetPos.y - this.pos.y;
+      this.updateFacingFromDir(dx, dy);
     }
 
     const spr = this.sprite as Phaser.GameObjects.Sprite;
@@ -200,12 +218,18 @@ export class Enemy {
     spr.setFlipX(this.facing === "side" && dx < 0);
   }
 
+  private getHeartsY(): number {
+    // Top of sprite accounting for originY and actual frame height
+    const frameH = this.sprite.frame.height * this.sprite.scaleY;
+    return this.sprite.y - this.sprite.originY * frameH - 5;
+  }
+
   private createHearts() {
     const heartW = 7;
     const gap = 1;
     const totalW = this.maxHp * heartW + (this.maxHp - 1) * gap;
     const startX = this.sprite.x - totalW / 2 + heartW / 2;
-    const y = this.sprite.y - TILE_SIZE / 2 - 5;
+    const y = this.getHeartsY();
 
     for (let i = 0; i < this.maxHp; i++) {
       const hx = startX + i * (heartW + gap);
@@ -227,7 +251,7 @@ export class Enemy {
     const gap = 1;
     const totalW = this.maxHp * heartW + (this.maxHp - 1) * gap;
     const startX = this.sprite.x - totalW / 2 + heartW / 2;
-    const y = this.sprite.y - TILE_SIZE / 2 - 5;
+    const y = this.getHeartsY();
 
     for (let i = 0; i < this.hearts.length; i++) {
       this.hearts[i].setPosition(startX + i * (heartW + gap), y);

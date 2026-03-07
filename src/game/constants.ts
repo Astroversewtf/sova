@@ -20,11 +20,11 @@ const VISION_TABLE = [
   { min: 1, radius: 3 },
 ];
 
-export function getVisionRadius(energy: number, eagleEyeStacks: number): number {
+export function getVisionRadius(energy: number): number {
   for (const entry of VISION_TABLE) {
-    if (energy >= entry.min) return entry.radius + eagleEyeStacks;
+    if (energy >= entry.min) return entry.radius;
   }
-  return 3 + eagleEyeStacks;
+  return 3;
 }
 
 // ── Floor size scaling ──
@@ -81,7 +81,7 @@ export function getEnemyHP(type: EnemyType): number {
     case EnemyType.GHOST:
       return 3;
     case EnemyType.BOSS:
-      return 15;
+      return 7;
   }
 }
 
@@ -268,47 +268,41 @@ export const UPGRADES: UpgradeDef[] = [
     name: "Sharp Blade",
     description: "+1 ATK per stack",
     stackable: true,
+    rarity: "common",
   },
   {
     id: "vitality_surge",
     name: "Vitality Surge",
-    description: "+10 Max Energy",
+    description: "+10 Max Energy per stack",
     stackable: true,
+    rarity: "common",
   },
   {
     id: "life_steal",
     name: "Life Steal",
-    description: "+2 Energy per kill",
+    description: "+2 Energy per kill per stack",
     stackable: true,
-  },
-  {
-    id: "eagle_eye",
-    name: "Eagle Eye",
-    description: "+1 vision radius",
-    stackable: true,
+    rarity: "rare",
   },
   {
     id: "thick_skin",
     name: "Thick Skin",
-    description: "-1 damage taken (min 1)",
+    description: "-1 damage taken (min 1) per stack",
     stackable: true,
-  },
-  {
-    id: "treasure_magnet",
-    name: "Treasure Magnet",
-    description: "Auto-collect 2-tile radius",
-    stackable: true,
+    rarity: "rare",
   },
   {
     id: "swift_feet",
     name: "Swift Feet",
-    description: "10% chance free move",
+    description: "10% chance free move per stack",
     stackable: true,
+    rarity: "rare",
   },
   {
     id: "second_wind",
     name: "Second Wind",
     description: "Recover 15 Energy now",
     stackable: false,
+    rarity: "epic",
   },
 ];

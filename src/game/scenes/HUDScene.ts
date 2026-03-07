@@ -1,6 +1,8 @@
 import Phaser from "phaser";
 import { useGameStore } from "@/stores/gameStore";
 
+type HudState = ReturnType<typeof useGameStore.getState>;
+
 /**
  * Overlay HUD:
  * - Top-left: ENERGY — lightning icon + lime fill bar + "XX/100"
@@ -30,6 +32,7 @@ export class HUDScene extends Phaser.Scene {
 
   // Floor label
   private floorLabel: Phaser.GameObjects.Text | null = null;
+  private unsubscribeStore: (() => void) | null = null;
 
   // Layout constants
   private readonly PILL_X = 8;
@@ -118,9 +121,32 @@ export class HUDScene extends Phaser.Scene {
       this.showFloorLabel(data.floor, data.isBoss);
     });
 
+    // Initial draw + reactive updates (avoid polling every frame).
+    this.applyHudState(useGameStore.getState());
+    this.unsubscribeStore = useGameStore.subscribe((s, prev) => {
+      if (s.energy !== prev.energy || s.maxEnergy !== prev.maxEnergy) {
+        this.drawEnergyFill(s.energy, s.maxEnergy);
+        this.energyText.setText(`${s.energy}/${s.maxEnergy}`);
+      }
+      if (s.coinsCollected !== prev.coinsCollected) {
+        this.coinText.setText(`${s.coinsCollected}`);
+      }
+      if (s.orbsCollected !== prev.orbsCollected) {
+        this.orbText.setText(`${s.orbsCollected}`);
+      }
+      if (s.goldenTicketsCollected !== prev.goldenTicketsCollected) {
+        this.ticketText.setText(`${s.goldenTicketsCollected}`);
+      }
+      if (s.floor !== prev.floor) {
+        this.floorText.setText(`F${s.floor}`);
+      }
+    });
+
     this.events.on("shutdown", () => {
       this.game.events.off("sova:floor-start");
       this.scale.off("resize");
+      this.unsubscribeStore?.();
+      this.unsubscribeStore = null;
     });
   }
 
@@ -184,8 +210,7 @@ export class HUDScene extends Phaser.Scene {
     this.floorText.setPosition(cx4 + 12, midY);
   }
 
-  update() {
-    const s = useGameStore.getState();
+  private applyHudState(s: HudState) {
     this.drawEnergyFill(s.energy, s.maxEnergy);
     this.energyText.setText(`${s.energy}/${s.maxEnergy}`);
     this.coinText.setText(`${s.coinsCollected}`);

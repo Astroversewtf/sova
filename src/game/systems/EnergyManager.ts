@@ -56,8 +56,7 @@ export class EnergyManager {
   }
 
   getVisionRadius(): number {
-    const eagleStacks = useGameStore.getState().getUpgradeStacks("eagle_eye");
-    return getVisionRadius(this.energy, eagleStacks);
+    return getVisionRadius(this.energy);
   }
 
   private sync() {
