@@ -15,6 +15,7 @@ interface PlayerState {
   coins: number;
   orbs: number;
   keys: number;
+  gems: number;
   goldenTickets: number;
   avaxBalance: number;
   weeklyScore: number;
@@ -28,6 +29,7 @@ interface PlayerState {
   addCoins: (amount: number) => void;
   addOrbs: (amount: number) => void;
   addKeys: (amount: number) => void;
+  addGems: (amount: number) => void;
   addTickets: (amount: number) => void;
   setAvaxBalance: (balance: number) => void;
   resetWeekly: () => void;
@@ -38,6 +40,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   coins: 0,
   orbs: 0,
   keys: 0,
+  gems: 0,
   goldenTickets: 0,
   avaxBalance: 0,
   weeklyScore: 0,
@@ -55,6 +58,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       coins: user.coins,
       orbs: user.gems,
       keys: user.keys,
+      gems: user.gems,
       goldenTickets: user.goldenTickets,
       totalEarnings: user.totalEarnings,
       weeklyEarnings: user.weeklyEarnings,
@@ -80,6 +84,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     set((s) => ({ keys: s.keys + amount }));
     const wallet = get().walletAddress;
     if (wallet) updateUser(wallet, { keys: get().keys });
+  },
+
+  addGems: (amount) => {
+    set((s) => ({ gems: s.gems + amount }));
+    const wallet = get().walletAddress;
+    if (wallet) updateUser(wallet, { gems: get().gems });
   },
 
   addTickets: (amount) => {

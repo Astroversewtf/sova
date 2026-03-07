@@ -13,6 +13,8 @@ import { RankingsTab } from "@/components/lobby/RankingsTab";
 import { StashTab } from "@/components/lobby/StashTab";
 import { useLobbyStore } from "@/stores/lobbyStore";
 import { usePlayerStore } from "@/stores/playerStore";
+import { useLogin, usePrivy } from "@privy-io/react-auth";
+import { getBalance } from "@/lib/avax";
 
 const PhaserGame = dynamic(
   () => import("@/components/PhaserGame").then((mod) => mod.PhaserGame),
@@ -26,12 +28,7 @@ const PhaserGame = dynamic(
   },
 );
 
-/** Privy-powered connect (only rendered when NEXT_PUBLIC_PRIVY_APP_ID is set) */
 function PrivyConnectView() {
-  // Dynamic import to avoid crash when provider is missing
-  const { usePrivy, useLogin } = require("@privy-io/react-auth");
-  const { getBalance } = require("@/lib/avax");
-
   const { ready, authenticated, user } = usePrivy();
   const [unlocked, setUnlocked] = useState(false);
   const [code, setCode] = useState("");
@@ -85,8 +82,13 @@ function PrivyConnectView() {
             <input
               value={code}
               onChange={(e) => setCode(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && code === process.env.NEXT_PUBLIC_BETA_CODE) {
+                  setUnlocked(true);
+                }
+              }}
               placeholder="Enter access code..."
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 font-pixel text-sm text-white text-center placeholder-gray-500 focus:outline-none focus:border-[#b8e550]/50 focus:ring-1 focus:ring-[#b8e550]/30 transition-all"
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-sm text-white text-center placeholder-gray-500 focus:outline-none focus:border-[#b8e550]/50 focus:ring-1 focus:ring-[#b8e550]/30 transition-all"
             />
             <button
               onClick={() => {
