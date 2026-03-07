@@ -12,9 +12,7 @@ import { QuestsTab } from "@/components/lobby/QuestsTab";
 import { RankingsTab } from "@/components/lobby/RankingsTab";
 import { StashTab } from "@/components/lobby/StashTab";
 import { useLobbyStore } from "@/stores/lobbyStore";
-import { useLogin, usePrivy } from "@privy-io/react-auth";
 import { usePlayerStore } from "@/stores/playerStore";
-import { getBalance } from "@/lib/avax";
 
 const PhaserGame = dynamic(
   () => import("@/components/PhaserGame").then((mod) => mod.PhaserGame),
@@ -28,37 +26,41 @@ const PhaserGame = dynamic(
   },
 );
 
-function ConnectView() {
-  const { ready, authenticated, user} = usePrivy();
+/** Privy-powered connect (only rendered when NEXT_PUBLIC_PRIVY_APP_ID is set) */
+function PrivyConnectView() {
+  // Dynamic import to avoid crash when provider is missing
+  const { usePrivy, useLogin } = require("@privy-io/react-auth");
+  const { getBalance } = require("@/lib/avax");
+
+  const { ready, authenticated, user } = usePrivy();
   const [unlocked, setUnlocked] = useState(false);
   const [code, setCode] = useState("");
   const walletStoreConnect = useWalletStore((s) => s.connect);
   const { setAvaxBalance, loadFromDB } = usePlayerStore();
   const { login } = useLogin({
-    onComplete: async ({ user }) => {
+    onComplete: async ({ user }: any) => {
       const wallet = user?.wallet;
-      console.log(wallet?.address);
-      if(wallet) {
-        walletStoreConnect(wallet.address, 43113)
+      if (wallet) {
+        walletStoreConnect(wallet.address, 43113);
         const balance = await getBalance(wallet?.address as `0x${string}`);
         setAvaxBalance(Number(balance) / 1e18);
         await loadFromDB(wallet.address);
       }
-    }
-  })
+    },
+  });
 
   useEffect(() => {
     if (ready && authenticated && user?.wallet) {
       const address = user.wallet.address;
       walletStoreConnect(address, 43113);
-      getBalance(address as `0x${string}`).then((balance) => {
+      getBalance(address as `0x${string}`).then((balance: bigint) => {
         setAvaxBalance(Number(balance) / 1e18);
       });
       loadFromDB(address);
     }
   }, [ready, authenticated, user]);
 
-  if(!unlocked) {
+  if (!unlocked) {
     return (
       <div className="h-dvh relative overflow-hidden flex flex-col items-center justify-center bg-[#0c1220]">
         <div
@@ -101,23 +103,50 @@ function ConnectView() {
     );
   }
 
+  return (
+    <ConnectLayout>
+      <button
+        onClick={login}
+        className="bg-[#b8e550] hover:bg-[#c5ed65] text-white font-pixel text-lg py-3 px-10 rounded-lg border-2 border-[#a0cc40]/50 transition-all uppercase tracking-wide shadow-[0_4px_0_#7a9e30] hover:shadow-[0_2px_0_#7a9e30] hover:translate-y-[2px] active:shadow-none active:translate-y-[4px]"
+        style={{ textShadow: "-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 -2px 0 #000, 0 2px 0 #000, -2px 0 0 #000, 2px 0 0 #000" }}
+      >
+        CONNECT
+      </button>
+    </ConnectLayout>
+  );
+}
+
+/** Dev connect (no Privy needed) */
+function DevConnectView() {
+  const walletStoreConnect = useWalletStore((s) => s.connect);
 
   return (
+    <ConnectLayout>
+      <button
+        onClick={() => walletStoreConnect("DEV", 43113)}
+        className="bg-[#b8e550] hover:bg-[#c5ed65] text-white font-pixel text-lg py-3 px-10 rounded-lg border-2 border-[#a0cc40]/50 transition-all uppercase tracking-wide shadow-[0_4px_0_#7a9e30] hover:shadow-[0_2px_0_#7a9e30] hover:translate-y-[2px] active:shadow-none active:translate-y-[4px]"
+        style={{ textShadow: "-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 -2px 0 #000, 0 2px 0 #000, -2px 0 0 #000, 2px 0 0 #000" }}
+      >
+        PLAY
+      </button>
+    </ConnectLayout>
+  );
+}
+
+function ConnectLayout({ children }: { children: React.ReactNode }) {
+  return (
     <div className="h-dvh relative overflow-hidden flex flex-col">
-      {/* Background image */}
       <div
         className="absolute inset-0 bg-cover bg-center bg-no-repeat"
         style={{ backgroundImage: "url('/images/connect-bg.jpg')" }}
       />
-      {/* Dark overlay for readability */}
       <div className="absolute inset-0 bg-black/50" />
 
-      {/* ── Top bar ── */}
       <header className="relative z-20 flex items-center justify-between px-6 py-3 bg-black/70 border-b border-white/10">
         <img
           src="/images/astroverse-logo.png"
           alt="Astroverse"
-          className="h-8 sm:h-10 object-contain"
+          className="h-8 sm:h-10 object-contain cursor-pointer"
           onClick={() => window.open('https://astroverse.wtf', '_blank')}
         />
         <div className="flex items-center gap-5">
@@ -142,37 +171,20 @@ function ConnectView() {
         </div>
       </header>
 
-      {/* ── Center content ── */}
-      <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-4">
-        {/* Logo */}
-        <div className="mb-4">
+      <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 -mt-16 sm:-mt-24">
+        <div className="mb-0">
           <img
             src="/images/logo-sova.png"
             alt="SOVA"
-            className="h-56 sm:h-80 object-contain mx-auto drop-shadow-[0_4px_20px_rgba(0,0,0,0.7)]"
+            className="h-[28rem] sm:h-[36rem] object-contain mx-auto drop-shadow-[0_4px_20px_rgba(0,0,0,0.7)]"
             style={{ imageRendering: "pixelated" }}
           />
         </div>
-
-        {/* Connect button */}
-        <button
-          onClick={login}
-          className="bg-[#b8e550] hover:bg-[#c5ed65] text-white font-pixel text-lg py-3 px-10 rounded-lg border-2 border-[#a0cc40]/50 transition-all uppercase tracking-wide shadow-[0_4px_0_#7a9e30] hover:shadow-[0_2px_0_#7a9e30] hover:translate-y-[2px] active:shadow-none active:translate-y-[4px]"
-          style={{ textShadow: "-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 -2px 0 #000, 0 2px 0 #000, -2px 0 0 #000, 2px 0 0 #000" }}
-          disabled={!unlocked}
-        >
-          CONNECT
-          </button>
-          <button
-            onClick={() => walletStoreConnect("DEV", 43113)}
-            className="my-5 bg-[#b8e550] hover:bg-[#c5ed65] text-white font-pixel text-lg py-3 px-10 rounded-lg border-2 border-[#a0cc40]/50 transition-all uppercase tracking-wide shadow-[0_4px_0_#7a9e30] hover:shadow-[0_2px_0_#7a9e30] hover:translate-y-[2px] active:shadow-none active:translate-y-[4px]"
-            disabled={!unlocked}
-          >
-            SKIP DEV
-        </button>
+        <div className="-mt-16 sm:-mt-20 relative z-10">
+          {children}
+        </div>
       </main>
 
-      {/* ── Copyright text ── */}
       <div className="relative z-10 py-3 text-center">
         <span className="font-pixel text-[8px] text-white uppercase">
           &copy; 2026 Astroverse. All rights reserved.
@@ -180,6 +192,12 @@ function ConnectView() {
       </div>
     </div>
   );
+}
+
+function ConnectView() {
+  const hasPrivy = !!process.env.NEXT_PUBLIC_PRIVY_APP_ID;
+  if (hasPrivy) return <PrivyConnectView />;
+  return <DevConnectView />;
 }
 
 function LobbyView() {

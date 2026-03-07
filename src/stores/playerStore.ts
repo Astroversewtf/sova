@@ -6,14 +6,14 @@ export interface LeaderboardEntry {
   player: string;
   score: number;
   coins: number;
-  gems: number;
+  orbs: number;
   keys: number;
 }
 
 interface PlayerState {
   walletAddress: string | null;
   coins: number;
-  gems: number;
+  orbs: number;
   keys: number;
   goldenTickets: number;
   avaxBalance: number;
@@ -26,7 +26,7 @@ interface PlayerState {
   weeklyLeaderboard: LeaderboardEntry[];
   loadFromDB: (wallet: string) => Promise<void>;
   addCoins: (amount: number) => void;
-  addGems: (amount: number) => void;
+  addOrbs: (amount: number) => void;
   addKeys: (amount: number) => void;
   addTickets: (amount: number) => void;
   setAvaxBalance: (balance: number) => void;
@@ -36,7 +36,7 @@ interface PlayerState {
 export const usePlayerStore = create<PlayerState>((set, get) => ({
   walletAddress: null,
   coins: 0,
-  gems: 0,
+  orbs: 0,
   keys: 0,
   goldenTickets: 0,
   avaxBalance: 0,
@@ -53,7 +53,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     set({
       walletAddress: wallet,
       coins: user.coins,
-      gems: user.gems,
+      orbs: user.gems,
       keys: user.keys,
       goldenTickets: user.goldenTickets,
       totalEarnings: user.totalEarnings,
@@ -70,10 +70,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     if (wallet) updateUser(wallet, { coins: get().coins });
   },
 
-  addGems: (amount) => {
-    set((s) => ({ gems: s.gems + amount }));
+  addOrbs: (amount) => {
+    set((s) => ({ orbs: s.orbs + amount }));
     const wallet = get().walletAddress;
-    if (wallet) updateUser(wallet, { gems: get().gems });
+    if (wallet) updateUser(wallet, { gems: get().orbs });
   },
 
   addKeys: (amount) => {
