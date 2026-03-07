@@ -5,15 +5,14 @@ import { usePlayerStore } from "@/stores/playerStore";
 import { useState } from "react";
 
 
-enum ITEMS {
-  golden_ticket,
-  key
-}
+const SHOP_ITEMS = {
+  golden_ticket: { icon: "🎫", label: "Golden Ticket", price: 0.5, action: "addTickets" },
+  key:           { icon: "🗝️", label: "Keys",          price: 0.25, action: "addKeys" },
+} as const;
 
-const PRICES = {
-  goldenTicket: 0.5,
-  key: 0.25
-}
+type ShopItemKey = keyof typeof SHOP_ITEMS;
+type StoreAction = "addTickets" | "addKeys";
+
 
 function QuantitySelector({
   quantity,
@@ -67,25 +66,23 @@ function QuantitySelector({
   );
 }
 
-function PackageSlot({ icon, label, unitPrice, item }: { icon: string; label: string; unitPrice: number, item: ITEMS }) {
+function PackageSlot({ itemKey }: { itemKey: ShopItemKey}) {
+  const item = SHOP_ITEMS[itemKey];
   const [quantity, setQuantity] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const { sendTransactionBuyAVAX } = usePrivyTransaction();
   const playerStore = usePlayerStore();
 
-  const totalPrice = (unitPrice * quantity).toFixed(4);
+  const totalPrice = (item.price * quantity).toFixed(4);
 
   const handleBuy = async () => {
     setIsLoading(true);
     try {
       const receipt = await sendTransactionBuyAVAX(totalPrice);
       console.log("Transaction success", receipt);
-      // TODO NEED TO CHECK IF THE EVENTS ON CHAIN ARE CONFIRMED
-      if(item === ITEMS.golden_ticket) {
-        playerStore.addTickets(quantity);
-      } else if (item === ITEMS.key) {
-        playerStore.addKeys(quantity);
-      }
+      //TODO CHECK IN CHAIN TRANSACTION
+      const action = item.action as StoreAction;
+      playerStore[action](quantity);
     } catch (err) {
       console.error("Transaction failed", err);
     } finally {
@@ -95,9 +92,9 @@ function PackageSlot({ icon, label, unitPrice, item }: { icon: string; label: st
 
   return (
     <div className="bg-black/40 border border-white/10 rounded-lg p-4 text-center backdrop-blur-sm">
-      <span className="text-2xl">{icon}</span>
-      <div className="font-pixel text-sm text-white mt-2 text-outline">{label}</div>
-      <div className="font-pixel text-xs text-gray-400 mt-1 text-outline">{unitPrice} AVAX</div>
+      <span className="text-2xl">{item.icon}</span>
+      <div className="font-pixel text-sm text-white mt-2 text-outline">{item.label}</div>
+      <div className="font-pixel text-xs text-gray-400 mt-1 text-outline">{item.price} AVAX</div>
       <QuantitySelector quantity={quantity} setQuantity={setQuantity} />
       <button className="w-full mt-3 bg-[#b8e550] hover:bg-[#c5ed65] text-white font-pixel text-[10px] py-2 rounded transition-all text-outline" 
       disabled={isLoading}
@@ -117,7 +114,7 @@ export function ShopTab() {
           Golden Tickets
         </h3>
         <div className="grid grid-cols-1 gap-4">
-          <PackageSlot icon="🎫" label="Golden Ticket" unitPrice={PRICES.goldenTicket} item={ITEMS.golden_ticket} />
+          <PackageSlot itemKey="golden_ticket" />
         </div>
       </div>
 
@@ -126,7 +123,7 @@ export function ShopTab() {
           Dungeon Keys
         </h3>
         <div className="grid grid-cols-1 gap-4">
-          <PackageSlot icon="🗝️" label="Keys" unitPrice={PRICES.key} item={ITEMS.key}/>
+          <PackageSlot itemKey="key"/>
         </div>
       </div>
     </div>

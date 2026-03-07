@@ -33,7 +33,7 @@ function ConnectView() {
   const [unlocked, setUnlocked] = useState(false);
   const [code, setCode] = useState("");
   const walletStoreConnect = useWalletStore((s) => s.connect);
-  const { setAvaxBalance } = usePlayerStore();
+  const { setAvaxBalance, loadFromDB } = usePlayerStore();
   const { login } = useLogin({
     onComplete: async ({ user }) => {
       const wallet = user?.wallet;
@@ -41,8 +41,8 @@ function ConnectView() {
       if(wallet) {
         walletStoreConnect(wallet.address, 43113)
         const balance = await getBalance(wallet?.address as `0x${string}`);
-        console.log(Number(balance) / 1e18);
         setAvaxBalance(Number(balance) / 1e18);
+        await loadFromDB(wallet.address);
       }
     }
   })
@@ -54,6 +54,7 @@ function ConnectView() {
       getBalance(address as `0x${string}`).then((balance) => {
         setAvaxBalance(Number(balance) / 1e18);
       });
+      loadFromDB(address);
     }
   }, [ready, authenticated, user]);
 
