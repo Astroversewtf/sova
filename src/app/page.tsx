@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useWalletStore } from "@/stores/walletStore";
 import { TopBar } from "@/components/TopBar";
 import { BottomNav } from "@/components/BottomNav";
@@ -30,6 +30,8 @@ const PhaserGame = dynamic(
 
 function ConnectView() {
   const { ready, authenticated, user} = usePrivy();
+  const [unlocked, setUnlocked] = useState(false);
+  const [code, setCode] = useState("");
   const walletStoreConnect = useWalletStore((s) => s.connect);
   const { setAvaxBalance } = usePlayerStore();
   const { login } = useLogin({
@@ -54,6 +56,49 @@ function ConnectView() {
       });
     }
   }, [ready, authenticated, user]);
+
+  if(!unlocked) {
+    return (
+      <div className="h-dvh relative overflow-hidden flex flex-col items-center justify-center bg-[#0c1220]">
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-30"
+          style={{ backgroundImage: "url('/images/connect-bg.jpg')" }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#0c1220]/60 to-[#0c1220]" />
+
+        <div className="relative z-10 flex flex-col items-center gap-6 px-4">
+          <img
+            src="/images/logo-sova.png"
+            alt="SOVA"
+            className="h-40 sm:h-56 object-contain drop-shadow-[0_4px_20px_rgba(0,0,0,0.7)]"
+            style={{ imageRendering: "pixelated" }}
+          />
+
+          <p className="font-pixel text-xs text-gray-400 uppercase tracking-widest">
+            Closed Beta Access
+          </p>
+
+          <div className="flex flex-col items-center gap-3 w-full max-w-xs">
+            <input
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              placeholder="Enter access code..."
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 font-pixel text-sm text-white text-center placeholder-gray-500 focus:outline-none focus:border-[#b8e550]/50 focus:ring-1 focus:ring-[#b8e550]/30 transition-all"
+            />
+            <button
+              onClick={() => {
+                if (code === process.env.NEXT_PUBLIC_BETA_CODE) setUnlocked(true);
+              }}
+              className="w-full bg-[#b8e550] hover:bg-[#c5ed65] text-white font-pixel text-sm py-3 px-8 rounded-lg border-2 border-[#a0cc40]/50 transition-all uppercase tracking-wide shadow-[0_4px_0_#7a9e30] hover:shadow-[0_2px_0_#7a9e30] hover:translate-y-[2px] active:shadow-none active:translate-y-[4px]"
+              style={{ textShadow: "-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000" }}
+            >
+              Enter
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
 
   return (
@@ -113,12 +158,14 @@ function ConnectView() {
           onClick={login}
           className="bg-[#b8e550] hover:bg-[#c5ed65] text-white font-pixel text-lg py-3 px-10 rounded-lg border-2 border-[#a0cc40]/50 transition-all uppercase tracking-wide shadow-[0_4px_0_#7a9e30] hover:shadow-[0_2px_0_#7a9e30] hover:translate-y-[2px] active:shadow-none active:translate-y-[4px]"
           style={{ textShadow: "-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 -2px 0 #000, 0 2px 0 #000, -2px 0 0 #000, 2px 0 0 #000" }}
+          disabled={!unlocked}
         >
           CONNECT
           </button>
           <button
             onClick={() => walletStoreConnect("DEV", 43113)}
             className="my-5 bg-[#b8e550] hover:bg-[#c5ed65] text-white font-pixel text-lg py-3 px-10 rounded-lg border-2 border-[#a0cc40]/50 transition-all uppercase tracking-wide shadow-[0_4px_0_#7a9e30] hover:shadow-[0_2px_0_#7a9e30] hover:translate-y-[2px] active:shadow-none active:translate-y-[4px]"
+            disabled={!unlocked}
           >
             SKIP DEV
         </button>
