@@ -84,6 +84,7 @@ function PrivyConnectView() {
             className="h-40 sm:h-56 object-contain drop-shadow-[0_4px_20px_rgba(0,0,0,0.7)]"
             style={{ imageRendering: "pixelated" }}
           />
+          
           <p className="font-pixel text-xs text-gray-400 uppercase tracking-widest">
             Closed Beta Access
           </p>
