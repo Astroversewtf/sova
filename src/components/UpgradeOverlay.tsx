@@ -11,6 +11,15 @@ function getRarityLabel(rarity: UpgradeRarity): "Common" | "Rare" | "Epic" {
   return "Common";
 }
 
+const UPGRADE_ICONS: Record<UpgradeId, string> = {
+  sharp_blade: "/sprites/upgrades/sharp_blade_01.png",
+  vitality_surge: "/sprites/upgrades/vitality_surge_01.png",
+  life_steal: "/sprites/upgrades/lifes_steal_01.png",
+  thick_skin: "/sprites/upgrades/thick_skin_01.png",
+  swift_feet: "/sprites/upgrades/swift_feet_01.png",
+  second_wind: "/sprites/upgrades/second_wind_01.png",
+};
+
 const RARITY_STYLES: Record<string, {
   border: string;
   glow: string;
@@ -157,8 +166,9 @@ export function UpgradeOverlay() {
 
   const handleSelect = useCallback((upgrade: UpgradeDef) => {
     if (isSpinning) return;
-    const { GameScene } = require("@/game/scenes/GameScene");
-    GameScene.upgradeCallback?.(upgrade.id);
+    window.dispatchEvent(
+      new CustomEvent("sova:upgrade-chosen", { detail: upgrade.id }),
+    );
   }, [isSpinning]);
 
   const handleReroll = useCallback(() => {
@@ -309,7 +319,7 @@ function UpgradeCard({
           style={{ animation: "icon-bounce 2s ease-in-out infinite" }}
         >
           <img
-            src="/sprites/items/key/key_02.png"
+            src={UPGRADE_ICONS[upgrade.id]}
             alt=""
             className="w-14 h-14"
             style={{ imageRendering: "pixelated" }}

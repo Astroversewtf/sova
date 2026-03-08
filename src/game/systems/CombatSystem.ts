@@ -116,7 +116,7 @@ export class CombatSystem {
       else type = TreasureType.ORB; // float safety fallback
 
       if (!type) return;
-      const bossValue = type === TreasureType.ORB ? 1 : type === TreasureType.COIN ? 50 : 1;
+      const bossValue = type === TreasureType.ORB ? 1 : type === TreasureType.COIN ? 150 : 1;
       const id = `enemy-loot-${Date.now()}`;
       const t = new Treasure(this.scene, pos, type, bossValue, id);
       this.scene.treasures.push(t);

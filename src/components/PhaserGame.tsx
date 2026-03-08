@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { useWalletStore } from "@/stores/walletStore";
 import { GameHUD } from "./GameHUD";
 import { UpgradeOverlay } from "./UpgradeOverlay";
+import { LootRevealOverlay } from "./LootRevealOverlay";
 import { GameOverOverlay } from "./GameOverOverlay";
 
 export function PhaserGame() {
@@ -89,6 +90,7 @@ export function PhaserGame() {
       <div ref={containerRef} className="absolute inset-0" />
       <GameHUD />
       <UpgradeOverlay />
+      <LootRevealOverlay />
       <GameOverOverlay />
     </div>
   );

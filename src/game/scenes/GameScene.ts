@@ -72,6 +72,8 @@ export class GameScene extends Phaser.Scene {
     left: Phaser.GameObjects.Image;
     right: Phaser.GameObjects.Image;
   };
+  private moveArrowPulseTweens = new WeakMap<Phaser.GameObjects.Image, Phaser.Tweens.Tween>();
+  private moveArrowPulseState = new WeakMap<Phaser.GameObjects.Image, "normal" | "blocked" | "stairs">();
 
   // Movement queue (MoG-style pendingMove)
   private pendingMove: { dx: number; dy: number } | null = null;
@@ -81,6 +83,7 @@ export class GameScene extends Phaser.Scene {
   // Input
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd!: Record<string, Phaser.Input.Keyboard.Key>;
+  private passKey!: Phaser.Input.Keyboard.Key;
   private chatFocused = false;
   private heldInputDir: { dx: number; dy: number } | null = null;
   private heldInputStartedAt = 0;
@@ -123,6 +126,9 @@ export class GameScene extends Phaser.Scene {
         S: this.input.keyboard.addKey("S"),
         D: this.input.keyboard.addKey("D"),
       };
+      this.passKey = this.input.keyboard.addKey(
+        Phaser.Input.Keyboard.KeyCodes.SPACE,
+      );
     }
 
     // Chat focus bridge
@@ -155,6 +161,7 @@ export class GameScene extends Phaser.Scene {
     this.heldInputDir = null;
     this.heldInputStartedAt = 0;
     this.heldInputLastRepeatAt = 0;
+    this.enemyAI.reset();
 
     // Cleanup previous floor
     this.cleanupFloor();
@@ -254,22 +261,18 @@ export class GameScene extends Phaser.Scene {
       if (!this.textures.exists(texKey)) continue;
       const img = this.add.image(
         wp.pos.x * TILE_SIZE + TILE_SIZE / 2,
-        wp.pos.y * TILE_SIZE + TILE_SIZE / 2 + 4,
+        wp.pos.y * TILE_SIZE + TILE_SIZE / 2,
         texKey,
       );
       img.setDepth(200);
       img.setOrigin(0.5, 0.5);
-      // Scale to fit within tile
-      const frame = img.frame;
-      const scale = (TILE_SIZE * 0.75) / Math.max(frame.width, frame.height);
-      img.setScale(scale);
       // Use the floor tile below (y+1) for fog visibility — wall tiles are VOID and never revealed
       img.setData("tilePos", { x: wp.pos.x, y: wp.pos.y + 1 });
       this.props.push(img);
     }
 
     // Fog of war
-    this.fogOfWar = new FogOfWar(this, width, height);
+    this.fogOfWar = new FogOfWar(this, width, height, cells);
     const radius = this.energyManager.getVisionRadius();
     this.fogOfWar.update(spawn, radius);
 
@@ -496,7 +499,10 @@ export class GameScene extends Phaser.Scene {
     this.traps = [];
   }
 
-  update() {
+  update(_time: number, delta: number) {
+    // Fog reveal animation
+    this.fogOfWar?.tick(delta);
+
     // Sync player visual sprite with GridEngine-controlled dummy
     if (this.player?.dummySprite) {
       this.player.syncWithGridEngine();
@@ -511,6 +517,11 @@ export class GameScene extends Phaser.Scene {
 
     if (this.chatFocused) {
       this.heldInputDir = null;
+      return;
+    }
+
+    if (this.passKey && Phaser.Input.Keyboard.JustDown(this.passKey)) {
+      this.executeSkip();
       return;
     }
 
@@ -717,13 +728,13 @@ export class GameScene extends Phaser.Scene {
     }
     for (const t of this.treasures) {
       if (t.collected) continue;
-      t.setVisible(this.fogOfWar.isVisible(t.pos));
+      t.setVisible(this.fogOfWar.isExplored(t.pos));
     }
     for (const c of this.chests) {
       c.setVisible(this.fogOfWar.isVisible(c.pos) || this.fogOfWar.isExplored(c.pos));
     }
     for (const tr of this.traps) {
-      tr.setVisible(this.fogOfWar.isVisible(tr.pos));
+      tr.setVisible(false);
     }
     if (this.fountain) {
       this.fountain.setVisible(
@@ -750,26 +761,47 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createMoveArrows() {
-    const alpha = 0.62;
-    const depth = 450;
-    const scale = 0.88;
+    const alpha = 0.5;
+    // Keep controls above floor/fog tiles but always below world entities.
+    // Entity depths start at 300 (treasure/chest/fountain), enemy is 400, player is 500.
+    const depth = 120;
+    const scale = 0.75;
 
     const upKey = this.textures.exists("move-mark-up") ? "move-mark-up" : "arrow-up";
     const downKey = this.textures.exists("move-mark-down") ? "move-mark-down" : "arrow-down";
-    const leftKey = this.textures.exists("move-mark-left") ? "move-mark-left" : "arrow-side";
-    const rightKey = this.textures.exists("move-mark-right") ? "move-mark-right" : "arrow-side";
+    const sideKey = this.textures.exists("move-mark-side") ? "move-mark-side" : null;
+    const leftKey = sideKey ?? (this.textures.exists("move-mark-left") ? "move-mark-left" : "arrow-side");
+    const rightKey = sideKey ?? (this.textures.exists("move-mark-right") ? "move-mark-right" : "arrow-side");
 
     const up = this.add.image(0, 0, upKey).setAlpha(alpha).setDepth(depth).setScale(scale).setVisible(false);
     const down = this.add.image(0, 0, downKey).setAlpha(alpha).setDepth(depth).setScale(scale).setVisible(false);
     const left = this.add.image(0, 0, leftKey).setAlpha(alpha).setDepth(depth).setScale(scale).setVisible(false);
     const right = this.add.image(0, 0, rightKey).setAlpha(alpha).setDepth(depth).setScale(scale).setVisible(false);
-    if (rightKey === "arrow-side") right.setFlipX(true);
+    // Shared side asset points one direction; mirror for the opposite.
+    if (rightKey === leftKey || rightKey === "arrow-side") right.setFlipX(true);
+
+    this.bindMoveArrowInteraction(up, 0, -1);
+    this.bindMoveArrowInteraction(down, 0, 1);
+    this.bindMoveArrowInteraction(left, -1, 0);
+    this.bindMoveArrowInteraction(right, 1, 0);
 
     this.moveArrows = { up, down, left, right };
   }
 
+  private bindMoveArrowInteraction(arrow: Phaser.GameObjects.Image, dx: number, dy: number) {
+    arrow.setInteractive({ useHandCursor: true });
+    arrow.on("pointerdown", () => {
+      if (!arrow.visible || this.chatFocused) return;
+      this.submitDirectionalInput(dx, dy);
+    });
+  }
+
   hideMoveArrows() {
     if (!this.moveArrows) return;
+    this.setMoveArrowVisual(this.moveArrows.up, "normal");
+    this.setMoveArrowVisual(this.moveArrows.down, "normal");
+    this.setMoveArrowVisual(this.moveArrows.left, "normal");
+    this.setMoveArrowVisual(this.moveArrows.right, "normal");
     this.moveArrows.up.setVisible(false);
     this.moveArrows.down.setVisible(false);
     this.moveArrows.left.setVisible(false);
@@ -800,11 +832,73 @@ export class GameScene extends Phaser.Scene {
           tx * TILE_SIZE + TILE_SIZE / 2,
           ty * TILE_SIZE + TILE_SIZE / 2,
         );
+        const target = { x: tx, y: ty };
+        const isStairs = this.isOnStairs(target);
+        const blockedByEnemyOrChest = !!this.getEnemyAt(target) || !!this.getChestAt(target);
+        const visualState: "normal" | "blocked" | "stairs" = isStairs
+          ? "stairs"
+          : blockedByEnemyOrChest
+            ? "blocked"
+            : "normal";
+        this.setMoveArrowVisual(arrow, visualState);
         arrow.setVisible(true);
       } else {
+        this.setMoveArrowVisual(arrow, "normal");
         arrow.setVisible(false);
       }
     }
+  }
+
+  private setMoveArrowVisual(
+    arrow: Phaser.GameObjects.Image,
+    state: "normal" | "blocked" | "stairs",
+  ) {
+    const prev = this.moveArrowPulseState.get(arrow);
+    if (prev === state) return;
+
+    const currentTween = this.moveArrowPulseTweens.get(arrow);
+    if (currentTween) {
+      currentTween.stop();
+      currentTween.remove();
+      this.moveArrowPulseTweens.delete(arrow);
+    }
+
+    if (state === "normal") {
+      arrow.clearTint();
+      arrow.setAlpha(0.5);
+      this.moveArrowPulseState.set(arrow, state);
+      return;
+    }
+
+    if (state === "stairs") {
+      arrow.setTint(0x78f56b);
+      arrow.setAlpha(0.52);
+      const tween = this.tweens.add({
+        targets: arrow,
+        alpha: 0.9,
+        duration: 520,
+        yoyo: true,
+        repeat: -1,
+        ease: "Sine.easeInOut",
+      });
+      this.moveArrowPulseTweens.set(arrow, tween);
+      this.moveArrowPulseState.set(arrow, state);
+      return;
+    }
+
+    // blocked (enemy/chest)
+    arrow.setTint(0xff8f8f);
+    arrow.setAlpha(0.38);
+    const tween = this.tweens.add({
+      targets: arrow,
+      alpha: 0.68,
+      duration: 560,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut",
+    });
+    this.moveArrowPulseTweens.set(arrow, tween);
+    this.moveArrowPulseState.set(arrow, state);
   }
 
   private isWalkable(pos: TilePos): boolean {
@@ -849,19 +943,19 @@ export class GameScene extends Phaser.Scene {
     // Show React upgrade overlay
     store.showUpgradeScreen(this.currentFloor);
 
-    // Store callback for React overlay to call
-    GameScene.upgradeCallback = (chosenUpgrade: string) => {
-      GameScene.upgradeCallback = null;
-      this.upgradeManager.applyUpgrade(chosenUpgrade as any);
+    // Listen for React overlay upgrade choice
+    const onUpgradeChosen = (e: Event) => {
+      window.removeEventListener("sova:upgrade-chosen", onUpgradeChosen);
+      const upgradeId = (e as CustomEvent).detail as string;
+      this.upgradeManager.applyUpgrade(upgradeId as any);
       useGameStore.getState().hideUpgradeScreen();
       this.scene.resume();
       this.buildFloor(this.currentFloor + 1);
       this.cameras.main.fadeIn(500, 0, 0, 0);
     };
+    window.addEventListener("sova:upgrade-chosen", onUpgradeChosen);
   }
 
-  /** Module-level callback for React upgrade overlay */
-  static upgradeCallback: ((upgradeId: string) => void) | null = null;
 
   endRun(_reason: "energy" | "exit") {
     const stats = useGameStore.getState().getStats();

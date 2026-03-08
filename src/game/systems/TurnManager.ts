@@ -194,7 +194,7 @@ export class TurnManager {
   }
 
   /**
-   * Chest drops: 50% Energy, 30% Coin, 20% Orb
+   * Chest drops: 50% Energy, 20% Coin, 20% Orb, 10% Nothing
    */
   private breakChest(chest: import("../entities/Chest").Chest) {
     chest.open();
@@ -203,14 +203,18 @@ export class TurnManager {
     const pos = chest.pos;
     const roll = Math.random();
 
-    let type: TreasureType;
+    let type: TreasureType | null;
     if (roll < 0.50) {
       type = TreasureType.ENERGY;
-    } else if (roll < 0.80) {
+    } else if (roll < 0.70) {
       type = TreasureType.COIN;
-    } else {
+    } else if (roll < 0.90) {
       type = TreasureType.ORB;
+    } else {
+      type = null;
     }
+
+    if (!type) return;
 
     const id = `chest-loot-${Date.now()}`;
     const tier = getTier(this.scene.currentFloor);

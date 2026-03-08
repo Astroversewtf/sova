@@ -8,23 +8,21 @@ interface RunEndData {
   floor: number;
 }
 
-type Phase = "chest" | "treasure" | "summary";
+type Phase = "chest" | "opening" | "done";
 
 /**
- * Multi-phase run end ceremony:
+ * MoG-style multi-phase run end ceremony:
  *
- * Phase 1 — CHEST
+ * Phase 0 — GAME OVER text (fade in, hold, fade out)
+ *
+ * Phase 1 — CHEST (3 clicks to open)
  *   Black screen, golden particles rising, chest drops with bounce,
- *   "CLICK ANYWHERE" pulsing at bottom. Each of 3 clicks shakes the
- *   chest harder and intensifies particles.
+ *   "CLICK ANYWHERE" pulsing. Each click shakes harder + more particles.
  *
- * Phase 2 — TREASURE (auto-plays after 3rd click)
- *   Chest opens with flash, "TREASURE" label, coin count-up, orb count-up.
- *   Then "CLICK TO CONTINUE" appears.
+ * Phase 2 — OPENING (after 3rd click)
+ *   Chest bursts open with flash → hand off to React for loot reveals
  *
- * Phase 3 — SUMMARY (after click)
- *   Fade to dimmed overlay with GAME OVER title, LOOT section,
- *   STATS section, PLAY AGAIN + LOBBY buttons.
+ * React handles: COINS → TICKETS → ORBS → LOOT SUMMARY
  */
 export class RunEndScene extends Phaser.Scene {
   private stats!: RunStats;
@@ -32,12 +30,12 @@ export class RunEndScene extends Phaser.Scene {
   private clickCount = 0;
   private phase: Phase = "chest";
   private ambientTimer?: Phaser.Time.TimerEvent;
-  private chest!: Phaser.GameObjects.Image | Phaser.GameObjects.Graphics;
+  private chest!: Phaser.GameObjects.Image;
   private chestCx!: number;
   private chestCy!: number;
   private clickLabel!: Phaser.GameObjects.Text;
-  private isChestSprite = false;
   private inputBlocked = false;
+  private hasChestWood = false;
 
   constructor() {
     super({ key: "RunEndScene" });
@@ -49,8 +47,12 @@ export class RunEndScene extends Phaser.Scene {
     this.clickCount = 0;
     this.phase = "chest";
     this.inputBlocked = false;
+    this.hasChestWood = this.textures.exists("chest-wood");
 
     this.cameras.main.setBackgroundColor(0x000000);
+
+    // Hide the React HUD immediately
+    useGameStore.setState({ isRunning: false });
 
     // Phase 0: "GAME OVER" text first, then chest
     this.phaseGameOver();
@@ -134,73 +136,42 @@ export class RunEndScene extends Phaser.Scene {
     // Ambient golden particles rising from bottom
     this.startAmbientParticles(6);
 
-    // ── Top labels ──
-    this.add
-      .text(cx - 140, 50, "WEEKLY POOL", {
-        fontFamily: '"8bit Wonder"',
-        fontSize: "7px",
-        color: "#64748b",
-      })
-      .setOrigin(0.5);
-
-    this.add
-      .text(cx - 140, 72, "1,250", {
-        fontFamily: '"8bit Wonder"',
-        fontSize: "12px",
-        color: "#fbbf24",
-        stroke: "#000000",
-        strokeThickness: 3,
-      })
-      .setOrigin(0.5);
-
-    this.add
-      .text(cx + 140, 50, "JACKPOT", {
-        fontFamily: '"8bit Wonder"',
-        fontSize: "7px",
-        color: "#64748b",
-      })
-      .setOrigin(0.5);
-
-    this.add
-      .text(cx + 140, 72, "5,000", {
-        fontFamily: '"8bit Wonder"',
-        fontSize: "12px",
-        color: "#fbbf24",
-        stroke: "#000000",
-        strokeThickness: 3,
-      })
-      .setOrigin(0.5);
+    // No WEEKLY/JACKPOT labels — clean screen
 
     // ── Chest ──
     this.chestCx = cx;
     this.chestCy = GAME_HEIGHT / 2 - 30;
 
-    this.isChestSprite = this.textures.exists("loot-box-1");
-
-    if (this.isChestSprite) {
-      const img = this.add
+    if (this.hasChestWood) {
+      this.chest = this.add
+        .image(cx, -100, "chest-wood")
+        .setScale(4)
+        .setOrigin(0.5);
+    } else if (this.textures.exists("loot-box-1")) {
+      this.chest = this.add
         .image(cx, -100, "loot-box-1")
         .setScale(5)
         .setOrigin(0.5);
-      this.chest = img;
     } else {
-      const g = this.add.graphics();
-      this.drawChestClosed(g, cx, -100);
-      this.chest = g;
+      // Fallback — use a placeholder image-like object
+      this.chest = this.add
+        .image(cx, -100, "__DEFAULT")
+        .setScale(1)
+        .setOrigin(0.5);
     }
 
     // Bounce-drop
     this.tweens.add({
       targets: this.chest,
-      y: this.isChestSprite ? this.chestCy : this.chestCy + 100,
+      y: this.chestCy,
       duration: 800,
       ease: "Bounce.easeOut",
       onComplete: () => this.startIdleBounce(),
     });
 
-    // ── "CLICK ANYWHERE" pulsing ──
+    // ── "CLICK ANYWHERE" pulsing — higher up (40% from top) ──
     this.clickLabel = this.add
-      .text(cx, GAME_HEIGHT - 60, "CLICK ANYWHERE", {
+      .text(cx, GAME_HEIGHT * 0.78, "CLICK ANYWHERE", {
         fontFamily: '"8bit Wonder"',
         fontSize: "10px",
         color: "#94a3b8",
@@ -223,7 +194,7 @@ export class RunEndScene extends Phaser.Scene {
   private startIdleBounce() {
     this.tweens.add({
       targets: this.chest,
-      y: (this.isChestSprite ? this.chestCy : this.chestCy + 100) - 8,
+      y: this.chestCy - 8,
       duration: 1400,
       yoyo: true,
       repeat: -1,
@@ -239,8 +210,7 @@ export class RunEndScene extends Phaser.Scene {
 
       // Stop idle bounce
       this.tweens.killTweensOf(this.chest);
-      const restY = this.isChestSprite ? this.chestCy : this.chestCy + 100;
-      (this.chest as Phaser.GameObjects.Components.Transform).y = restY;
+      this.chest.y = this.chestCy;
 
       // Burst particles from chest centre
       this.spawnBurstParticles(6 + this.clickCount * 6);
@@ -261,12 +231,11 @@ export class RunEndScene extends Phaser.Scene {
         repeat: reps,
         ease: "Sine.easeInOut",
         onComplete: () => {
-          (this.chest as Phaser.GameObjects.Components.Transform).x =
-            this.chestCx;
+          this.chest.x = this.chestCx;
           this.inputBlocked = false;
 
           if (this.clickCount >= 3) {
-            this.phase = "treasure";
+            this.phase = "opening";
             this.time.delayedCall(300, () => this.openChest());
           } else {
             // Intensify ambient particles
@@ -279,11 +248,12 @@ export class RunEndScene extends Phaser.Scene {
   };
 
   // ═══════════════════════════════════════════════════════
-  //  PHASE 2 — TREASURE (auto-plays)
+  //  PHASE 2 — Chest opens, hand off to React
   // ═══════════════════════════════════════════════════════
 
   private openChest() {
-    // Remove click label
+    // Remove click handler and label
+    this.input.off("pointerdown", this.handleClick, this);
     if (this.clickLabel) {
       this.clickLabel.destroy();
     }
@@ -305,189 +275,39 @@ export class RunEndScene extends Phaser.Scene {
       onComplete: () => flash.destroy(),
     });
 
-    // Switch to open chest
-    if (this.isChestSprite && this.textures.exists("loot-box-2")) {
-      (this.chest as Phaser.GameObjects.Image).setTexture("loot-box-2");
-    } else if (!this.isChestSprite) {
-      const g = this.chest as Phaser.GameObjects.Graphics;
-      g.clear();
-      this.drawChestOpen(g, this.chestCx, this.chestCy);
+    // Switch to open chest (use loot-box-2 if available, otherwise keep same)
+    if (this.textures.exists("loot-box-2")) {
+      this.chest.setTexture("loot-box-2");
     }
 
     // Big burst
     this.spawnBurstParticles(40);
 
-    // Scale pulse
+    // Scale pulse (chest bursts open — expand then settle)
+    const baseScale = this.hasChestWood ? 4 : 5;
     this.tweens.add({
       targets: this.chest,
-      scaleX: this.isChestSprite ? { from: 6.5, to: 5 } : { from: 1.3, to: 1 },
-      scaleY: this.isChestSprite ? { from: 6.5, to: 5 } : { from: 1.3, to: 1 },
+      scaleX: { from: baseScale * 1.4, to: baseScale },
+      scaleY: { from: baseScale * 1.4, to: baseScale },
       duration: 400,
       ease: "Back.easeOut",
     });
 
-    // "TREASURE" label above chest
-    const cx = GAME_WIDTH / 2;
-    const treasureLabel = this.add
-      .text(cx, this.chestCy - 100, "TREASURE", {
-        fontFamily: '"8bit Wonder"',
-        fontSize: "18px",
-        color: "#fbbf24",
-        stroke: "#000000",
-        strokeThickness: 4,
-      })
-      .setOrigin(0.5)
-      .setAlpha(0);
+    // Transition to React loot reveal after a beat
+    this.time.delayedCall(800, () => {
+      // Clean up all Phaser visuals before React takes over
+      if (this.ambientTimer) {
+        this.ambientTimer.destroy();
+        this.ambientTimer = undefined;
+      }
+      this.tweens.killAll();
+      this.children.removeAll(true);
 
-    this.tweens.add({
-      targets: treasureLabel,
-      alpha: 1,
-      y: treasureLabel.y + 12,
-      duration: 500,
-      ease: "Power2",
-    });
-
-    // Count-up coins after a beat
-    this.time.delayedCall(700, () => this.revealCoins());
-  }
-
-  private revealCoins() {
-    const cx = GAME_WIDTH / 2;
-    const baseY = this.chestCy + 80;
-
-    // Gold burst
-    this.spawnBurstParticles(14, 0xfbbf24, 0xffa500);
-
-    const label = this.add
-      .text(cx, baseY, "COINS", {
-        fontFamily: '"8bit Wonder"',
-        fontSize: "8px",
-        color: "#9ca3af",
-      })
-      .setOrigin(0.5)
-      .setAlpha(0);
-
-    const value = this.add
-      .text(cx, baseY + 26, "0", {
-        fontFamily: '"8bit Wonder"',
-        fontSize: "22px",
-        color: "#fbbf24",
-        stroke: "#000000",
-        strokeThickness: 3,
-      })
-      .setOrigin(0.5)
-      .setAlpha(0);
-
-    this.tweens.add({
-      targets: [label, value],
-      alpha: 1,
-      duration: 300,
-    });
-
-    const target = this.stats.coinsCollected;
-    const dur = Math.min(1500, Math.max(500, target * 30));
-
-    this.tweens.addCounter({
-      from: 0,
-      to: target,
-      duration: dur,
-      ease: "Power1",
-      onUpdate: (tw) => value.setText(`${Math.floor(tw.getValue() ?? 0)}`),
-      onComplete: () => {
-        value.setText(`${target}`);
-        this.time.delayedCall(500, () => this.revealOrbs(baseY));
-      },
-    });
-  }
-
-  private revealOrbs(coinsBaseY: number) {
-    const cx = GAME_WIDTH / 2;
-    const baseY = coinsBaseY + 56;
-
-    // Purple burst
-    this.spawnBurstParticles(10, 0xa78bfa, 0x7c3aed);
-
-    const label = this.add
-      .text(cx, baseY, "ORBS", {
-        fontFamily: '"8bit Wonder"',
-        fontSize: "8px",
-        color: "#9ca3af",
-      })
-      .setOrigin(0.5)
-      .setAlpha(0);
-
-    const value = this.add
-      .text(cx, baseY + 26, "0", {
-        fontFamily: '"8bit Wonder"',
-        fontSize: "22px",
-        color: "#a78bfa",
-        stroke: "#000000",
-        strokeThickness: 3,
-      })
-      .setOrigin(0.5)
-      .setAlpha(0);
-
-    this.tweens.add({
-      targets: [label, value],
-      alpha: 1,
-      duration: 300,
-    });
-
-    const target = this.stats.orbsCollected;
-    const dur = Math.min(1200, Math.max(400, target * 50));
-
-    this.tweens.addCounter({
-      from: 0,
-      to: target,
-      duration: dur,
-      ease: "Power1",
-      onUpdate: (tw) => value.setText(`${Math.floor(tw.getValue() ?? 0)}`),
-      onComplete: () => {
-        value.setText(`${target}`);
-        this.time.delayedCall(500, () => this.showClickToContinue());
-      },
-    });
-  }
-
-  private showClickToContinue() {
-    const cx = GAME_WIDTH / 2;
-
-    this.clickLabel = this.add
-      .text(cx, GAME_HEIGHT - 50, "CLICK TO CONTINUE", {
-        fontFamily: '"8bit Wonder"',
-        fontSize: "9px",
-        color: "#94a3b8",
-      })
-      .setOrigin(0.5);
-
-    this.tweens.add({
-      targets: this.clickLabel,
-      alpha: { from: 0.3, to: 1 },
-      duration: 900,
-      yoyo: true,
-      repeat: -1,
-      ease: "Sine.easeInOut",
-    });
-
-    // Single click → summary
-    this.input.once("pointerdown", () => {
-      this.phase = "summary";
-      this.transitionToSummary();
-    });
-  }
-
-  // ═══════════════════════════════════════════════════════
-  //  PHASE 3 — Show React overlay
-  // ═══════════════════════════════════════════════════════
-
-  private transitionToSummary() {
-    // Remove click handler
-    this.input.off("pointerdown", this.handleClick, this);
-
-    // Show the React Game Over overlay
-    useGameStore.getState().showGameOver({
-      stats: this.stats,
-      floor: this.floor,
+      // Hand off to React — coins → orbs → summary
+      useGameStore.getState().startLootReveal({
+        stats: this.stats,
+        floor: this.floor,
+      });
     });
   }
 
@@ -561,43 +381,5 @@ export class RunEndScene extends Phaser.Scene {
         onComplete: () => p.destroy(),
       });
     }
-  }
-
-  /** Procedural closed chest (fallback when sprites missing) */
-  private drawChestClosed(
-    g: Phaser.GameObjects.Graphics,
-    cx: number,
-    cy: number,
-  ) {
-    const w = 60;
-    const h = 44;
-    g.fillStyle(0x8b6914);
-    g.fillRect(cx - w / 2, cy - h / 2, w, h);
-    g.fillStyle(0xa67c1a);
-    g.fillRect(cx - w / 2, cy - h / 2, w, h / 3);
-    g.fillStyle(0xffd819);
-    g.fillRect(cx - 5, cy - 5, 10, 10);
-    g.lineStyle(2, 0x5a3e0a);
-    g.strokeRect(cx - w / 2, cy - h / 2, w, h);
-  }
-
-  /** Procedural open chest (fallback) */
-  private drawChestOpen(
-    g: Phaser.GameObjects.Graphics,
-    cx: number,
-    cy: number,
-  ) {
-    const w = 60;
-    const h = 44;
-    g.fillStyle(0x8b6914);
-    g.fillRect(cx - w / 2, cy - h / 4, w, (h * 3) / 4);
-    g.fillStyle(0xa67c1a);
-    g.fillRect(cx - w / 2 - 2, cy - h / 2 - 10, w + 4, h / 3);
-    g.fillStyle(0xffd819);
-    g.fillRect(cx - w / 2 + 4, cy - h / 4 + 2, w - 8, 12);
-    g.fillStyle(0xffd819, 0.3);
-    g.fillCircle(cx, cy - 10, 35);
-    g.lineStyle(2, 0x5a3e0a);
-    g.strokeRect(cx - w / 2, cy - h / 4, w, (h * 3) / 4);
   }
 }

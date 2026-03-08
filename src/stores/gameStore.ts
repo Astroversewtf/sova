@@ -28,6 +28,7 @@ interface GameState {
   upgradeScreenFloor: number | null; // non-null = upgrade overlay visible
   rerollCount: number; // persists across floors within a run
   gameOverData: GameOverData | null; // non-null = game over overlay visible
+  lootPhase: "coins" | "orbs" | "summary" | null;
 
   startRun: () => void;
   endRun: () => void;
@@ -51,6 +52,8 @@ interface GameState {
   hideUpgradeScreen: () => void;
   showGameOver: (data: GameOverData) => void;
   hideGameOver: () => void;
+  startLootReveal: (data: GameOverData) => void;
+  advanceLootPhase: () => void;
   spendCoins: (amount: number) => void;
   incrementReroll: () => void;
   getRerollCost: () => number;
@@ -77,6 +80,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   upgradeScreenFloor: null,
   rerollCount: 0,
   gameOverData: null,
+  lootPhase: null,
 
   startRun: () =>
     set({
@@ -165,8 +169,15 @@ export const useGameStore = create<GameState>((set, get) => ({
   showUpgradeScreen: (floor) => set({ upgradeScreenFloor: floor }),
   hideUpgradeScreen: () => set({ upgradeScreenFloor: null }),
 
-  showGameOver: (data) => set({ gameOverData: data }),
-  hideGameOver: () => set({ gameOverData: null }),
+  showGameOver: (data) => set({ gameOverData: data, lootPhase: "summary" }),
+  hideGameOver: () => set({ gameOverData: null, lootPhase: null }),
+
+  startLootReveal: (data) => set({ gameOverData: data, lootPhase: "coins" }),
+  advanceLootPhase: () => {
+    const phase = get().lootPhase;
+    if (phase === "coins") set({ lootPhase: "orbs" });
+    else if (phase === "orbs") set({ lootPhase: "summary" });
+  },
 
   spendCoins: (amount) =>
     set((s) => ({ coinsCollected: Math.max(0, s.coinsCollected - amount) })),

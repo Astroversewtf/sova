@@ -92,9 +92,9 @@ export function getEnemyDMG(type: EnemyType): number {
     case EnemyType.GOLEM:
       return 2;
     case EnemyType.GHOST:
-      return 4;
+      return 3;
     case EnemyType.BOSS:
-      return 12;
+      return 7;
   }
 }
 
@@ -128,9 +128,9 @@ export const TREASURE_WEIGHTS: Record<TreasureType, number> = {
 
 export const TREASURE_VALUES: Record<TreasureType, number> = {
   [TreasureType.ENERGY]: 5,
-  [TreasureType.COIN]: 1,
-  [TreasureType.ORB]: 5,
-  [TreasureType.GOLDEN_TICKET]: 20,
+  [TreasureType.COIN]: 10,
+  [TreasureType.ORB]: 1,
+  [TreasureType.GOLDEN_TICKET]: 1,
 };
 
 // ── Boss ──

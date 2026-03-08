@@ -3,166 +3,176 @@
 import { useEffect, useState } from "react";
 import { useGameStore } from "@/stores/gameStore";
 
-const textShadow =
+const textOutline =
   "-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 -2px 0 #000, 0 2px 0 #000, -2px 0 0 #000, 2px 0 0 #000";
+
+/* ── MoG gradient text styles ── */
+const GOLD_TEXT = {
+  background:
+    "linear-gradient(180deg, #F5EA54 0%, #FFBD21 25%, #F5EA54 50%, #C35221 75%, #FC8518 100%)",
+  WebkitBackgroundClip: "text" as const,
+  WebkitTextFillColor: "transparent",
+  filter:
+    "drop-shadow(1px 1px 0px #000) drop-shadow(-1px -1px 0px #000) drop-shadow(1px -1px 0px #000) drop-shadow(-1px 1px 0px #000)",
+};
+
+const RED_TEXT = {
+  background:
+    "linear-gradient(180deg, #fca5a5 0%, #ef4444 25%, #fca5a5 50%, #b91c1c 75%, #dc2626 100%)",
+  WebkitBackgroundClip: "text" as const,
+  WebkitTextFillColor: "transparent",
+  filter:
+    "drop-shadow(1px 1px 0px #000) drop-shadow(-1px -1px 0px #000) drop-shadow(1px -1px 0px #000) drop-shadow(-1px 1px 0px #000)",
+};
+
+const BLUE_TEXT = {
+  background:
+    "linear-gradient(180deg, #93c5fd 0%, #3b82f6 25%, #93c5fd 50%, #1d4ed8 75%, #2563eb 100%)",
+  WebkitBackgroundClip: "text" as const,
+  WebkitTextFillColor: "transparent",
+  filter:
+    "drop-shadow(1px 1px 0px #000) drop-shadow(-1px -1px 0px #000) drop-shadow(1px -1px 0px #000) drop-shadow(-1px 1px 0px #000)",
+};
 
 export function GameOverOverlay() {
   const data = useGameStore((s) => s.gameOverData);
+  const lootPhase = useGameStore((s) => s.lootPhase);
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    if (!data) {
+    if (lootPhase !== "summary" || !data) {
       setVisible(false);
       return;
     }
     requestAnimationFrame(() => setVisible(true));
-  }, [data]);
+  }, [lootPhase, data]);
 
-  if (!data) return null;
+  if (!data || lootPhase !== "summary") return null;
 
   const { stats, floor } = data;
 
   const handlePlayAgain = () => {
     useGameStore.getState().endRun();
-    // Tell Phaser to restart
-    window.dispatchEvent(new CustomEvent("sova:run-end-action", { detail: "play-again" }));
+    window.dispatchEvent(
+      new CustomEvent("sova:run-end-action", { detail: "play-again" }),
+    );
   };
 
   const handleLobby = () => {
     useGameStore.getState().endRun();
-    window.dispatchEvent(new CustomEvent("sova:run-end-action", { detail: "lobby" }));
+    window.dispatchEvent(
+      new CustomEvent("sova:run-end-action", { detail: "lobby" }),
+    );
   };
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex items-center justify-center transition-opacity duration-300 ${
+      className={`fixed inset-0 z-50 flex items-center justify-center transition-opacity duration-500 ${
         visible ? "opacity-100" : "opacity-0"
       }`}
-      style={{
-        backdropFilter: "blur(8px)",
-        WebkitBackdropFilter: "blur(8px)",
-      }}
+      style={{ background: "rgba(0, 0, 0, 0.92)" }}
     >
-      {/* Dark overlay */}
-      <div className="absolute inset-0 bg-black/85" />
-
-      {/* Content */}
-      <div className="relative z-10 flex flex-col items-center select-none">
-        {/* ── GAME OVER title ── */}
-        <div className="flex gap-2 mb-4">
-          <div className="border-2 border-white/80 px-5 py-2">
+      <div className="relative z-10 flex flex-col items-center select-none w-[380px] sm:w-[440px]">
+        {/* ── GAME OVER title (MoG bordered boxes) ── */}
+        <div className="flex gap-2 mb-3">
+          <div className="border-[3px] border-white px-5 py-2">
             <span
-              className="font-pixel text-[28px] text-white"
-              style={{ textShadow }}
+              className="font-pixel text-[28px] sm:text-[32px] text-white"
+              style={{ textShadow: textOutline }}
             >
               GAME
             </span>
           </div>
-          <div className="border-2 border-white/80 px-5 py-2">
+          <div className="border-[3px] border-white px-5 py-2">
             <span
-              className="font-pixel text-[28px] text-white"
-              style={{ textShadow }}
+              className="font-pixel text-[28px] sm:text-[32px] text-white"
+              style={{ textShadow: textOutline }}
             >
               OVER
             </span>
           </div>
         </div>
 
-        {/* Floor label */}
-        <span className="font-pixel text-[10px] text-gray-500 mb-10 tracking-wider">
-          FLOOR {floor}
-        </span>
-
-        {/* ── LOOT section ── */}
-        <span className="font-pixel text-[10px] text-gray-400 mb-5 tracking-wider">
-          — LOOT —
-        </span>
-
-        <div className="flex flex-col gap-4 mb-6 w-[280px]">
-          {/* Coins row */}
-          <div className="flex items-center">
-            <div className="w-4 h-4 rounded-full bg-amber-400 border-2 border-amber-600 shrink-0" />
-            <span className="font-pixel text-[11px] text-gray-200 ml-3">
-              COINS
-            </span>
-            <span
-              className="font-pixel text-[16px] text-amber-400 ml-auto"
-              style={{ textShadow: "0 2px 4px rgba(0,0,0,0.5)" }}
-            >
-              {stats.coinsCollected}
-            </span>
-          </div>
-
-          {/* Orbs row */}
-          <div className="flex items-center">
-            <div className="w-4 h-4 rounded-full bg-violet-400 border-2 border-violet-600 shrink-0" />
-            <span className="font-pixel text-[11px] text-gray-200 ml-3">
-              ORBS
-            </span>
-            <span
-              className="font-pixel text-[16px] text-violet-400 ml-auto"
-              style={{ textShadow: "0 2px 4px rgba(0,0,0,0.5)" }}
-            >
-              {stats.orbsCollected}
-            </span>
-          </div>
-
-          {/* Golden Tickets row (if any) */}
-          {stats.goldenTicketsCollected > 0 && (
-            <div className="flex items-center">
-              <img
-                src="/sprites/items/golden_ticket/golden_ticket_big_01.png"
-                alt="Golden Ticket"
-                className="w-6 h-6 shrink-0 object-contain"
-              />
-              <span className="font-pixel text-[11px] text-gray-200 ml-3">
-                TICKETS
-              </span>
-              <span
-                className="font-pixel text-[16px] text-emerald-400 ml-auto"
-                style={{ textShadow: "0 2px 4px rgba(0,0,0,0.5)" }}
-              >
-                {stats.goldenTicketsCollected}
-              </span>
-            </div>
-          )}
+        {/* ── LOOT divider ── */}
+        <div className="flex items-center gap-3 w-full mb-6 mt-4">
+          <div className="h-px bg-gray-600 flex-1" />
+          <span
+            className="font-pixel text-[14px] text-white tracking-wider"
+            style={{ textShadow: textOutline }}
+          >
+            LOOT
+          </span>
+          <div className="h-px bg-gray-600 flex-1" />
         </div>
 
-        {/* Divider */}
-        <div className="w-[240px] h-px bg-gray-700/50 mb-6" />
-
-        {/* ── STATS section ── */}
-        <span className="font-pixel text-[10px] text-gray-400 mb-5 tracking-wider">
-          — STATS —
-        </span>
-
-        <div className="flex flex-col gap-3 mb-10 w-[280px]">
-          <StatRow label="FLOORS CLEARED" value={stats.floorsCleared} color="text-blue-400" />
-          <StatRow label="ENEMIES KILLED" value={stats.enemiesKilled} color="text-red-400" />
-          <StatRow label="BOSSES KILLED" value={stats.bossesKilled} color="text-purple-400" />
-          <StatRow label="CHESTS OPENED" value={stats.chestsOpened} color="text-amber-400" />
-          <StatRow label="TRAPS TRIGGERED" value={stats.trapsTriggered} color="text-orange-400" />
+        {/* ── Loot grid (MoG 3-column: Coins | Tickets | Orbs) ── */}
+        <div className="grid grid-cols-3 gap-4 sm:gap-6 mb-6 w-full">
+          {/* COINS */}
+          <LootColumn
+            label="COINS"
+            icon="/sprites/items/coin/coin_01.png"
+            value={stats.coinsCollected}
+            gradientStyle={GOLD_TEXT}
+            glowColor="#FFD819"
+          />
+          {/* JACKPOT (Golden Tickets) */}
+          <LootColumn
+            label="JACKPOT"
+            icon="/sprites/items/golden_ticket/golden_ticket_big_01.png"
+            value={stats.goldenTicketsCollected}
+            gradientStyle={RED_TEXT}
+            glowColor="#ef4444"
+          />
+          {/* ORBS */}
+          <LootColumn
+            label="ORBS"
+            icon="/sprites/items/orb/item_orb_01.png"
+            value={stats.orbsCollected}
+            gradientStyle={BLUE_TEXT}
+            glowColor="#3b82f6"
+          />
         </div>
 
-        {/* ── Buttons ── */}
-        <div className="flex items-center gap-4">
-          {/* PLAY AGAIN — lime green 3D */}
+        {/* ── STATS divider ── */}
+        <div className="flex items-center gap-3 w-full mb-5">
+          <div className="h-px bg-gray-600 flex-1" />
+          <span
+            className="font-pixel text-[14px] text-white tracking-wider"
+            style={{ textShadow: textOutline }}
+          >
+            STATS
+          </span>
+          <div className="h-px bg-gray-600 flex-1" />
+        </div>
+
+        {/* ── Stats rows (MoG style with bg) ── */}
+        <div className="flex flex-col gap-1.5 mb-8 w-full">
+          <StatRow label="FLOOR" value={`${floor}F`} highlight />
+          <StatRow label="ENEMIES KILLED" value={`${stats.enemiesKilled}`} />
+          <StatRow label="BOSSES KILLED" value={`${stats.bossesKilled}`} />
+          <StatRow label="CHESTS OPENED" value={`${stats.chestsOpened}`} />
+          <StatRow label="TRAPS TRIGGERED" value={`${stats.trapsTriggered}`} />
+        </div>
+
+        {/* ── Buttons (MoG style: Play Again + Home) ── */}
+        <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={handlePlayAgain}
-            className="relative font-pixel text-[11px] px-10 py-3 rounded-lg bg-[#b8e550] text-[#1a1a2e] tracking-wide shadow-[0_4px_0_#7a9e30] hover:brightness-110 hover:shadow-[0_2px_0_#7a9e30] hover:translate-y-[2px] active:shadow-none active:translate-y-[4px] transition-all cursor-pointer"
-            style={{ textShadow: "none" }}
+            className="font-pixel text-[12px] px-10 py-3 rounded-lg bg-[#b8e550] text-white tracking-wide shadow-[0_4px_0_#7a9e30] hover:brightness-110 hover:shadow-[0_2px_0_#7a9e30] hover:translate-y-[2px] active:shadow-none active:translate-y-[4px] transition-all cursor-pointer uppercase"
+            style={{
+              textShadow:
+                "-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 -2px 0 #000, 0 2px 0 #000, -2px 0 0 #000, 2px 0 0 #000",
+            }}
           >
             PLAY AGAIN
           </button>
 
-          {/* LOBBY — house icon button */}
           <button
             type="button"
             onClick={handleLobby}
-            className="relative w-12 h-12 rounded-lg bg-[#334155] border border-[#475569] shadow-[0_4px_0_#1e293b] hover:bg-[#475569] hover:shadow-[0_2px_0_#1e293b] hover:translate-y-[2px] active:shadow-none active:translate-y-[4px] transition-all cursor-pointer flex items-center justify-center"
+            className="w-12 h-12 rounded-lg bg-[#334155] border border-[#475569] shadow-[0_4px_0_#1e293b] hover:bg-[#475569] hover:shadow-[0_2px_0_#1e293b] hover:translate-y-[2px] active:shadow-none active:translate-y-[4px] transition-all cursor-pointer flex items-center justify-center"
           >
-            {/* Simple house SVG */}
             <svg
               width="20"
               height="20"
@@ -182,19 +192,68 @@ export function GameOverOverlay() {
   );
 }
 
+function LootColumn({
+  label,
+  icon,
+  value,
+  gradientStyle,
+  glowColor,
+}: {
+  label: string;
+  icon: string;
+  value: number;
+  gradientStyle: Record<string, string>;
+  glowColor: string;
+}) {
+  const textOutline =
+    "-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 -2px 0 #000, 0 2px 0 #000, -2px 0 0 #000, 2px 0 0 #000";
+
+  return (
+    <div className="flex flex-col items-center gap-2">
+      <span className="font-pixel text-[11px] sm:text-[13px]" style={gradientStyle}>
+        {label}
+      </span>
+      <img
+        src={icon}
+        alt=""
+        className="w-12 h-12 sm:w-14 sm:h-14"
+        style={{
+          imageRendering: "pixelated",
+          filter: `drop-shadow(0 0 8px ${glowColor}66)`,
+        }}
+      />
+      <span
+        className="font-pixel text-[24px] sm:text-[30px] text-white"
+        style={{
+          filter: `drop-shadow(0 0 12px ${glowColor}) drop-shadow(0 0 24px ${glowColor}60)`,
+          textShadow: `0 0 20px ${glowColor}aa, ${textOutline}`,
+        }}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
 function StatRow({
   label,
   value,
-  color,
+  highlight = false,
 }: {
   label: string;
-  value: number;
-  color: string;
+  value: string;
+  highlight?: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between">
-      <span className="font-pixel text-[8px] text-gray-400">{label}</span>
-      <span className={`font-pixel text-[12px] ${color}`}>{value}</span>
+    <div
+      className={`flex items-center justify-between px-4 py-2.5 rounded ${
+        highlight ? "bg-[#1e293b]/80" : "bg-transparent"
+      }`}
+    >
+      <span className="font-pixel text-[9px] text-gray-400 tracking-wide">
+        {label}
+      </span>
+      <span className="font-pixel text-[13px] text-white">{value}</span>
     </div>
   );
 }

@@ -97,6 +97,9 @@ export class BootScene extends Phaser.Scene {
     this.load.image("arrow-up", "sprites/ui/arrow-up.png");
     this.load.image("arrow-down", "sprites/ui/arrow-down.png");
     this.load.image("arrow-side", "sprites/ui/arrow-side.png");
+    this.load.image("move-mark-up", "sprites/ui/movement_controls/move_up.png");
+    this.load.image("move-mark-down", "sprites/ui/movement_controls/move_down.png");
+    this.load.image("move-mark-side", "sprites/ui/movement_controls/move_side.png");
 
     // Floor tiles (PNG)
     this.load.image("tile-floor", "sprites/tiles/floor/floor_clean_01.png");
@@ -135,6 +138,9 @@ export class BootScene extends Phaser.Scene {
     // Loot boxes (chests)
     this.load.image("loot-box-1", "sprites/props/loot_box_01.png");
     this.load.image("loot-box-2", "sprites/props/loot_box_02.png");
+
+    // Chest (run end ceremony)
+    this.load.image("chest-wood", "sprites/props/chest_wood_01.png");
 
     // Coin animation frames
     for (let i = 1; i <= 4; i++) {
@@ -318,7 +324,13 @@ export class BootScene extends Phaser.Scene {
     this.genParticleDust(g);
 
     // ── Move markers (chalk style) ──
-    this.genChalkMoveMarks(g);
+    if (
+      !this.textures.exists("move-mark-up") ||
+      !this.textures.exists("move-mark-down") ||
+      !this.textures.exists("move-mark-side")
+    ) {
+      this.genChalkMoveMarks(g);
+    }
 
     // ── D-pad buttons (mobile) ──
     this.genDPad(g);
