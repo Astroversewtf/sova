@@ -11,6 +11,8 @@ import { ShopTab } from "@/components/lobby/ShopTab";
 import { QuestsTab } from "@/components/lobby/QuestsTab";
 import { RankingsTab } from "@/components/lobby/RankingsTab";
 import { StashTab } from "@/components/lobby/StashTab";
+import { SettingsOverlay } from "@/components/SettingsOverlay";
+import { AudioController } from "@/components/AudioController";
 import { useLobbyStore } from "@/stores/lobbyStore";
 import { usePlayerStore } from "@/stores/playerStore";
 import { useLogin, usePrivy } from "@privy-io/react-auth";
@@ -255,7 +257,16 @@ function GameView() {
 export default function App() {
   const view = useWalletStore((s) => s.view);
 
-  if (view === "game") return <GameView />;
-  if (view === "lobby") return <LobbyView />;
-  return <ConnectView />;
+  let content: React.ReactNode;
+  if (view === "game") content = <GameView />;
+  else if (view === "lobby") content = <LobbyView />;
+  else content = <ConnectView />;
+
+  return (
+    <>
+      {content}
+      <AudioController />
+      <SettingsOverlay />
+    </>
+  );
 }
