@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOVA Audio Checklist</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: #ffffff;
+    color: #1a1a2e;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 48px 40px;
+  }
+
+  h1 {
+    font-size: 36px;
+    font-weight: 900;
+    margin-bottom: 8px;
+  }
+
+  .subtitle {
+    color: #64748b;
+    font-size: 14px;
+    margin-bottom: 32px;
+  }
+
+  /* Stats boxes */
+  .stats {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 40px;
+  }
+
+  .stat-box {
+    flex: 1;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+  }
+
+  .stat-number {
+    font-size: 36px;
+    font-weight: 900;
+    display: block;
+  }
+
+  .stat-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #64748b;
+    margin-top: 4px;
+  }
+
+  /* Section titles */
+  h2 {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    margin-top: 40px;
+  }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-bottom: 8px;
+  }
+
+  thead th {
+    text-align: left;
+    font-weight: 700;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #64748b;
+    padding: 10px 12px;
+    border-bottom: 2px solid #e2e8f0;
+  }
+
+  tbody td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: top;
+  }
+
+  tbody tr:hover {
+    background: #f8fafc;
+  }
+
+  /* Checkbox column */
+  .col-check { width: 32px; text-align: center; }
+  .col-check input { width: 16px; height: 16px; accent-color: #16a34a; }
+  .col-num { width: 32px; text-align: center; color: #94a3b8; font-weight: 600; }
+
+  /* Type badges */
+  .badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .badge-loop {
+    background: #fef3c7;
+    color: #92400e;
+  }
+
+  .badge-oneshot {
+    background: #dcfce7;
+    color: #166534;
+  }
+
+  /* Keywords */
+  .keywords {
+    color: #64748b;
+    font-style: italic;
+    font-size: 12px;
+  }
+
+  /* Duration */
+  .duration {
+    background: #fef3c7;
+    color: #92400e;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  /* Sources table */
+  .sources-table td {
+    padding: 12px;
+  }
+
+  .source-name {
+    font-weight: 700;
+  }
+
+  .source-url {
+    font-size: 11px;
+    color: #64748b;
+  }
+
+  /* Footer */
+  .footer {
+    margin-top: 48px;
+    text-align: center;
+    color: #94a3b8;
+    font-size: 12px;
+  }
+
+  /* Print */
+  @media print {
+    body { padding: 24px; }
+    .stat-box { break-inside: avoid; }
+    table { page-break-inside: auto; }
+    tr { page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<h1>SOVA Audio Checklist</h1>
+<p class="subtitle">All sounds and music needed for the MVP — Avalanche Build Games 2026</p>
+
+<div class="stats">
+  <div class="stat-box">
+    <span class="stat-number">18</span>
+    <span class="stat-label">SFX One-Shot</span>
+  </div>
+  <div class="stat-box">
+    <span class="stat-number">2</span>
+    <span class="stat-label">SFX Loop</span>
+  </div>
+  <div class="stat-box">
+    <span class="stat-number">2</span>
+    <span class="stat-label">Music Tracks</span>
+  </div>
+  <div class="stat-box">
+    <span class="stat-number">22</span>
+    <span class="stat-label">Total Files</span>
+  </div>
+</div>
+
+<h2>SFX — Sound Effects (20)</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th class="col-check"></th>
+      <th class="col-num">#</th>
+      <th>Event</th>
+      <th>Description</th>
+      <th>Search Keywords</th>
+      <th>Type</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="col-check"><input type="checkbox"></td>
+      <td class="col-num">1</td>
+      <td>Player footstep</td>
+      <td>Soft step on stone</td>
+      <td class="keywords">"stone footstep", "dungeon step"</td>
+      <td><span class="badge badge-loop">Loop</span></td>
+    </tr>
+    <tr>
+      <td class="col-check"><input type="checkbox"></td>
+      <td class="col-num">2</td>
+      <td>Bump attack (hit enemy)</td>
+      <td>Short melee impact / slash</td>
+      <td class="keywords">"melee hit", "slash impact"</td>
+      <td><span class="badge badge-oneshot">Oneshot</span></td>
+    </tr>
+    <tr>
+      <td class="col-check"><input type="checkbox"></td>
+      <td class="col-num">3</td>
+      <td>Player take damage</td>
+      <td>Dull thud + UI blip</td>
+      <td class="keywords">"damage taken", "hurt sound"</td>
+      <td><span class="badge badge-oneshot">Oneshot</span></td>
+    </tr>
+    <tr>
+      <td class="col-check"><input type="checkbox"></td>
+      <td class="col-num">4</td>
+      <td>Enemy death</td>
+      <td>Small pop / crumble</td>
+      <td class="keywords">"enemy death pop", "small crumble"</td>
+      <td><span class="badge badge-oneshot">Oneshot</span></td>
+    </tr>
+    <tr>
+      <td class="col-check"><input type="checkbox"></td>
+      <td class="col-num">5</td>
+      <td>Treasure pickup — Coin</td>
+      <td>Classic coin chime</td>
+      <td class="keywords">"coin collect", "coin pickup"</td>
+      <td><span class="badge badge-oneshot">Oneshot</span></td>
+    </tr>
+    <tr>
+      <td class="col-check"><input type="checkbox"></td>
+      <td class="col-num">6</td>
+      <td>Treasure pickup — Orb</td>
+      <td>Higher-pitched sparkle</td>
+      <td class="keywords">"gem collect", "crystal sparkle"</td>
+      <td><span class="badge badge-oneshot">Oneshot</span></td>
+    </tr>
+    <tr>
+      <td class="col-check"><input type="checkbox"></td>
+      <td class="col-num">7</td>
+      <td>Treasure pickup — Energy</td>
+      <td>Soft warm pulse</td>
+      <td class="keywords">"energy pickup", "heal chime"</td>
+      <td><span class="badge badge-oneshot">Oneshot</span></td>
+    </tr>
+    <tr>
+      <td class="col-check"><input type="checkbox"></td>
+      <td class="col-num">8</td>
+      <td>Treasure pickup — Golden Ticket</td>
+      <td>Magical shimmer</td>
+      <td class="keywords">"magical pickup", "rare item"</td>
+      <td><span class="badge badge-oneshot">Oneshot</span></td>
+    </tr>
+    <tr>
+      <td class="col-check"><input type="checkbox"></td>
+      <td class="col-num">9</td>
+      <td>Chest break</td>
+      <td>Wood crack / smash</td>
+      <td class="keywords">"crate break", "chest smash"</td>
+      <td><span class="badge badge-oneshot">Oneshot</span></td>
+    </tr>
+    <tr>
+      <td class="col-check"><input type="checkbox"></td>
+      <td class="col-num">10</td>
+      <td>Stairs unlock</td>
+      <td>Stone sliding / grinding</td>
+      <td class="keywords">"stone grinding", "door unlock stone"</td>
+      <td><span class="badge badge-oneshot">Oneshot</span></td>
+    </tr>
+    <tr>
+      <td class="col-check"><input type="checkbox"></td>
+      <td class="col-num">11</td>
+      <td>Stairs enter</td>
+      <td>Descending whoosh</td>
+      <td class="keywords">"descend stairs", "whoosh down"</td>
+      <td><span class="badge badge-oneshot">Oneshot</span></td>
+    </tr>
+    <tr>
+      <td class="col-check"><input type="checkbox"></td>
+      <td class="col-num">12</td>
+      <td>Floor transition</td>
+      <td>Whoosh + fade</td>
+      <td class="keywords">"level transition", "whoosh"</td>
+      <td><span class="badge badge-oneshot">Oneshot</span></td>
+    </tr>
+    <tr>
+      <td class="col-check"><input type="checkbox"></td>
+      <td class="col-num">13</td>
+      <td>Boss room enter</td>
+      <td>Low rumble + dramatic sting</td>
+      <td class="keywords">"boss intro", "dramatic sting"</td>
+      <td><span class="badge badge-oneshot">Oneshot</span></td>
+    </tr>
+    <tr>
+      <td class="col-check"><input type="checkbox"></td>
+      <td class="col-num">14</td>
+      <td>Boss SOVA death</td>
+      <td>Heavy stone collapse + victory chime</td>
+      <td class="keywords">"boss death", "stone collapse"</td>
+      <td><span class="badge badge-oneshot">Oneshot</span></td>
+    </tr>
+    <tr>
+      <td class="col-check"><input type="checkbox"></td>
+      <td class="col-num">15</td>
+      <td>Jackpot win</td>
+      <td>Short fanfare / celebration</td>
+      <td class="keywords">"jackpot win", "reward fanfare"</td>
+      <td><span class="badge badge-oneshot">Oneshot</span></td>
+    </tr>
+    <tr>
+      <td class="col-check"><input type="checkbox"></td>
+      <td class="col-num">16</td>
+      <td>Energy low warning</td>
+      <td>Subtle heartbeat / pulse</td>
+      <td class="keywords">"heartbeat low", "tension pulse"</td>
+      <td><span class="badge badge-loop">Loop</span></td>
+    </tr>
+    <tr>
+      <td class="col-check"><input type="checkbox"></td>
+      <td class="col-num">17</td>
+      <td>Run end (death)</td>
+      <td>Fade out + game over tone</td>
+      <td class="keywords">"game over tone", "death sound"</td>
+      <td><span class="badge badge-oneshot">Oneshot</span></td>
+    </tr>
+    <tr>
+      <td class="col-check"><input type="checkbox"></td>
+      <td class="col-num">18</td>
+      <td>Upgrade card select</td>
+      <td>Satisfying click / confirm</td>
+      <td class="keywords">"card select", "UI confirm"</td>
+      <td><span class="badge badge-oneshot">Oneshot</span></td>
+    </tr>
+    <tr>
+      <td class="col-check"><input type="checkbox"></td>
+      <td class="col-num">19</td>
+      <td>UI button click</td>
+      <td>Soft click / tap</td>
+      <td class="keywords">"UI click", "button tap"</td>
+      <td><span class="badge badge-oneshot">Oneshot</span></td>
+    </tr>
+    <tr>
+      <td class="col-check"><input type="checkbox"></td>
+      <td class="col-num">20</td>
+      <td>Chat message receive</td>
+      <td>Subtle notification blip</td>
+      <td class="keywords">"chat notification", "message blip"</td>
+      <td><span class="badge badge-oneshot">Oneshot</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>Music — Tracks (2)</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th class="col-check"></th>
+      <th class="col-num">#</th>
+      <th>Context</th>
+      <th>Description</th>
+      <th>Search Keywords</th>
+      <th>Duration</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="col-check"><input type="checkbox"></td>
+      <td class="col-num">1</td>
+      <td>Dungeon (gameplay)</td>
+      <td>Dark, atmospheric loop. Subtle percussion. Underground cave with distant echoes.</td>
+      <td class="keywords">"dark dungeon ambient", "cave atmosphere loop"</td>
+      <td><span class="duration">2-4 min</span></td>
+    </tr>
+    <tr>
+      <td class="col-check"><input type="checkbox"></td>
+      <td class="col-num">2</td>
+      <td>Boss fight</td>
+      <td>More intense, tension building. Same vibe but elevated percussion and urgency.</td>
+      <td class="keywords">"boss fight ambient", "dark battle music"</td>
+      <td><span class="duration">1-2 min</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>Recommended Free Sources</h2>
+
+<table class="sources-table">
+  <thead>
+    <tr>
+      <th>Site</th>
+      <th>Best For</th>
+      <th>License</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="source-name">Sonniss GameAudioGDC</span><br><span class="source-url">sonniss.com/gameaudiogdc</span></td>
+      <td>30GB+ pro sounds. Impact, ambience, UI.</td>
+      <td>Royalty-free, commercial use, no attribution</td>
+    </tr>
+    <tr>
+      <td><span class="source-name">Freesound</span><br><span class="source-url">freesound.org</span></td>
+      <td>Specific sounds (stone steps, coin chimes)</td>
+      <td>Creative Commons (varies per sound)</td>
+    </tr>
+    <tr>
+      <td><span class="source-name">itch.io Assets</span><br><span class="source-url">itch.io/game-assets/free/tag-soundeffects</span></td>
+      <td>Themed packs (dungeon, RPG, pixel art)</td>
+      <td>Varies per pack</td>
+    </tr>
+    <tr>
+      <td><span class="source-name">Mixkit</span><br><span class="source-url">mixkit.co/free-sound-effects/game</span></td>
+      <td>Curated, ready-to-use game SFX</td>
+      <td>Royalty-free, no attribution</td>
+    </tr>
+    <tr>
+      <td><span class="source-name">Pixabay</span><br><span class="source-url">pixabay.com/sound-effects</span></td>
+      <td>SFX + ambient music tracks</td>
+      <td>Royalty-free</td>
+    </tr>
+    <tr>
+      <td><span class="source-name">OpenGameArt</span><br><span class="source-url">opengameart.org</span></td>
+      <td>Dungeon/cave music, community assets</td>
+      <td>CC0 / CC-BY</td>
+    </tr>
+  </tbody>
+</table>
+
+<p class="footer">SOVA — Avalanche Build Games 2026 — Team: Rui, Rodrigo, Lozax</p>
+
+</body>
+</html>

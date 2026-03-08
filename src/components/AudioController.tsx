@@ -34,6 +34,11 @@ const SFX_GAIN: Partial<Record<SfxEventKey, number>> = {
 
 const SFX_MAX_MS: Partial<Record<SfxEventKey, number>> = {
   "user-attack": 1000,
+  "user-step": 220,
+  "collect-energy": 260,
+};
+const SFX_START_AT_MS: Partial<Record<SfxEventKey, number>> = {
+  death: 520,
 };
 
 const BOSS_INTRO_SRC = "/sounds/sfx/boss/boss-intro.wav";
@@ -55,6 +60,9 @@ export function AudioController() {
 
   const bossIntroRef = useRef<HTMLAudioElement | null>(null);
   const bossFadeRafRef = useRef<number | null>(null);
+  const activeMonoRef = useRef<
+    Partial<Record<Exclude<SfxEventKey, "boss-intro-start" | "boss-intro-stop">, { audio: HTMLAudioElement; timer: number | null }>>
+  >({});
   const muteRef = useRef(muteAll);
   const musicVolumeRef = useRef(musicVolume);
   const sfxVolumeRef = useRef(sfxVolume);
@@ -143,22 +151,58 @@ export function AudioController() {
     if (!unlockedRef.current) return;
     const src = SFX_SRC[key];
     if (!src) return;
+
+    const mono = key === "user-step";
+    if (mono) {
+      const active = activeMonoRef.current[key];
+      if (active) {
+        if (active.timer !== null) clearTimeout(active.timer);
+        active.audio.pause();
+        active.audio.currentTime = 0;
+        delete activeMonoRef.current[key];
+      }
+    }
+
     const audio = new Audio(src);
     audio.preload = "auto";
     setAudioVolume(audio, sfxVolumeFor(key));
+    const startAtMs = SFX_START_AT_MS[key];
+    if (startAtMs && startAtMs > 0) {
+      const startAtSec = startAtMs / 1000;
+      const applyStartOffset = () => {
+        try {
+          const duration = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : startAtSec;
+          audio.currentTime = Math.min(startAtSec, Math.max(0, duration - 0.01));
+        } catch {
+          // ignore; some browsers may reject currentTime before metadata is ready
+        }
+      };
+
+      if (audio.readyState >= 1) {
+        applyStartOffset();
+      } else {
+        audio.addEventListener("loadedmetadata", applyStartOffset, { once: true });
+      }
+    }
+
     const capMs = SFX_MAX_MS[key];
     let stopTimer: number | null = null;
     if (capMs && capMs > 0) {
       stopTimer = window.setTimeout(() => {
         audio.pause();
         audio.currentTime = 0;
+        if (mono) delete activeMonoRef.current[key];
       }, capMs);
       audio.addEventListener("ended", () => {
         if (stopTimer !== null) {
           clearTimeout(stopTimer);
           stopTimer = null;
         }
+        if (mono) delete activeMonoRef.current[key];
       }, { once: true });
+    }
+    if (mono) {
+      activeMonoRef.current[key] = { audio, timer: stopTimer };
     }
     audio.play().catch(() => undefined);
   }
@@ -339,6 +383,12 @@ export function AudioController() {
       stopAudio(musicSecondaryRef.current);
       stopAudio(musicPrimaryRef.current);
       stopAudio(bossIntroRef.current);
+      Object.values(activeMonoRef.current).forEach((entry) => {
+        if (!entry) return;
+        if (entry.timer !== null) clearTimeout(entry.timer);
+        stopAudio(entry.audio);
+      });
+      activeMonoRef.current = {};
       musicSecondaryRef.current = null;
       musicPrimaryRef.current = null;
       bossIntroRef.current = null;
