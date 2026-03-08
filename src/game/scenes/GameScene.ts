@@ -24,8 +24,20 @@ import { Trap } from "../entities/Trap";
 import { Fountain } from "../entities/Fountain";
 import { Stairs } from "../entities/Stairs";
 import { useGameStore } from "@/stores/gameStore";
+import { useSettingsStore } from "@/stores/settingsStore";
+import { emitSfxEvent } from "@/lib/audioEvents";
 
 export class GameScene extends Phaser.Scene {
+  private static readonly INPUT_ACTIONS = ["up", "down", "left", "right", "pass", "mute"] as const;
+  private static readonly DEFAULT_KEY_MAP = {
+    up: ["UP", "W"],
+    down: ["DOWN", "S"],
+    left: ["LEFT", "A"],
+    right: ["RIGHT", "D"],
+    pass: ["SPACE"],
+    mute: ["M"],
+  } as const;
+
   // GridEngine (injected by plugin)
   declare gridEngine: GridEngine;
   private collisionMap: Phaser.Tilemaps.Tilemap | null = null;
@@ -60,7 +72,8 @@ export class GameScene extends Phaser.Scene {
   floorMap!: FloorMap;
   tileSprites: Map<string, Phaser.GameObjects.Image> = new Map();
   currentFloor = 1;
-  private bossSpawnedInRun = false;
+  private bossKilledInRun = false;
+  private bossSpottedThisFloor = false;
 
   // Checkered overlay
   private checkeredOverlay: Phaser.GameObjects.RenderTexture | null = null;
@@ -79,11 +92,20 @@ export class GameScene extends Phaser.Scene {
   private pendingMove: { dx: number; dy: number } | null = null;
   isProcessingAction = false;
   private actionTimeout: ReturnType<typeof setTimeout> | null = null;
+  private runEnding = false;
 
   // Input
-  private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
-  private wasd!: Record<string, Phaser.Input.Keyboard.Key>;
-  private passKey!: Phaser.Input.Keyboard.Key;
+  private inputKeys: Record<
+    "up" | "down" | "left" | "right" | "pass" | "mute",
+    Phaser.Input.Keyboard.Key[]
+  > = {
+      up: [],
+      down: [],
+      left: [],
+      right: [],
+      pass: [],
+      mute: [],
+    };
   private chatFocused = false;
   private heldInputDir: { dx: number; dy: number } | null = null;
   private heldInputStartedAt = 0;
@@ -97,6 +119,7 @@ export class GameScene extends Phaser.Scene {
 
   create() {
     this.cameras.main.setBackgroundColor(0x676767);
+    this.runEnding = false;
 
     // Camera — keep player locked to center while moving
     this.cameras.main.setZoom(CAMERA_ZOOM);
@@ -115,33 +138,27 @@ export class GameScene extends Phaser.Scene {
 
     // Init store
     useGameStore.getState().startRun();
-    this.bossSpawnedInRun = false;
+    this.bossKilledInRun = false;
+    this.events.on("combat:kill", (enemy: Enemy) => {
+      if (enemy.type === "boss") this.bossKilledInRun = true;
+    });
 
-    // Input
-    if (this.input.keyboard) {
-      this.cursors = this.input.keyboard.createCursorKeys();
-      this.wasd = {
-        W: this.input.keyboard.addKey("W"),
-        A: this.input.keyboard.addKey("A"),
-        S: this.input.keyboard.addKey("S"),
-        D: this.input.keyboard.addKey("D"),
-      };
-      this.passKey = this.input.keyboard.addKey(
-        Phaser.Input.Keyboard.KeyCodes.SPACE,
-      );
-    }
+    this.rebuildInputKeys();
 
     // Chat focus bridge
     const onChatFocus = () => { this.chatFocused = true; };
     const onChatBlur = () => { this.chatFocused = false; };
     const onSkipTurn = () => { this.executeSkip(); };
+    const onControlsUpdated = () => { this.rebuildInputKeys(); };
     window.addEventListener("sova:chat-focus", onChatFocus);
     window.addEventListener("sova:chat-blur", onChatBlur);
     window.addEventListener("sova:skip-turn", onSkipTurn);
+    window.addEventListener("sova:controls-updated", onControlsUpdated);
     this.events.on("shutdown", () => {
       window.removeEventListener("sova:chat-focus", onChatFocus);
       window.removeEventListener("sova:chat-blur", onChatBlur);
       window.removeEventListener("sova:skip-turn", onSkipTurn);
+      window.removeEventListener("sova:controls-updated", onControlsUpdated);
     });
 
     // Build first floor
@@ -150,6 +167,8 @@ export class GameScene extends Phaser.Scene {
 
   buildFloor(floor: number) {
     this.currentFloor = floor;
+    this.bossSpottedThisFloor = false;
+    emitSfxEvent("boss-intro-stop");
 
     // Reset action state so input isn't blocked on the new floor
     if (this.actionTimeout) {
@@ -167,9 +186,8 @@ export class GameScene extends Phaser.Scene {
     this.cleanupFloor();
 
     // Generate new floor
-    this.floorMap = generateFloor(floor, this.bossSpawnedInRun);
+    this.floorMap = generateFloor(floor, this.bossKilledInRun);
     const { width, height, cells, spawn, stairs, enemySpawns, treasureSpawns, chestSpawns, trapSpawns, fountainSpawn, propSpawns, wallPropSpawns, bossSpawn, statuePos } = this.floorMap;
-    if (bossSpawn) this.bossSpawnedInRun = true;
 
     // Update store
     const store = useGameStore.getState();
@@ -259,9 +277,11 @@ export class GameScene extends Phaser.Scene {
     for (const wp of wallPropSpawns) {
       const texKey = wp.type === "light" ? "prop-wall-light" : "prop-wall-plank";
       if (!this.textures.exists(texKey)) continue;
+      const isLight = wp.type === "light";
+      const yOffset = isLight ? 8 : 0;
       const img = this.add.image(
         wp.pos.x * TILE_SIZE + TILE_SIZE / 2,
-        wp.pos.y * TILE_SIZE + TILE_SIZE / 2,
+        wp.pos.y * TILE_SIZE + TILE_SIZE / 2 + yOffset,
         texKey,
       );
       img.setDepth(200);
@@ -269,6 +289,34 @@ export class GameScene extends Phaser.Scene {
       // Use the floor tile below (y+1) for fog visibility — wall tiles are VOID and never revealed
       img.setData("tilePos", { x: wp.pos.x, y: wp.pos.y + 1 });
       this.props.push(img);
+
+      if (isLight) {
+        // Soft yellow glow behind the wall light.
+        const glow = this.add.image(
+          wp.pos.x * TILE_SIZE + TILE_SIZE / 2,
+          wp.pos.y * TILE_SIZE + TILE_SIZE / 2 + yOffset + 2,
+          texKey,
+        );
+        glow.setDepth(199);
+        glow.setOrigin(0.5, 0.5);
+        glow.setScale(1.35);
+        glow.setTint(0xffe76b);
+        glow.setBlendMode(Phaser.BlendModes.ADD);
+        glow.setAlpha(0.18);
+        glow.setData("tilePos", { x: wp.pos.x, y: wp.pos.y + 1 });
+        this.props.push(glow);
+
+        this.tweens.add({
+          targets: glow,
+          alpha: { from: 0.14, to: 0.3 },
+          scaleX: 1.5,
+          scaleY: 1.5,
+          duration: 900 + Math.floor(Math.random() * 300),
+          yoyo: true,
+          repeat: -1,
+          ease: "Sine.easeInOut",
+        });
+      }
     }
 
     // Fog of war
@@ -515,12 +563,16 @@ export class GameScene extends Phaser.Scene {
       this.vfxManager.updateDesaturation(energy, this.energyManager.maxEnergy);
     }
 
-    if (this.chatFocused) {
+    if (this.chatFocused || useSettingsStore.getState().isOpen) {
       this.heldInputDir = null;
       return;
     }
 
-    if (this.passKey && Phaser.Input.Keyboard.JustDown(this.passKey)) {
+    if (this.anyJustDown(this.inputKeys.mute)) {
+      useSettingsStore.getState().toggleMuteAll();
+    }
+
+    if (this.anyJustDown(this.inputKeys.pass)) {
       this.executeSkip();
       return;
     }
@@ -562,20 +614,86 @@ export class GameScene extends Phaser.Scene {
   }
 
   private getJustDownDirection(): { dx: number; dy: number } | null {
-    const kb = Phaser.Input.Keyboard;
-    if (kb.JustDown(this.cursors.up) || kb.JustDown(this.wasd.W)) return { dx: 0, dy: -1 };
-    if (kb.JustDown(this.cursors.down) || kb.JustDown(this.wasd.S)) return { dx: 0, dy: 1 };
-    if (kb.JustDown(this.cursors.left) || kb.JustDown(this.wasd.A)) return { dx: -1, dy: 0 };
-    if (kb.JustDown(this.cursors.right) || kb.JustDown(this.wasd.D)) return { dx: 1, dy: 0 };
+    if (this.anyJustDown(this.inputKeys.up)) return { dx: 0, dy: -1 };
+    if (this.anyJustDown(this.inputKeys.down)) return { dx: 0, dy: 1 };
+    if (this.anyJustDown(this.inputKeys.left)) return { dx: -1, dy: 0 };
+    if (this.anyJustDown(this.inputKeys.right)) return { dx: 1, dy: 0 };
     return null;
   }
 
   private getHeldDirection(): { dx: number; dy: number } | null {
-    if (this.cursors.up.isDown || this.wasd.W.isDown) return { dx: 0, dy: -1 };
-    if (this.cursors.down.isDown || this.wasd.S.isDown) return { dx: 0, dy: 1 };
-    if (this.cursors.left.isDown || this.wasd.A.isDown) return { dx: -1, dy: 0 };
-    if (this.cursors.right.isDown || this.wasd.D.isDown) return { dx: 1, dy: 0 };
+    if (this.anyDown(this.inputKeys.up)) return { dx: 0, dy: -1 };
+    if (this.anyDown(this.inputKeys.down)) return { dx: 0, dy: 1 };
+    if (this.anyDown(this.inputKeys.left)) return { dx: -1, dy: 0 };
+    if (this.anyDown(this.inputKeys.right)) return { dx: 1, dy: 0 };
     return null;
+  }
+
+  private anyJustDown(keys: Phaser.Input.Keyboard.Key[]): boolean {
+    for (const key of keys) {
+      if (Phaser.Input.Keyboard.JustDown(key)) return true;
+    }
+    return false;
+  }
+
+  private anyDown(keys: Phaser.Input.Keyboard.Key[]): boolean {
+    for (const key of keys) {
+      if (key.isDown) return true;
+    }
+    return false;
+  }
+
+  private rebuildInputKeys() {
+    const keyboard = this.input.keyboard;
+    if (!keyboard) return;
+
+    const bindings = useSettingsStore.getState().bindings;
+
+    for (const action of GameScene.INPUT_ACTIONS) {
+      const raw = bindings[this.bindingActionToStoreKey(action)] ?? GameScene.DEFAULT_KEY_MAP[action];
+      const list = raw.length > 0 ? raw : [...GameScene.DEFAULT_KEY_MAP[action]];
+      const uniqueCodes = new Set<number>();
+      const keys: Phaser.Input.Keyboard.Key[] = [];
+
+      for (const binding of list) {
+        const code = this.toPhaserKeyCode(binding);
+        if (code === null || uniqueCodes.has(code)) continue;
+        uniqueCodes.add(code);
+        keys.push(keyboard.addKey(code));
+      }
+
+      if (keys.length === 0) {
+        for (const fallback of GameScene.DEFAULT_KEY_MAP[action]) {
+          const code = this.toPhaserKeyCode(fallback);
+          if (code === null || uniqueCodes.has(code)) continue;
+          uniqueCodes.add(code);
+          keys.push(keyboard.addKey(code));
+        }
+      }
+
+      this.inputKeys[action] = keys;
+    }
+  }
+
+  private bindingActionToStoreKey(
+    action: typeof GameScene.INPUT_ACTIONS[number],
+  ): "moveUp" | "moveDown" | "moveLeft" | "moveRight" | "skipTurn" | "mute" {
+    switch (action) {
+      case "up": return "moveUp";
+      case "down": return "moveDown";
+      case "left": return "moveLeft";
+      case "right": return "moveRight";
+      case "pass": return "skipTurn";
+      case "mute": return "mute";
+      default: return "moveUp";
+    }
+  }
+
+  private toPhaserKeyCode(binding: string): number | null {
+    const normalized = binding.trim().toUpperCase();
+    const keyCodes = Phaser.Input.Keyboard.KeyCodes as Record<string, number>;
+    const code = keyCodes[normalized];
+    return typeof code === "number" ? code : null;
   }
 
   private submitDirectionalInput(dx: number, dy: number) {
@@ -724,7 +842,13 @@ export class GameScene extends Phaser.Scene {
 
   updateEntityVisibility() {
     for (const e of this.enemies) {
-      e.setVisible(e.isAlive() && this.fogOfWar.isVisible(e.pos));
+      const isVisible = e.isAlive() && this.fogOfWar.isVisible(e.pos);
+      e.setVisible(isVisible);
+      if (!this.bossSpottedThisFloor && e.type === "boss" && isVisible) {
+        this.bossSpottedThisFloor = true;
+        emitSfxEvent("boss-spot");
+        emitSfxEvent("boss-intro-start");
+      }
     }
     for (const t of this.treasures) {
       if (t.collected) continue;
@@ -911,11 +1035,9 @@ export class GameScene extends Phaser.Scene {
     const bossKilled = this.floorMap.bossSpawn &&
       this.enemies.some((e) => e.type === "boss" && !e.isAlive());
 
-    // Fade to black before showing anything
-    this.cameras.main.fadeOut(400, 0, 0, 0);
-    this.cameras.main.once(
-      Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE,
-      () => {
+    // Slower transition feel: longer fade to black, same flow.
+    this.vfxManager.playPixelatedFadeToBlack(1200, () => {
+      this.time.delayedCall(50, () => {
         if (bossKilled) {
           this.scene.pause();
           this.scene.launch("BossResultScene", {
@@ -928,8 +1050,8 @@ export class GameScene extends Phaser.Scene {
           return;
         }
         this.showUpgradeScreen();
-      },
-    );
+      });
+    });
   }
 
   private showUpgradeScreen() {
@@ -951,13 +1073,18 @@ export class GameScene extends Phaser.Scene {
       useGameStore.getState().hideUpgradeScreen();
       this.scene.resume();
       this.buildFloor(this.currentFloor + 1);
-      this.cameras.main.fadeIn(500, 0, 0, 0);
+      this.vfxManager.playPixelatedFadeFromBlack(1000);
     };
     window.addEventListener("sova:upgrade-chosen", onUpgradeChosen);
   }
 
 
   endRun(_reason: "energy" | "exit") {
+    // Multiple systems can hit endRun in the same turn; run this sequence once.
+    if (this.runEnding) return;
+    this.runEnding = true;
+    emitSfxEvent("boss-intro-stop");
+
     const stats = useGameStore.getState().getStats();
     const floor = this.currentFloor;
     const cam = this.cameras.main;
@@ -970,7 +1097,7 @@ export class GameScene extends Phaser.Scene {
     this.tweens.timeScale = 0.35;
     this.anims.globalTimeScale = 0.35;
 
-    // 3. Camera zoom in (1.3× current)
+    // 3. Camera zoom in (keep SOVA signature)
     const baseZoom = cam.zoom;
     this.tweens.add({
       targets: cam,
@@ -985,15 +1112,21 @@ export class GameScene extends Phaser.Scene {
     // 5. Player death animation (purple burst + soul rise)
     this.player.playDeath();
 
-    // 6. After 400ms (MoG timing): pixelated fade to black → transition
+    // Slower transition feel: longer fade to black, same flow.
     this.time.delayedCall(400, () => {
-      this.vfxManager.playPixelatedFadeToBlack(1500, () => {
-        // Reset time scale before transitioning
-        this.time.timeScale = 1;
-        this.tweens.timeScale = 1;
-        this.anims.globalTimeScale = 1;
-        this.scene.start("RunEndScene", { stats, floor });
+      this.vfxManager.playPixelatedFadeToBlack(1800, () => {
+        this.time.delayedCall(200, () => {
+          // Reset time scale before transitioning
+          this.time.timeScale = 1;
+          this.tweens.timeScale = 1;
+          this.anims.globalTimeScale = 1;
+          this.scene.start("RunEndScene", { stats, floor });
+        });
       });
     });
+  }
+
+  isRunEnding(): boolean {
+    return this.runEnding;
   }
 }

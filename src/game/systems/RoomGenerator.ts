@@ -73,7 +73,7 @@ function getRoomCount(floor: number): number {
   if (floor <= 6) return randInt(6, 7);
   if (floor === 7) return randInt(7, 8);
   if (floor === 8) return randInt(8, 9);
-  return Math.min(15, 9 + (floor - 8));
+  return Math.min(10, 9 + (floor - 8));
 }
 
 // ══════════════════════════════════════════════════════
@@ -206,6 +206,9 @@ const PASSAGE_GAP = 2;
 /** Minimum gap between any two rooms (prevents merging and visual artifacts) */
 const MIN_ROOM_GAP = 2;
 
+/** Minimum perpendicular overlap to guarantee non-corner passage carving. */
+const MIN_PASSAGE_OVERLAP = 3;
+
 function makeRoom(x: number, y: number, w: number, h: number): Room {
   return { x, y, w, h, cx: Math.floor(x + w / 2), cy: Math.floor(y + h / 2) };
 }
@@ -241,9 +244,9 @@ function tryPlaceRoom(
 
     if (rx < border || rx + cw > gridW - border) return null;
 
-    // Valid Y range: at least 1 tile of perpendicular overlap with parent
-    const yMin = Math.max(border, parent.y - ch + 1);
-    const yMax = Math.min(gridH - border - ch, parent.y + parent.h - 1);
+    // Valid Y range: require enough overlap to carve passage away from corners.
+    const yMin = Math.max(border, parent.y - ch + MIN_PASSAGE_OVERLAP);
+    const yMax = Math.min(gridH - border - ch, parent.y + parent.h - MIN_PASSAGE_OVERLAP);
     if (yMin > yMax) return null;
 
     const ys: number[] = [];
@@ -262,9 +265,9 @@ function tryPlaceRoom(
 
     if (ry < border || ry + ch > gridH - border) return null;
 
-    // Valid X range: at least 1 tile of perpendicular overlap with parent
-    const xMin = Math.max(border, parent.x - cw + 1);
-    const xMax = Math.min(gridW - border - cw, parent.x + parent.w - 1);
+    // Valid X range: require enough overlap to carve passage away from corners.
+    const xMin = Math.max(border, parent.x - cw + MIN_PASSAGE_OVERLAP);
+    const xMax = Math.min(gridW - border - cw, parent.x + parent.w - MIN_PASSAGE_OVERLAP);
     if (xMin > xMax) return null;
 
     const xs: number[] = [];
@@ -371,32 +374,34 @@ function findExtraConnections(rooms: Room[], existing: Connection[]): Connection
       // R2: skip 3×3 ↔ 3×3 connections
       if (a.w === 3 && a.h === 3 && b.w === 3 && b.h === 3) continue;
 
-      // Horizontal adjacency: exactly 2 tiles apart with Y overlap
+      // Horizontal adjacency: exactly 2 tiles apart with enough Y overlap
       const gapR = b.x - (a.x + a.w);
       const gapL = a.x - (b.x + b.w);
       const yTop = Math.max(a.y, b.y);
       const yBot = Math.min(a.y + a.h, b.y + b.h);
+      const yOverlap = yBot - yTop;
 
-      if (gapR === PASSAGE_GAP && yBot > yTop) {
+      if (gapR === PASSAGE_GAP && yOverlap >= MIN_PASSAGE_OVERLAP) {
         extras.push({ a: i, b: j, dir: "right" });
         continue;
       }
-      if (gapL === PASSAGE_GAP && yBot > yTop) {
+      if (gapL === PASSAGE_GAP && yOverlap >= MIN_PASSAGE_OVERLAP) {
         extras.push({ a: i, b: j, dir: "left" });
         continue;
       }
 
-      // Vertical adjacency: exactly 2 tiles apart with X overlap
+      // Vertical adjacency: exactly 2 tiles apart with enough X overlap
       const gapD = b.y - (a.y + a.h);
       const gapU = a.y - (b.y + b.h);
       const xLeft = Math.max(a.x, b.x);
       const xRight = Math.min(a.x + a.w, b.x + b.w);
+      const xOverlap = xRight - xLeft;
 
-      if (gapD === PASSAGE_GAP && xRight > xLeft) {
+      if (gapD === PASSAGE_GAP && xOverlap >= MIN_PASSAGE_OVERLAP) {
         extras.push({ a: i, b: j, dir: "down" });
         continue;
       }
-      if (gapU === PASSAGE_GAP && xRight > xLeft) {
+      if (gapU === PASSAGE_GAP && xOverlap >= MIN_PASSAGE_OVERLAP) {
         extras.push({ a: i, b: j, dir: "up" });
         continue;
       }
@@ -489,7 +494,7 @@ function setFloor(cells: CellType[][], x: number, y: number, gw: number, gh: num
 /**
  * Pick a passage coordinate avoiding corners of both rooms.
  * Safe range is [max(aStart+1, bStart+1) .. min(aEnd-2, bEnd-2)].
- * Falls back to center of raw overlap if the safe range is empty.
+ * Returns null when safe range is empty (caller should skip that connection).
  */
 function safePassageCoord(
   aStart: number, aLen: number,
@@ -504,8 +509,8 @@ function safePassageCoord(
   const safeMax = Math.min(aStart + aLen - 2, bStart + bLen - 2);
 
   if (safeMin <= safeMax) return randInt(safeMin, safeMax);
-  // Overlap too small for safe range — use center of raw overlap
-  return Math.floor((rawMin + rawMax) / 2);
+  // Overlap too small for safe range — reject to avoid corner passage.
+  return null;
 }
 
 function carveExactPassage(
@@ -558,7 +563,7 @@ function carveExactPassage(
 // PUBLIC API — generateFloor
 // ══════════════════════════════════════════════════════
 
-export function generateFloor(floor: number, hasSpawnedBossThisRun = false): FloorMap {
+export function generateFloor(floor: number, hasKilledBossThisRun = false): FloorMap {
   const { w, h } = getFloorSize(floor);
 
   // 1. Initialize grid
@@ -615,47 +620,22 @@ export function generateFloor(floor: number, hasSpawnedBossThisRun = false): Flo
   const spawn: TilePos = { x: spawnRoom.cx, y: spawnRoom.cy };
   const stairs: TilePos = { x: stairsRoom.cx, y: stairsRoom.cy };
 
-  // 8. Boss check (dynamic chance, only once per run)
-  const bossChance = hasSpawnedBossThisRun ? 0 : getBossSpawnChance(floor);
+  // 8. Boss check (fixed chance from F7; can reappear until first kill in the run)
+  const bossChance = hasKilledBossThisRun ? 0 : getBossSpawnChance(floor);
   const isBossFloor = floor >= BOSS_MIN_FLOOR && Math.random() < bossChance;
   let bossSpawn: TilePos | null = null;
   let statuePos: TilePos | null = null;
 
-  if (isBossFloor && rooms.length >= 3) {
+  if (isBossFloor && rooms.length >= 2) {
     const candidates = rooms.filter(r => r !== spawnRoom && r !== stairsRoom);
-    const mapCx = Math.floor(w / 2);
-    const mapCy = Math.floor(h / 2);
-    candidates.sort(
-      (a, b) =>
-        dist({ x: a.cx, y: a.cy }, { x: mapCx, y: mapCy }) -
-        dist({ x: b.cx, y: b.cy }, { x: mapCx, y: mapCy }),
-    );
-    const bossRoom = candidates[0];
-
-    // Expand boss room to at least 5×5
-    const expandX = Math.max(0, 5 - bossRoom.w);
-    const expandY = Math.max(0, 5 - bossRoom.h);
-    const ex = Math.floor(expandX / 2);
-    const ey = Math.floor(expandY / 2);
-    for (let dy = -ey; dy < bossRoom.h + ey + (expandY % 2); dy++) {
-      for (let dx = -ex; dx < bossRoom.w + ex + (expandX % 2); dx++) {
-        const nx = bossRoom.x + dx;
-        const ny = bossRoom.y + dy;
-        if (nx >= 1 && nx < w - 1 && ny >= 1 && ny < h - 1) {
-          cells[ny][nx] = CellType.FLOOR;
-        }
-      }
-    }
-
-    bossSpawn = { x: bossRoom.cx, y: bossRoom.cy };
-    const statueRoom = candidates.length > 1 ? candidates[candidates.length - 1] : null;
-    if (statueRoom) {
-      statuePos = { x: statueRoom.cx, y: statueRoom.cy };
+    if (candidates.length > 0) {
+      const bossRoom = candidates[randInt(0, candidates.length - 1)];
+      bossSpawn = { x: bossRoom.cx, y: bossRoom.cy };
     }
   }
 
   // 9. Enemies
-  const enemySpawns = placeEnemies(cells, spawn, stairs, floor, isBossFloor, bossSpawn, w, h, spawnRoom);
+  const enemySpawns = placeEnemies(cells, rooms, spawnRoom, spawn, stairs, floor, w, h, bossSpawn);
 
   // 10. Build occupied set
   const occupied = new Set<string>();
@@ -663,7 +643,6 @@ export function generateFloor(floor: number, hasSpawnedBossThisRun = false): Flo
   occupied.add(`${stairs.x},${stairs.y}`);
   for (const e of enemySpawns) occupied.add(`${e.pos.x},${e.pos.y}`);
   if (bossSpawn) occupied.add(`${bossSpawn.x},${bossSpawn.y}`);
-  if (statuePos) occupied.add(`${statuePos.x},${statuePos.y}`);
 
   // No random floor treasure — loot only from chests and enemies
   const treasureSpawns: TreasureSpawnData[] = [];
@@ -728,51 +707,97 @@ export function isInsideRoom(pos: TilePos, room: Room): boolean {
 
 function placeEnemies(
   cells: CellType[][],
+  rooms: Room[],
+  spawnRoom: Room,
   spawn: TilePos,
   stairs: TilePos,
   floor: number,
-  isBossFloor: boolean,
-  bossSpawn: TilePos | null,
   w: number,
   h: number,
-  spawnRoom: Room,
+  bossSpawn: TilePos | null,
 ): EnemySpawnData[] {
-  if (isBossFloor && bossSpawn) {
-    return [{ pos: bossSpawn, type: EnemyType.BOSS }];
-  }
-
   const cfg = getEnemySpawnConfig(floor);
-  const total = randInt(cfg.min, cfg.max);
-  const rockCount = Math.round(total * cfg.rockPct);
-  const golemCount = Math.round(total * cfg.golemPct);
-  const ghostCount = Math.max(0, total - rockCount - golemCount);
+  const nonSpawnRooms = rooms.filter((r) => r !== spawnRoom);
+  const roomMin = (room: Room) => (room.w * room.h <= 12 ? 1 : 2);
+  const minRequired = nonSpawnRooms.reduce((sum, room) => sum + roomMin(room), 0);
+  const total = Math.max(randInt(cfg.min, cfg.max), minRequired);
 
-  const candidates = shuffle(
-    getAllFloorTiles(cells, w, h).filter(
-      (t) =>
-        !isInsideRoom(t, spawnRoom) &&
-        !(t.x === stairs.x && t.y === stairs.y),
+  const roomTiles: TilePos[][] = nonSpawnRooms.map((room) =>
+    shuffle(
+      getAllFloorTiles(cells, w, h).filter((t) =>
+        isInsideRoom(t, room) &&
+        !(t.x === spawn.x && t.y === spawn.y) &&
+        !(t.x === stairs.x && t.y === stairs.y) &&
+        !(bossSpawn && t.x === bossSpawn.x && t.y === bossSpawn.y),
+      ),
     ),
   );
 
-  const enemies: EnemySpawnData[] = [];
-  let idx = 0;
-  for (let i = 0; i < rockCount && idx < candidates.length; i++, idx++) {
-    enemies.push({ pos: candidates[idx], type: EnemyType.ROCK });
+  const chosenPositions: TilePos[] = [];
+
+  // Round 1: minimum enemies per room by room size.
+  for (let i = 0; i < nonSpawnRooms.length; i++) {
+    const need = roomMin(nonSpawnRooms[i]);
+    for (let c = 0; c < need; c++) {
+      const pos = roomTiles[i].pop();
+      if (!pos) break;
+      chosenPositions.push(pos);
+    }
   }
-  for (let i = 0; i < golemCount && idx < candidates.length; i++, idx++) {
-    enemies.push({ pos: candidates[idx], type: EnemyType.GOLEM });
+
+  // Round 2: distribute remainder weighted by room area.
+  let remaining = total - chosenPositions.length;
+  while (remaining > 0) {
+    const candidates: number[] = [];
+    let totalWeight = 0;
+    for (let i = 0; i < nonSpawnRooms.length; i++) {
+      if (roomTiles[i].length === 0) continue;
+      candidates.push(i);
+      totalWeight += nonSpawnRooms[i].w * nonSpawnRooms[i].h;
+    }
+    if (candidates.length === 0) break;
+
+    let roll = Math.random() * totalWeight;
+    let picked = candidates[candidates.length - 1];
+    for (const i of candidates) {
+      roll -= nonSpawnRooms[i].w * nonSpawnRooms[i].h;
+      if (roll <= 0) {
+        picked = i;
+        break;
+      }
+    }
+
+    const pos = roomTiles[picked].pop();
+    if (!pos) continue;
+    chosenPositions.push(pos);
+    remaining--;
   }
-  for (let i = 0; i < ghostCount && idx < candidates.length; i++, idx++) {
-    enemies.push({ pos: candidates[idx], type: EnemyType.GHOST });
-  }
+
+  const placedTotal = chosenPositions.length;
+  const rockCount = Math.round(placedTotal * cfg.rockPct);
+  const golemCount = Math.round(placedTotal * cfg.golemPct);
+  const ghostCount = Math.max(0, placedTotal - rockCount - golemCount);
+
+  const types: EnemyType[] = [
+    ...Array(rockCount).fill(EnemyType.ROCK),
+    ...Array(golemCount).fill(EnemyType.GOLEM),
+    ...Array(ghostCount).fill(EnemyType.GHOST),
+  ];
+  shuffle(types);
+
+  const enemies: EnemySpawnData[] = chosenPositions.map((pos, i) => ({
+    pos,
+    type: types[i] ?? EnemyType.ROCK,
+  }));
+
+  // Boss is extra on boss floors and does not consume normal enemy slots.
+  if (bossSpawn) enemies.push({ pos: bossSpawn, type: EnemyType.BOSS });
+
   return enemies;
 }
 
 function getChestCount(floor: number): number {
-  if (floor <= 3) return randInt(1, 2);
-  if (floor <= 6) return randInt(1, 3);
-  return randInt(2, 3);
+  return Math.max(0, floor * 2);
 }
 
 function placeChests(
@@ -784,20 +809,79 @@ function placeChests(
   h: number,
   floor: number,
 ): TilePos[] {
-  const count = getChestCount(floor);
-  const candidates: TilePos[] = [];
-  for (const room of rooms) {
-    if (room === spawnRoom) continue;
-    for (let y = room.y; y < room.y + room.h; y++) {
-      for (let x = room.x; x < room.x + room.w; x++) {
-        if (cells[y][x] === CellType.FLOOR && !occupied.has(`${x},${y}`)) {
-          candidates.push({ x, y });
-        }
+  const isAdjacentToCorridor = (x: number, y: number): boolean => {
+    for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+      const nx = x + dx;
+      const ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+      if (cells[ny][nx] !== CellType.FLOOR) continue;
+      if (isCorridorTile(cells, nx, ny, w, h)) return true;
+    }
+    return false;
+  };
+
+  const nonSpawnRooms = rooms.filter((r) => r !== spawnRoom);
+  const total = getChestCount(floor);
+
+  const roomTiles: TilePos[][] = nonSpawnRooms.map((room) =>
+    shuffle(
+      getAllFloorTiles(cells, w, h).filter((t) =>
+        isInsideRoom(t, room) &&
+        !occupied.has(`${t.x},${t.y}`) &&
+        !isCorridorTile(cells, t.x, t.y, w, h) &&
+        !isAdjacentToCorridor(t.x, t.y),
+      ),
+    ),
+  );
+
+  const chests: TilePos[] = [];
+  const hasMinSpacing = (pos: TilePos): boolean =>
+    !chests.some((c) => Math.abs(c.x - pos.x) <= 1 && Math.abs(c.y - pos.y) <= 1);
+
+  // Round 1: try to place one chest per room (spawn room excluded).
+  // If total is smaller than room count, stop when total is reached.
+  let remaining = total;
+  const roomOrder = shuffle([...Array(nonSpawnRooms.length).keys()]);
+  for (const i of roomOrder) {
+    if (remaining <= 0) break;
+    const idx = roomTiles[i].findIndex(hasMinSpacing);
+    if (idx < 0) continue;
+    const [pos] = roomTiles[i].splice(idx, 1);
+    chests.push(pos);
+    remaining--;
+  }
+
+  // Round 2: distribute remainder weighted by room area.
+  while (remaining > 0) {
+    const candidates: { i: number; idx: number }[] = [];
+    let totalWeight = 0;
+    for (let i = 0; i < nonSpawnRooms.length; i++) {
+      if (roomTiles[i].length === 0) continue;
+      const idx = roomTiles[i].findIndex(hasMinSpacing);
+      if (idx < 0) continue;
+      candidates.push({ i, idx });
+      totalWeight += nonSpawnRooms[i].w * nonSpawnRooms[i].h;
+    }
+    if (candidates.length === 0) break;
+
+    let roll = Math.random() * totalWeight;
+    let picked = candidates[candidates.length - 1].i;
+    for (const c of candidates) {
+      roll -= nonSpawnRooms[c.i].w * nonSpawnRooms[c.i].h;
+      if (roll <= 0) {
+        picked = c.i;
+        break;
       }
     }
+
+    const pickedCandidate = candidates.find((c) => c.i === picked);
+    if (!pickedCandidate) break;
+    const [pos] = roomTiles[picked].splice(pickedCandidate.idx, 1);
+    chests.push(pos);
+    remaining--;
   }
-  shuffle(candidates);
-  return candidates.slice(0, count);
+
+  return chests;
 }
 
 function getTrapCount(floor: number): number {
@@ -865,6 +949,17 @@ function placeFountain(
   w: number,
   h: number,
 ): TilePos | null {
+  const isAdjacentToCorridor = (x: number, y: number): boolean => {
+    for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+      const nx = x + dx;
+      const ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+      if (cells[ny][nx] !== CellType.FLOOR) continue;
+      if (isCorridorTile(cells, nx, ny, w, h)) return true;
+    }
+    return false;
+  };
+
   const candidates: TilePos[] = [];
   for (const room of rooms) {
     if (room === spawnRoom) continue;
@@ -872,7 +967,11 @@ function placeFountain(
       for (let x = room.x; x < room.x + room.w; x++) {
         if (cells[y][x] !== CellType.FLOOR) continue;
         if (occupied.has(`${x},${y}`)) continue;
-        if (y > 0 && cells[y - 1][x] === CellType.VOID && !occupied.has(`${x},${y - 1}`)) {
+        // Fountain must be against a top wall for visual layering,
+        // but never on/next to corridor tiles (no forced pickup at room entrances).
+        if (y > 0 && cells[y - 1][x] === CellType.VOID && !occupied.has(`${x},${y - 1}`) &&
+            !isCorridorTile(cells, x, y, w, h) &&
+            !isAdjacentToCorridor(x, y)) {
           candidates.push({ x, y });
         }
       }
@@ -934,6 +1033,10 @@ function placeWallProps(
 ): WallPropSpawnData[] {
   const props: WallPropSpawnData[] = [];
   const usedKeys = new Set<string>();
+  const usedByType = new Map<WallPropType, Set<string>>([
+    ["light", new Set<string>()],
+    ["plank", new Set<string>()],
+  ]);
 
   const isFloor = (x: number, y: number) =>
     x >= 0 && y >= 0 && x < w && y < h && cells[y][x] === CellType.FLOOR;
@@ -942,11 +1045,13 @@ function placeWallProps(
     y >= 0 && y < h && x >= 0 && x < w &&
     cells[y][x] === CellType.VOID && isFloor(x, y + 1);
 
-  // Minimum Manhattan distance between any two wall props.
+  // Minimum Manhattan distance between wall props of the SAME type.
   // 2 => prevents side-by-side adjacency and leaves at least one empty tile between them.
   const MIN_DIST = 2;
-  const tooClose = (pos: TilePos) => {
-    for (const key of usedKeys) {
+  const tooClose = (pos: TilePos, type: WallPropType) => {
+    const used = usedByType.get(type);
+    if (!used) return false;
+    for (const key of used) {
       const [px, py] = key.split(",").map(Number);
       if (Math.abs(pos.x - px) + Math.abs(pos.y - py) < MIN_DIST) return true;
     }
@@ -983,9 +1088,10 @@ function placeWallProps(
     for (const pos of candidates) {
       if (lights >= minLights) break;
       const key = `${pos.x},${pos.y}`;
-      if (usedKeys.has(key) || tooClose(pos)) continue;
+      if (usedKeys.has(key) || tooClose(pos, "light")) continue;
       props.push({ pos, type: "light" });
       usedKeys.add(key);
+      usedByType.get("light")?.add(key);
       lights++;
     }
 
@@ -993,10 +1099,10 @@ function placeWallProps(
     for (const pos of candidates) {
       if (lights >= maxLights && planks >= maxPlanks) break;
       const key = `${pos.x},${pos.y}`;
-      if (usedKeys.has(key) || tooClose(pos)) continue;
+      if (usedKeys.has(key)) continue;
 
-      // ~20% chance per eligible tile
-      if (Math.random() > 0.20) continue;
+      // ~40% chance per eligible tile
+      if (Math.random() > 0.40) continue;
 
       let type: WallPropType;
       if (lights < maxLights && planks < maxPlanks) {
@@ -1007,11 +1113,14 @@ function placeWallProps(
         type = "plank";
       }
 
+      if (tooClose(pos, type)) continue;
+
       if (type === "light") lights++;
       else planks++;
 
       props.push({ pos, type });
       usedKeys.add(key);
+      usedByType.get(type)?.add(key);
     }
   }
 

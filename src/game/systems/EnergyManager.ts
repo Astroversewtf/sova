@@ -40,6 +40,12 @@ export class EnergyManager {
     this.sync();
   }
 
+  /** Apply already-final damage amount (no extra mitigation), then sync store. */
+  takeRawDamage(amount: number) {
+    this.energy = Math.max(0, this.energy - Math.max(0, amount));
+    this.sync();
+  }
+
   heal(amount: number) {
     this.energy = Math.min(this.energy + amount, this.maxEnergy);
     this.sync();

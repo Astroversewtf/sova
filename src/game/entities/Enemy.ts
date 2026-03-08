@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { EnemyType, type TilePos } from "../types";
 import { TILE_SIZE, TILE_FULL_H, ENEMY_MOVE_MS, getEnemyHP, getDetectionRange, getTier } from "../constants";
+import { emitSfxEvent } from "@/lib/audioEvents";
 
 type Facing = "front" | "back" | "side";
 
@@ -41,7 +42,7 @@ export class Enemy {
     }
     this.maxHp = this.hp;
     this.detectionRange = getDetectionRange(type);
-    this.active = type === EnemyType.BOSS;
+    this.active = false;
 
     const px = pos.x * TILE_SIZE + TILE_SIZE / 2;
     const py = pos.y * TILE_FULL_H + TILE_SIZE / 2;
@@ -98,7 +99,7 @@ export class Enemy {
     this.sprite.setDepth(400);
     // Boss sprite is 64x64 and visually taller than a tile.
     // Raise it so feet align around the lower 3/4 of the tile.
-    const originY = type === EnemyType.BOSS ? 0.7 : type === EnemyType.GOLEM ? 0.65 : 0.5;
+    const originY = type === EnemyType.BOSS ? 0.7 : type === EnemyType.GOLEM ? 0.75 : type === EnemyType.GHOST ? 0.6 : 0.6;
     this.sprite.setOrigin(0.5, originY);
 
     // Heart icons above enemy
@@ -150,6 +151,7 @@ export class Enemy {
       spr.play("enemy-sova-idle", true);
     } else if (this.animatedGhost) {
       const spr = this.sprite as Phaser.GameObjects.Sprite;
+      if (dx !== 0) spr.setFlipX(dx < 0);
       spr.play("enemy-ghost-idle", true);
     }
 
@@ -202,6 +204,19 @@ export class Enemy {
         if (this.sprite.active) spr.play(`enemy-golem-idle-${this.facing}`);
         onComplete?.();
       });
+    } else if (this.animatedGhost) {
+      const dx = targetPos ? targetPos.x - this.pos.x : 0;
+      if (dx !== 0 && this.scene.anims.exists("enemy-ghost-attack-side")) {
+        spr.setFlipX(dx < 0);
+        spr.play("enemy-ghost-attack-side");
+        spr.once("animationcomplete", () => {
+          if (this.sprite.active) spr.play("enemy-ghost-idle");
+          onComplete?.();
+        });
+      } else {
+        // No dedicated front/back ghost attack.
+        onComplete?.();
+      }
     } else {
       onComplete?.();
     }
@@ -265,6 +280,7 @@ export class Enemy {
 
   /** MoG-style death: white flash → particle burst → soul rises + fades */
   die() {
+    emitSfxEvent("death");
     this.clearHitFlash();
     const sx = this.sprite.x;
     const sy = this.sprite.y;
@@ -310,6 +326,15 @@ export class Enemy {
     // 4. After 80ms flash, hide sprite → spawn soul → float up + shrink + fade
     this.scene.time.delayedCall(80, () => {
       this.sprite.setVisible(false);
+
+      // If run-end death sequence has started, avoid spawning enemy soul.
+      // This prevents a double death-soul stack when both enemy and player die
+      // on the same bump turn.
+      const sceneMaybe = this.scene as unknown as { isRunEnding?: () => boolean };
+      if (sceneMaybe.isRunEnding?.()) {
+        this.sprite.destroy();
+        return;
+      }
 
       const hasSoulAnim = this.scene.anims.exists("death-soul");
       if (hasSoulAnim) {

@@ -55,6 +55,24 @@ export class PopupManager {
     });
   }
 
+  /** Short boss taunt popup (white). */
+  showBossTaunt(tileX: number, tileY: number, text: string) {
+    const worldX = tileX * TILE_SIZE + TILE_SIZE / 2;
+    const worldY = tileY * TILE_FULL_H - 12;
+
+    const popup = this.createPopupText(worldX, worldY, text, "#ffffff", "12px");
+
+    this.scene.tweens.add({
+      targets: popup,
+      y: worldY - 18,
+      alpha: { from: 1, to: 0 },
+      scale: { from: 1, to: 1.05 },
+      duration: 650,
+      ease: "Quad.easeOut",
+      onComplete: () => this.destroyPopup(popup),
+    });
+  }
+
   /** Energy pickup (+5 yellow) */
   showEnergyBonus(tileX: number, tileY: number, value: number) {
     const worldX = tileX * TILE_SIZE + TILE_SIZE / 2;

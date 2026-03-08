@@ -35,10 +35,14 @@ const PHASE_CONFIG = {
     icon: "/sprites/items/coin/coin_01.png",
     bg: "radial-gradient(ellipse at 50% 40%, rgba(120, 80, 20, 0.9) 0%, rgba(40, 25, 8, 0.95) 50%, rgba(0, 0, 0, 1) 100%)",
     titleStyle: {
-      background:
+      backgroundImage:
         "linear-gradient(180deg, #F5EA54 0%, #FFBD21 25%, #F5EA54 50%, #C35221 75%, #FC8518 100%)",
+      backgroundClip: "text" as const,
       WebkitBackgroundClip: "text" as const,
+      color: "transparent",
       WebkitTextFillColor: "transparent",
+      filter:
+        "drop-shadow(1px 1px 0px #000) drop-shadow(-1px -1px 0px #000) drop-shadow(1px -1px 0px #000) drop-shadow(-1px 1px 0px #000)",
     },
     glowColor: "#FFD819",
     particleColor: "#ffd819",
@@ -48,10 +52,14 @@ const PHASE_CONFIG = {
     icon: "/sprites/items/orb/item_orb_01.png",
     bg: "radial-gradient(ellipse at 50% 40%, rgba(10, 30, 80, 0.9) 0%, rgba(5, 12, 40, 0.95) 50%, rgba(0, 0, 0, 1) 100%)",
     titleStyle: {
-      background:
+      backgroundImage:
         "linear-gradient(180deg, #93c5fd 0%, #3b82f6 25%, #93c5fd 50%, #1d4ed8 75%, #2563eb 100%)",
+      backgroundClip: "text" as const,
       WebkitBackgroundClip: "text" as const,
+      color: "transparent",
       WebkitTextFillColor: "transparent",
+      filter:
+        "drop-shadow(1px 1px 0px #000) drop-shadow(-1px -1px 0px #000) drop-shadow(1px -1px 0px #000) drop-shadow(-1px 1px 0px #000)",
     },
     glowColor: "#3b82f6",
     particleColor: "#3b82f6",
@@ -138,15 +146,15 @@ export function LootRevealOverlay() {
       </div>
 
       {/* Title */}
-      <h1
-        className="font-pixel text-4xl sm:text-6xl uppercase mb-8 z-10"
-        style={{
-          ...config.titleStyle,
-          WebkitTextStroke: "3px #000",
-          paintOrder: "stroke fill",
-        }}
-      >
-        {config.title}
+      <h1 className="font-pixel text-4xl sm:text-6xl uppercase mb-8 z-10">
+        <span
+          className="inline-block"
+          style={{
+            ...config.titleStyle,
+          }}
+        >
+          {config.title}
+        </span>
       </h1>
 
       {/* Icon (floating) */}

@@ -50,11 +50,11 @@ export interface EnemySpawnConfig {
 
 export function getEnemySpawnConfig(floor: number): EnemySpawnConfig {
   let min: number, max: number;
-  if (floor <= 2)       { min = 5; max = 7; }
-  else if (floor <= 4)  { min = 5; max = 7; }
-  else if (floor <= 6)  { min = 6; max = 8; }
-  else if (floor <= 10) { min = 7; max = 9; }
-  else                  { min = 8; max = 10; }
+  if (floor <= 2)       { min = 8; max = 10; }
+  else if (floor <= 4)  { min = 10; max = 12; }
+  else if (floor <= 6)  { min = 12; max = 14; }
+  else if (floor <= 8)  { min = 14; max = 16; }
+  else                  { min = 16; max = 20; }
 
   let rockPct: number, golemPct: number;
   if (floor <= 2) {
@@ -107,7 +107,7 @@ export function getDetectionRange(type: EnemyType): number {
     case EnemyType.GHOST:
       return 4;
     case EnemyType.BOSS:
-      return 999; // Always active
+      return 5;
   }
 }
 
@@ -137,13 +137,11 @@ export const TREASURE_VALUES: Record<TreasureType, number> = {
 export const BOSS_MIN_FLOOR = 7;
 
 /**
- * Dynamic SOVA boss spawn chance by floor.
- * F7: 8%, F8: 18%, F9: 28%, F10: 38%, F11+: 50% cap.
+ * Fixed SOVA boss spawn chance by floor (from F7 onward).
  */
 export function getBossSpawnChance(floor: number): number {
   if (floor < BOSS_MIN_FLOOR) return 0;
-  if (floor >= 11) return 0.5;
-  return 0.08 + (floor - BOSS_MIN_FLOOR) * 0.1;
+  return 0.08;
 }
 
 // ── Spawn safety ──

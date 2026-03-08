@@ -108,7 +108,8 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   nextFloor: () => set((s) => ({ floor: s.floor + 1 })),
 
-  setEnergy: (e) => set({ energy: Math.max(0, e) }),
+  setEnergy: (e) =>
+    set((s) => ({ energy: Math.min(s.maxEnergy, Math.max(0, e)) })),
 
   setMaxEnergy: (e) => set({ maxEnergy: e }),
 

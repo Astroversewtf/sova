@@ -3,6 +3,7 @@ import type { GameScene } from "../scenes/GameScene";
 import { TREASURE_VALUES, getTier } from "../constants";
 import { Treasure } from "../entities/Treasure";
 import { useGameStore } from "@/stores/gameStore";
+import { emitSfxEvent } from "@/lib/audioEvents";
 
 export class TurnManager {
   phase: TurnPhase = TurnPhase.PLAYER_INPUT;
@@ -117,6 +118,7 @@ export class TurnManager {
 
     // Return to idle animation
     this.scene.player.stopWalk();
+    emitSfxEvent("user-step");
 
     // Spend energy
     this.scene.energyManager.spendMove();
@@ -137,6 +139,7 @@ export class TurnManager {
 
     // Check stairs
     if (this.scene.isOnStairs(target)) {
+      emitSfxEvent("stairs-enter");
       this.scene.completeFloor();
       return;
     }
@@ -197,6 +200,7 @@ export class TurnManager {
    * Chest drops: 50% Energy, 20% Coin, 20% Orb, 10% Nothing
    */
   private breakChest(chest: import("../entities/Chest").Chest) {
+    emitSfxEvent("breakbles");
     chest.open();
     useGameStore.getState().incrementChests();
 
@@ -249,10 +253,10 @@ export class TurnManager {
 
     if (dmg > 0) {
       store.incrementTraps();
-      this.scene.energyManager.energy = Math.max(0, this.scene.energyManager.energy - dmg);
-      store.setEnergy(this.scene.energyManager.energy);
+      this.scene.energyManager.takeRawDamage(dmg);
       this.scene.player.flashDamage();
       this.scene.vfxManager.flashDamageOverlay();
+      emitSfxEvent("user-get-hit");
     }
   }
 

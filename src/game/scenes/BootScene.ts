@@ -80,6 +80,10 @@ export class BootScene extends Phaser.Scene {
         `enemy-ghost-idle-${i}`,
         `sprites/enemies/ghost/idle/ghost_idle_0${i}.png`,
       );
+      this.load.image(
+        `enemy-ghost-attack-side-${i}`,
+        `sprites/enemies/ghost/attack/ghost_attack_0${i}.png`,
+      );
     }
 
     // Boss Sova frames (idle only, 64×64 PNGs)
@@ -237,7 +241,7 @@ export class BootScene extends Phaser.Scene {
       this.anims.create({
         key: "coin-spin",
         frames: [1, 2, 3, 4].map((i) => ({ key: `coin-${i}` })),
-        frameRate: 8,
+        frameRate: 5,
         repeat: -1,
       });
     } else {
@@ -461,6 +465,14 @@ export class BootScene extends Phaser.Scene {
       frameRate: 7,
       repeat: -1,
     });
+    if (this.textures.exists("enemy-ghost-attack-side-1")) {
+      this.anims.create({
+        key: "enemy-ghost-attack-side",
+        frames: [1, 2, 3, 4].map((i) => ({ key: `enemy-ghost-attack-side-${i}` })),
+        frameRate: 10,
+        repeat: 0,
+      });
+    }
   }
 
   private createSovaAnimations() {

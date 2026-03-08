@@ -9,6 +9,7 @@ function manhattan(a: TilePos, b: TilePos): number {
 export class EnemyAI {
   private scene: GameScene;
   private golemTurnCounter = new Map<string, number>();
+  private bossHitsReceived = new Map<string, number>();
   private readonly ROCK_DEAGGRO_BUFFER = 2;
   private readonly GHOST_AGGRO_RANGE = 6;
   private readonly DIRS: TilePos[] = [
@@ -24,6 +25,13 @@ export class EnemyAI {
 
   reset() {
     this.golemTurnCounter.clear();
+    this.bossHitsReceived.clear();
+  }
+
+  registerBossHit(enemy: Enemy) {
+    if (enemy.type !== EnemyType.BOSS) return;
+    const next = (this.bossHitsReceived.get(enemy.id) ?? 0) + 1;
+    this.bossHitsReceived.set(enemy.id, next);
   }
 
   processAllEnemies(onComplete: () => void) {
@@ -134,8 +142,81 @@ export class EnemyAI {
         return this.randomStep(enemy.pos);
 
       case EnemyType.BOSS:
-        return this.findNextStepBFS(enemy, playerPos);
+        enemy.active = d <= enemy.detectionRange;
+        if (!enemy.active) return null;
+
+        const hits = this.bossHitsReceived.get(enemy.id) ?? 0;
+        if (hits >= 2 && Math.random() >= 0.5) {
+          return null;
+        }
+
+        const flee = this.findFleeStep(enemy, playerPos);
+        if (flee && hits >= 2) {
+          this.scene.popupManager.showBossTaunt(enemy.pos.x, enemy.pos.y, "CATCH ME");
+        }
+        return flee;
     }
+  }
+
+  /** Pick an adjacent step that increases shortest-path distance from the player. */
+  private findFleeStep(enemy: Enemy, playerPos: TilePos): TilePos | null {
+    const map = this.scene.floorMap;
+    const w = map.width;
+    const h = map.height;
+    const toIdx = (x: number, y: number) => y * w + x;
+    const inBounds = (x: number, y: number) => x >= 0 && y >= 0 && x < w && y < h;
+
+    const dist = new Int16Array(w * h).fill(-1);
+    const queue: number[] = [];
+    const playerIdx = toIdx(playerPos.x, playerPos.y);
+    dist[playerIdx] = 0;
+    queue.push(playerIdx);
+
+    // Build distance field from player over currently traversable tiles.
+    let head = 0;
+    while (head < queue.length) {
+      const cur = queue[head++];
+      const cx = cur % w;
+      const cy = Math.floor(cur / w);
+
+      for (const d of this.DIRS) {
+        const nx = cx + d.x;
+        const ny = cy + d.y;
+        if (!inBounds(nx, ny)) continue;
+        const ni = toIdx(nx, ny);
+        if (dist[ni] !== -1) continue;
+        const next = { x: nx, y: ny };
+        if (!this.isTraversableForDistanceField(enemy, next, playerPos)) continue;
+        dist[ni] = (dist[cur] + 1) as number;
+        queue.push(ni);
+      }
+    }
+
+    const currentRaw = dist[toIdx(enemy.pos.x, enemy.pos.y)];
+    const currentDist = currentRaw < 0 ? Number.NEGATIVE_INFINITY : currentRaw;
+
+    let best: TilePos | null = null;
+    let bestDist = currentDist;
+
+    for (const d of this.DIRS) {
+      const nx = enemy.pos.x + d.x;
+      const ny = enemy.pos.y + d.y;
+      if (!inBounds(nx, ny)) continue;
+      if (nx === playerPos.x && ny === playerPos.y) continue;
+
+      const candidate = { x: nx, y: ny };
+      if (!this.isWalkableForEnemy(enemy, candidate, false)) continue;
+
+      const raw = dist[toIdx(nx, ny)];
+      const score = raw < 0 ? Number.MAX_SAFE_INTEGER : raw;
+      if (score > bestDist) {
+        bestDist = score;
+        best = candidate;
+      }
+    }
+
+    // Encurralado / no better escape step.
+    return best;
   }
 
   /** BFS shortest path on the tile grid; returns the immediate next step. */
@@ -224,6 +305,19 @@ export class EnemyAI {
     if (isGoal) return true;
 
     // Other enemies, chests and fountain block enemy movement
+    const occupant = this.scene.getEnemyAt(pos);
+    if (occupant && occupant !== enemy) return false;
+    if (this.scene.getChestAt(pos)) return false;
+    if (this.scene.fountain?.occupies(pos)) return false;
+    return true;
+  }
+
+  private isTraversableForDistanceField(enemy: Enemy, pos: TilePos, playerPos: TilePos): boolean {
+    if (pos.x === playerPos.x && pos.y === playerPos.y) return true;
+    const map = this.scene.floorMap;
+    if (pos.x < 0 || pos.y < 0 || pos.x >= map.width || pos.y >= map.height) return false;
+    if (map.cells[pos.y][pos.x] === CellType.VOID) return false;
+
     const occupant = this.scene.getEnemyAt(pos);
     if (occupant && occupant !== enemy) return false;
     if (this.scene.getChestAt(pos)) return false;

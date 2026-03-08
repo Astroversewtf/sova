@@ -2,6 +2,7 @@ import type { TilePos } from "../types";
 import type { Treasure } from "../entities/Treasure";
 import type { GameScene } from "../scenes/GameScene";
 import { useGameStore } from "@/stores/gameStore";
+import { emitSfxEvent } from "@/lib/audioEvents";
 
 export class TreasureManager {
   private scene: GameScene;
@@ -30,16 +31,20 @@ export class TreasureManager {
     if (t.type === "energy") {
       this.scene.energyManager.heal(t.value);
       popupManager.showEnergyBonus(t.pos.x, t.pos.y, t.value);
+      emitSfxEvent("collect-energy");
     } else if (t.type === "coin") {
       useGameStore.getState().addTreasure("coin", t.value);
       popupManager.showCoinPickup(t.pos.x, t.pos.y, t.value);
+      emitSfxEvent("collect-coin");
     } else if (t.type === "orb") {
       useGameStore.getState().addTreasure("orb", t.value);
       popupManager.showOrbPickup(t.pos.x, t.pos.y, t.value);
+      emitSfxEvent("collect-orb");
     } else {
       // golden_ticket
       useGameStore.getState().addTreasure("golden_ticket", t.value);
       popupManager.showTicketPickup(t.pos.x, t.pos.y, t.value);
+      emitSfxEvent("collect-golden-ticket");
     }
 
     this.scene.events.emit("treasure:collected", t);

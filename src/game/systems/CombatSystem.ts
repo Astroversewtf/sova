@@ -5,6 +5,7 @@ import { EnemyType, TreasureType } from "../types";
 import { getTier, getEnemyDMG } from "../constants";
 import { Treasure } from "../entities/Treasure";
 import { useGameStore } from "@/stores/gameStore";
+import { emitSfxEvent } from "@/lib/audioEvents";
 
 export class CombatSystem {
   private scene: GameScene;
@@ -25,15 +26,22 @@ export class CombatSystem {
     // Enemy damage = base DMG × tier dmgMult
     const tier = getTier(this.scene.currentFloor);
     const baseDMG = getEnemyDMG(enemy.type);
-    const damageTaken = Math.ceil(baseDMG * tier.dmgMult);
+    const damageTaken = enemy.type === EnemyType.BOSS
+      ? 7
+      : Math.ceil(baseDMG * tier.dmgMult);
 
     // Player attacks enemy
+    if (enemy.type === EnemyType.BOSS) {
+      this.scene.enemyAI.registerBossHit(enemy);
+    }
+    emitSfxEvent("user-attack");
     enemy.takeDamage(atk);
 
     // Enemy attacks player
     this.scene.energyManager.takeDamage(damageTaken);
     player.flashDamage();
     this.scene.vfxManager.flashDamageOverlay();
+    emitSfxEvent("user-get-hit");
 
     // Popup: damage dealt to enemy
     this.scene.popupManager.showDamageNumber(enemy.pos.x, enemy.pos.y, atk);
@@ -45,6 +53,9 @@ export class CombatSystem {
 
     if (!enemy.isAlive()) {
       enemy.die();
+      if (enemy.type === EnemyType.BOSS) {
+        emitSfxEvent("boss-intro-stop");
+      }
       this.scene.events.emit("combat:kill", enemy);
       this.scene.vfxManager.playKillImpact(enemy.type === EnemyType.BOSS);
 
@@ -80,10 +91,13 @@ export class CombatSystem {
 
     const tier = getTier(this.scene.currentFloor);
     const baseDMG = getEnemyDMG(enemy.type);
-    const damageTaken = Math.ceil(baseDMG * tier.dmgMult);
+    const damageTaken = enemy.type === EnemyType.BOSS
+      ? 7
+      : Math.ceil(baseDMG * tier.dmgMult);
     this.scene.energyManager.takeDamage(damageTaken);
     player.flashDamage();
     this.scene.vfxManager.flashDamageOverlay();
+    emitSfxEvent("user-get-hit");
 
     // Popup: damage received by player
     this.scene.popupManager.showPlayerDamageNumber(player.pos.x, player.pos.y, damageTaken);

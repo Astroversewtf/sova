@@ -275,13 +275,9 @@ export class RunEndScene extends Phaser.Scene {
       onComplete: () => flash.destroy(),
     });
 
-    // Switch to open chest (use loot-box-2 if available, otherwise keep same)
-    if (this.textures.exists("loot-box-2")) {
-      this.chest.setTexture("loot-box-2");
-    }
-
     // Big burst
     this.spawnBurstParticles(40);
+    this.chest.setVisible(false);
 
     // Scale pulse (chest bursts open — expand then settle)
     const baseScale = this.hasChestWood ? 4 : 5;

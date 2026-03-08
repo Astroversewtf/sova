@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import type { TilePos } from "../types";
 import { TILE_SIZE, TILE_FULL_H, PLAYER_MOVE_MS } from "../constants";
+import { emitSfxEvent } from "@/lib/audioEvents";
 
 type Facing = "front" | "back" | "side";
 
@@ -179,6 +180,7 @@ export class Player {
 
   /** MoG-style death: white flash → particle burst → soul rises + fades */
   playDeath(onComplete?: () => void) {
+    emitSfxEvent("death");
     this.hitFlashTimer?.remove(false);
     this.hitFlashTimer = null;
     const sx = this.sprite.x;
