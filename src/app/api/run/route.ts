@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     const newGems = user.gems + stats.orbsCollected;
     const newTickets = user.goldenTickets + stats.goldenTicketsCollected;
 
-    const score = stats.coinsCollected * multiplier;
+    const score = stats.coinsCollected;
     const newBestScore = Math.max(user.bestScore, score);
     const newWeeklyScore = Math.max(user.weeklyScore, score);
 

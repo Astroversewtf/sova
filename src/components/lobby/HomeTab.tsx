@@ -10,16 +10,35 @@ const MAX_KEYS = 5;
 export function HomeTab() {
   const setView = useWalletStore((s) => s.setView);
   const keys = usePlayerStore((s) => s.keys);
-  const addKeys = usePlayerStore((s) => s.addKeys);
   const [keysToUse, setKeysToUse] = useState(1);
 
-  const canPlay = keys >= keysToUse;
+  const walletAddress = usePlayerStore((s) => s.walletAddress);
+  const [starting, setStarting] = useState(false);
+  const canPlay = keys >= keysToUse && !starting;
 
-  const handlePlay = () => {
-    if (!canPlay) return;
-    addKeys(-keysToUse);
-    useGameStore.getState().startRun(keysToUse);
-    setView("game");
+  const handlePlay = async () => {
+    if (!canPlay || !walletAddress) return;
+    setStarting(true);
+    try {
+      const res = await fetch("/api/run/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address: walletAddress, keysUsed: keysToUse }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        console.error("Failed to start run:", data.error);
+        if (data.keys !== undefined) usePlayerStore.setState({ keys: data.keys });
+        return;
+      }
+      usePlayerStore.setState({ keys: data.keysRemaining });
+      useGameStore.getState().startRun(data.keysUsed);
+      setView("game");
+    } catch (err) {
+      console.error("Failed to start run", err);
+    } finally {
+      setStarting(false);
+    }
   };
 
   return (
@@ -48,9 +67,6 @@ export function HomeTab() {
               </button>
             ))}
           </div>
-          <span className="font-pixel text-[9px] text-gray-500 text-outline">
-            Multiplier: {keysToUse}x
-          </span>
         </div>
 
         <div className="flex items-center gap-4">
