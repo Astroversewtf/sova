@@ -1,9 +1,28 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useLobbyStore } from "@/stores/lobbyStore";
+import { getLeaderboard } from "@/lib/firestore";
+
+const PLACEHOLDER_ENTRIES = [
+  { rank: 1, player: "0xA1b2...C3d4", score: 2500, coins: 480, gems: 22, keys: 5 },
+  { rank: 2, player: "0xE5f6...G7h8", score: 1800, coins: 350, gems: 15, keys: 3 },
+  { rank: 3, player: "0xI9j0...K1l2", score: 1200, coins: 210, gems: 9, keys: 1 },
+];
 
 export function RankingsTab() {
   const { activeRankingsSubTab, setRankingsSubTab } = useLobbyStore();
+  const [entries, setEntries] = useState(PLACEHOLDER_ENTRIES);
+
+  useEffect(() => {
+    const type = activeRankingsSubTab === "weekly" ? "weekly" : "best";
+    getLeaderboard(type).then((data) => {
+      if (data.length > 0) setEntries(data);
+      else setEntries(PLACEHOLDER_ENTRIES);
+    });
+  }, [activeRankingsSubTab]);
+
+  const topScore = entries[0]?.score ?? 0;
 
   return (
     <div className="p-6 overflow-y-auto h-full flex flex-col">
@@ -29,7 +48,7 @@ export function RankingsTab() {
         <span className="font-pixel text-[9px] text-gray-400 uppercase text-outline">
           Global Score
         </span>
-        <div className="font-pixel text-lg text-white text-outline">--</div>
+        <div className="font-pixel text-lg text-white text-outline">{topScore.toLocaleString()}</div>
       </div>
 
       {/* Your Position */}
@@ -65,14 +84,16 @@ export function RankingsTab() {
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td
-                colSpan={6}
-                className="text-center py-8 font-pixel text-[10px] text-gray-500"
-              >
-                No data yet
-              </td>
-            </tr>
+            {entries.map((e) => (
+              <tr key={e.rank} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                <td className="py-2 pl-2 font-pixel text-[10px] text-gray-400">#{e.rank}</td>
+                <td className="py-2 font-pixel text-[10px] text-white">{e.player}</td>
+                <td className="py-2 text-right font-pixel text-[10px] text-white">{e.score.toLocaleString()}</td>
+                <td className="py-2 text-right font-pixel text-[10px] text-yellow-400">{e.coins}</td>
+                <td className="py-2 text-right font-pixel text-[10px] text-purple-400">{e.gems}</td>
+                <td className="py-2 text-right pr-2 font-pixel text-[10px] text-cyan-400">{e.keys}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
