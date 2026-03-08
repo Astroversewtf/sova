@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useGameStore } from "@/stores/gameStore";
+import { usePlayerStore } from "@/stores/playerStore";
 
 const textOutline =
   "-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 -2px 0 #000, 0 2px 0 #000, -2px 0 0 #000, 2px 0 0 #000";
@@ -38,6 +39,34 @@ export function GameOverOverlay() {
   const data = useGameStore((s) => s.gameOverData);
   const lootPhase = useGameStore((s) => s.lootPhase);
   const [visible, setVisible] = useState(false);
+  const walletAddress = usePlayerStore((s) => s.walletAddress);
+
+  const submitRun = async () => {
+    if(!walletAddress || !data) return;
+    try {
+      const res = await fetch("/api/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          address: walletAddress,
+          stats: data.stats,
+          floor: data.floor,
+        }),
+      });
+      if(res.ok) {
+        const result = await res.json();
+        usePlayerStore.setState({
+          coins: result.coins,
+          gems: result.gems,
+          goldenTickets: result.goldenTickets,
+          bestScore: result.bestScore,
+          weeklyScore: result.weeklyScore
+        })
+      }
+    } catch(err) {
+      console.error("Failed to submit run", err);
+    }
+  }
 
   useEffect(() => {
     if (lootPhase !== "summary" || !data) {
@@ -51,14 +80,16 @@ export function GameOverOverlay() {
 
   const { stats, floor } = data;
 
-  const handlePlayAgain = () => {
+  const handlePlayAgain = async () => {
+    await submitRun();
     useGameStore.getState().endRun();
     window.dispatchEvent(
       new CustomEvent("sova:run-end-action", { detail: "play-again" }),
     );
   };
 
-  const handleLobby = () => {
+  const handleLobby = async () => {
+    await submitRun();
     useGameStore.getState().endRun();
     window.dispatchEvent(
       new CustomEvent("sova:run-end-action", { detail: "lobby" }),

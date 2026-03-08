@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLobbyStore } from "@/stores/lobbyStore";
-import { getLeaderboard } from "@/lib/firestore";
+import { usePlayerStore } from "@/stores/playerStore";
 
 const PLACEHOLDER_ENTRIES = [
   { rank: 1, player: "0xA1b2...C3d4", score: 2500, coins: 480, gems: 22, keys: 5 },
@@ -12,15 +12,27 @@ const PLACEHOLDER_ENTRIES = [
 
 export function RankingsTab() {
   const { activeRankingsSubTab, setRankingsSubTab } = useLobbyStore();
+  const walletAddress = usePlayerStore((s) => s.walletAddress);
   const [entries, setEntries] = useState(PLACEHOLDER_ENTRIES);
 
   useEffect(() => {
     const type = activeRankingsSubTab === "weekly" ? "weekly" : "best";
-    getLeaderboard(type).then((data) => {
-      if (data.length > 0) setEntries(data);
-      else setEntries(PLACEHOLDER_ENTRIES);
-    });
+    fetch(`/api/leaderboard?type=${type}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.length > 0) setEntries(data);
+        else setEntries(PLACEHOLDER_ENTRIES);
+      })
+      .catch(() => setEntries(PLACEHOLDER_ENTRIES));
   }, [activeRankingsSubTab]);
+
+  const myEntry = useMemo(() => {
+    if (!walletAddress) return null;
+    const addr = walletAddress.toLowerCase();
+    const found = entries.find((e) => e.player.toLowerCase() === addr) ?? null;
+    console.log("[RankingsTab] wallet:", addr, "entries players:", entries.map(e => e.player), "myEntry:", found);
+    return found;
+  }, [entries, walletAddress]);
 
   const topScore = entries[0]?.score ?? 0;
 
@@ -55,13 +67,15 @@ export function RankingsTab() {
       <div className="bg-black/40 border border-white/15 rounded-lg p-3 mb-4 flex items-center justify-between backdrop-blur-sm">
         <div className="flex items-center gap-3">
           <div className="bg-white/10 text-gray-400 font-pixel text-xs w-8 h-8 rounded flex items-center justify-center text-outline">
-            #--
+            {myEntry ? `#${myEntry.rank}` : "#--"}
           </div>
           <div>
             <span className="font-pixel text-[10px] text-gray-400 uppercase text-outline">
               Your Position
             </span>
-            <div className="font-pixel text-xs text-white text-outline">Score: --</div>
+            <div className="font-pixel text-xs text-white text-outline">
+              Score: {myEntry ? myEntry.score.toLocaleString() : "--"}
+            </div>
           </div>
         </div>
         <span className="font-pixel text-[9px] text-gray-500 text-outline">YOU</span>
