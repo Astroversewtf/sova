@@ -26,11 +26,12 @@ interface GameState {
   trapsTriggered: number;
   poisonTurns: number; // remaining turns of poison DoT
   upgradeScreenFloor: number | null; // non-null = upgrade overlay visible
+  keysUsed: number; // keys wagered for this run (1-5)
   rerollCount: number; // persists across floors within a run
   gameOverData: GameOverData | null; // non-null = game over overlay visible
   lootPhase: "coins" | "orbs" | "summary" | null;
 
-  startRun: () => void;
+  startRun: (keysUsed?: number) => void;
   endRun: () => void;
   nextFloor: () => void;
   setEnergy: (e: number) => void;
@@ -77,12 +78,13 @@ export const useGameStore = create<GameState>((set, get) => ({
   chestsOpened: 0,
   trapsTriggered: 0,
   poisonTurns: 0,
+  keysUsed: 1,
   upgradeScreenFloor: null,
   rerollCount: 0,
   gameOverData: null,
   lootPhase: null,
 
-  startRun: () =>
+  startRun: (keysUsed = 1) =>
     set({
       isRunning: true,
       floor: 1,
@@ -102,6 +104,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       trapsTriggered: 0,
       poisonTurns: 0,
       rerollCount: 0,
+      keysUsed,
     }),
 
   endRun: () => set({ isRunning: false, gameOverData: null }),

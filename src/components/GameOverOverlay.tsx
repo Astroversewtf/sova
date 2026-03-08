@@ -41,6 +41,8 @@ export function GameOverOverlay() {
   const [visible, setVisible] = useState(false);
   const walletAddress = usePlayerStore((s) => s.walletAddress);
 
+  const keysUsed = useGameStore((s) => s.keysUsed);
+
   const submitRun = async () => {
     if(!walletAddress || !data) return;
     try {
@@ -51,6 +53,7 @@ export function GameOverOverlay() {
           address: walletAddress,
           stats: data.stats,
           floor: data.floor,
+          keysUsed,
         }),
       });
       if(res.ok) {

@@ -3,10 +3,11 @@ import type { RunStats } from "@/game/types"
 import { getUser, saveRun, updateLeaderboard, updateUser } from "@/lib/firestore";
 
 export async function POST(req: NextRequest) {
-    const { address, stats, floor } = (await req.json()) as {
+    const { address, stats, floor, keysUsed = 1 } = (await req.json()) as {
         address: string;
         stats: RunStats;
         floor: number;
+        keysUsed?: number;
     };
 
     const addr = address?.toLowerCase();
@@ -21,14 +22,15 @@ export async function POST(req: NextRequest) {
 
     await saveRun(addr, stats);
 
+    const multiplier = Math.min(Math.max(keysUsed, 1), 5);
+
     const newCoins = user.coins + stats.coinsCollected;
     const newGems = user.gems + stats.orbsCollected;
     const newTickets = user.goldenTickets + stats.goldenTicketsCollected;
 
-    const score = stats.coinsCollected;
+    const score = stats.coinsCollected * multiplier;
     const newBestScore = Math.max(user.bestScore, score);
     const newWeeklyScore = Math.max(user.weeklyScore, score);
-
 
     await updateUser(addr, {
         coins: newCoins,
