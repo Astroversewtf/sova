@@ -68,6 +68,7 @@ function PrivyConnectView() {
     if(res.ok) setUnlocked(true);
   }
 
+  
   if (!unlocked) {
     return (
       <div className="h-dvh relative overflow-hidden flex flex-col items-center justify-center bg-[#0c1220]">
