@@ -17,7 +17,7 @@ export function Providers({ children }: { children: ReactNode }) {
         },
         defaultChain: avalancheFuji,
         supportedChains: [avalancheFuji],
-        loginMethods: ["email"],
+        loginMethods: ["email", "wallet"],
       }}
     >
       {children}
