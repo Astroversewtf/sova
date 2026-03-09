@@ -1,72 +1,75 @@
 @import "tailwindcss";
 
-@font-face {
-  font-family: "8bit Wonder";
-  src: url("/fonts/8bit-wonder.ttf") format("truetype");
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
+/* ── Register pixel fonts as Tailwind theme values ── */
+@theme {
+  --font-pixel: "8bit Wonder", monospace;
+  --font-press-start: "Press Start 2P", "8bit Wonder", monospace;
 }
 
-@font-face {
-  font-family: "Press Start 2P";
-  src: url("/fonts/PressStart2P-Regular.ttf") format("truetype");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
+/* ── Font faces + global base styles (always included) ── */
+@layer base {
+  @font-face {
+    font-family: "8bit Wonder";
+    src: url("/fonts/8bit-wonder.ttf") format("truetype");
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+  }
+
+  @font-face {
+    font-family: "Press Start 2P";
+    src: url("/fonts/PressStart2P-Regular.ttf") format("truetype");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+  }
+
+  :root {
+    --background: #0c1220;
+    --foreground: #e5e7eb;
+  }
+
+  html, body {
+    background: var(--background);
+    color: var(--foreground);
+    height: 100%;
+    overflow: hidden;
+  }
+
+  /* Custom pixel cursors */
+  *, *::before, *::after {
+    cursor: url('/sprites/ui/cursor/cursor_arrow_01.png') 0 0, url('/sprites/ui/cursor/cursor_hand_01.png') 6 0, auto !important;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  input, textarea, [contenteditable="true"] {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  a, a *,
+  button, button *,
+  [role="button"], [role="button"] *,
+  input[type="submit"], input[type="button"],
+  select, label, summary, [onclick], .cursor-pointer, .cursor-pointer * {
+    cursor: url('/sprites/ui/cursor/cursor_hand_01.png') 6 0, url('/sprites/ui/cursor/cursor_arrow_01.png') 0 0, pointer !important;
+  }
 }
 
-:root {
-  --background: #0c1220;
-  --foreground: #e5e7eb;
-}
-
-html, body {
-  background: var(--background);
-  color: var(--foreground);
-  height: 100%;
-  overflow: hidden;
-}
-
-/* Custom pixel cursors — only our 2 PNGs, never browser defaults */
-*, *::before, *::after {
-  cursor: url('/sprites/ui/cursor/cursor_arrow_01.png') 0 0, url('/sprites/ui/cursor/cursor_hand_01.png') 6 0, auto !important;
-  -webkit-user-select: none;
-  user-select: none;
-}
-/* Allow text selection only in inputs */
-input, textarea, [contenteditable="true"] {
-  -webkit-user-select: text;
-  user-select: text;
-}
-a, a *,
-button, button *,
-[role="button"], [role="button"] *,
-input[type="submit"], input[type="button"],
-select, label, summary, [onclick], .cursor-pointer, .cursor-pointer * {
-  cursor: url('/sprites/ui/cursor/cursor_hand_01.png') 6 0, url('/sprites/ui/cursor/cursor_arrow_01.png') 0 0, pointer !important;
-}
-
-.font-pixel {
-  font-family: "8bit Wonder", monospace;
-}
-
-.font-press-start {
+/* ── Multi-property custom utilities ── */
+@utility font-press-start-crisp {
   font-family: "Press Start 2P", "8bit Wonder", monospace;
-}
-
-.font-press-start-crisp {
-  font-family: "Press Start 2P", "8bit Wonder", monospace !important;
   -webkit-font-smoothing: none;
   font-smooth: never;
   text-rendering: optimizeSpeed;
 }
 
-.text-outline {
+@utility text-outline {
   text-shadow: -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 -2px 0 #000, 0 2px 0 #000, -2px 0 0 #000, 2px 0 0 #000;
 }
 
-.text-outline-5 {
+@utility text-outline-5 {
   text-shadow:
     -5px -5px 0 #000,
     5px -5px 0 #000,
@@ -78,51 +81,46 @@ select, label, summary, [onclick], .cursor-pointer, .cursor-pointer * {
     5px 0 0 #000;
 }
 
-/* Custom scrollbar */
-.scrollbar-thin::-webkit-scrollbar {
-  width: 4px;
+/* ── Scrollbar styles ── */
+@utility scrollbar-thin {
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+  &::-webkit-scrollbar-track {
+    background: #0c1620;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: #2a3a4a;
+    border-radius: 2px;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background: #3a4f63;
+  }
 }
 
-.scrollbar-thin::-webkit-scrollbar-track {
-  background: #0c1620;
-}
-
-.scrollbar-thin::-webkit-scrollbar-thumb {
-  background: #2a3a4a;
-  border-radius: 2px;
-}
-
-.scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  background: #3a4f63;
-}
-
-/* Hide scrollbar but keep scrolling enabled */
-.scrollbar-hidden {
+@utility scrollbar-hidden {
   -ms-overflow-style: none;
   scrollbar-width: none;
+  &::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
+  }
 }
 
-.scrollbar-hidden::-webkit-scrollbar {
-  width: 0;
-  height: 0;
-  display: none;
-}
-
-/* Play button breathing pulse */
+/* ── Animations ── */
 @keyframes play-pulse {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.05); }
 }
 
-.animate-play-pulse {
+@utility animate-play-pulse {
   animation: play-pulse 2s ease-in-out infinite;
+  &:hover {
+    animation: none;
+  }
 }
 
-.animate-play-pulse:hover {
-  animation: none;
-}
-
-/* Floor label fade in/out */
 @keyframes floor-label {
   0% { opacity: 0; transform: scale(0.8); }
   15% { opacity: 1; transform: scale(1); }
@@ -130,29 +128,31 @@ select, label, summary, [onclick], .cursor-pointer, .cursor-pointer * {
   100% { opacity: 0; transform: scale(1.1); }
 }
 
-.animate-floor-label {
+@utility animate-floor-label {
   animation: floor-label 1.8s ease-in-out forwards;
 }
 
-/* Onboarding + Lobby button hover feel: shrink (not grow) */
-.onboarding-screen button,
-.lobby-screen button {
-  transition: transform 120ms ease, filter 120ms ease;
-  transform-origin: center;
-}
+/* ── Onboarding + Lobby button hover feel ── */
+@layer components {
+  .onboarding-screen button,
+  .lobby-screen button {
+    transition: transform 120ms ease, filter 120ms ease;
+    transform-origin: center;
+  }
 
-.onboarding-screen button:not(:disabled):hover {
-  transform: scale(0.94);
-}
+  .onboarding-screen button:not(:disabled):hover {
+    transform: scale(0.94);
+  }
 
-.lobby-screen button:not(:disabled):hover {
-  transform: scale(0.97);
-}
+  .lobby-screen button:not(:disabled):hover {
+    transform: scale(0.97);
+  }
 
-.onboarding-screen button:not(:disabled):active {
-  transform: scale(0.9);
-}
+  .onboarding-screen button:not(:disabled):active {
+    transform: scale(0.9);
+  }
 
-.lobby-screen button:not(:disabled):active {
-  transform: scale(0.95);
+  .lobby-screen button:not(:disabled):active {
+    transform: scale(0.95);
+  }
 }
