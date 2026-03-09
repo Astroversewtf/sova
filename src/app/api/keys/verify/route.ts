@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createPublicClient, http, decodeEventLog, parseAbiItem } from "viem";
 import { avalancheFuji } from "viem/chains";
 import { updateUser, getUser } from "@/lib/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 const KEY_SHOP_ADDRESS = process.env.KEY_SHOP_ADDRESS as `0x${string}`;
 
@@ -24,6 +26,13 @@ export async function POST(req: NextRequest) {
   const normalizedAddress = address.toLowerCase();
 
   try {
+    // Prevent replay: check if this txHash was already processed
+    const txRef = doc(db, "processedTx", txHash);
+    const txDoc = await getDoc(txRef);
+    if (txDoc.exists()) {
+      return NextResponse.json({ error: "transaction already processed" }, { status: 409 });
+    }
+
     const receipt = await client.getTransactionReceipt({ hash: txHash });
 
     if (receipt.status !== "success") {
@@ -63,6 +72,9 @@ export async function POST(req: NextRequest) {
     if (buyer !== normalizedAddress) {
       return NextResponse.json({ error: "buyer does not match address" }, { status: 403 });
     }
+
+    // Mark txHash as processed before crediting keys
+    await setDoc(txRef, { address: normalizedAddress, quantity, processedAt: new Date().toISOString() });
 
     const user = await getUser(normalizedAddress);
     const currentKeys = user?.keys ?? 0;
