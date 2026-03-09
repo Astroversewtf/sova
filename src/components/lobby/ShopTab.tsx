@@ -2,25 +2,39 @@
 
 import { usePrivyTransaction } from "@/lib/privy";
 import { usePlayerStore } from "@/stores/playerStore";
+import { useWallets } from "@privy-io/react-auth";
 import { useState } from "react";
 
-type StoreAction = "addTickets" | "addKeys";
 const ENTRY_KEY_PRICE = 0.25;
 
 export function ShopTab() {
   const [quantity, setQuantity] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
-  const { sendTransactionBuyAVAX } = usePrivyTransaction();
+  const { sendTransactionBuyKeys } = usePrivyTransaction();
+  const { wallets } = useWallets();
   const playerStore = usePlayerStore();
   const totalPrice = (ENTRY_KEY_PRICE * quantity).toFixed(4);
 
   const handleBuy = async () => {
     setIsLoading(true);
     try {
-      const receipt = await sendTransactionBuyAVAX(totalPrice);
+      const receipt = await sendTransactionBuyKeys(quantity, totalPrice);
       console.log("Transaction success", receipt);
-      const action: StoreAction = "addKeys";
-      playerStore[action](quantity);
+
+      const address = wallets[0]?.address;
+      const res = await fetch("/api/keys/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ txHash: receipt.hash, address }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Verification failed");
+      }
+
+      const { keysAdded } = await res.json();
+      playerStore.addKeys(keysAdded);
     } catch (err) {
       console.error("Transaction failed", err);
     } finally {

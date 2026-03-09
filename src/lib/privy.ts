@@ -5,17 +5,27 @@ import { Address, encodeFunctionData, erc20Abi, parseEther, parseUnits } from "v
 const CHAIN_ID = Number(process.env.NEXT_PUBLIC_CHAIN_ID)
 const WALLET_ADDRESS = process.env.NEXT_PUBLIC_WALLET_ADDRESS as `0x${string}`
 const USDT_ADDRESS = process.env.NEXT_PUBLIC_USDT_ADDRESS as `0x${string}`
+const KEY_SHOP_ADDRESS = "0xf423783d4B3b0288502Fa7c3a3C174a8cb4F4F7D" as `0x${string}`
 
+const keyShopAbi = [
+    {
+        name: "buyKeys",
+        type: "function",
+        stateMutability: "payable",
+        inputs: [{ name: "quantity", type: "uint256" }],
+        outputs: [],
+    },
+] as const;
 
 export function usePrivyTransaction() {
     const { sendTransaction } = useSendTransaction();
-    
+
     async function sendTransactionBuyUSDT(amount: string) {
         const data = encodeFunctionData({
             abi: erc20Abi,
             functionName: "transfer",
             args: [WALLET_ADDRESS, parseUnits(amount, 6)]
-        
+
         });
 
         return sendTransaction({
@@ -33,5 +43,20 @@ export function usePrivyTransaction() {
         })
     }
 
-    return { sendTransactionBuyUSDT: sendTransactionBuyUSDT, sendTransactionBuyAVAX: sendTransactionBuyAVAX }
+    async function sendTransactionBuyKeys(quantity: number, totalAvax: string) {
+        const data = encodeFunctionData({
+            abi: keyShopAbi,
+            functionName: "buyKeys",
+            args: [BigInt(quantity)],
+        });
+
+        return sendTransaction({
+            to: KEY_SHOP_ADDRESS,
+            data,
+            value: parseEther(totalAvax),
+            chainId: CHAIN_ID,
+        });
+    }
+
+    return { sendTransactionBuyUSDT, sendTransactionBuyAVAX, sendTransactionBuyKeys }
 }
