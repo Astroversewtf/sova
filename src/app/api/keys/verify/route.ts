@@ -26,7 +26,6 @@ export async function POST(req: NextRequest) {
   const normalizedAddress = address.toLowerCase();
 
   try {
-    // Prevent replay: check if this txHash was already processed
     const txRef = doc(db, "processedTx", txHash);
     const txDoc = await getDoc(txRef);
     if (txDoc.exists()) {
@@ -73,7 +72,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "buyer does not match address" }, { status: 403 });
     }
 
-    // Mark txHash as processed before crediting keys
     await setDoc(txRef, { address: normalizedAddress, quantity, processedAt: new Date().toISOString() });
 
     const user = await getUser(normalizedAddress);

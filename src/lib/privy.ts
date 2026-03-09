@@ -1,6 +1,6 @@
 import { usePrivy, useSendTransaction, useWallets } from "@privy-io/react-auth";
 import { useParams } from "next/navigation";
-import { Address, createWalletClient, custom, encodeFunctionData, erc20Abi, parseEther, parseUnits } from "viem";
+import { Address, createPublicClient, createWalletClient, custom, encodeFunctionData, erc20Abi, http, parseEther, parseUnits } from "viem";
 import { avalancheFuji } from "viem/chains";
 
 const CHAIN_ID = Number(process.env.NEXT_PUBLIC_CHAIN_ID)
@@ -17,6 +17,11 @@ const keyShopAbi = [
         outputs: [],
     },
 ] as const;
+
+const publicClient = createPublicClient({
+    chain: avalancheFuji,
+    transport: http(),
+});
 
 export function usePrivyTransaction() {
     const { wallets } = useWallets();
@@ -67,12 +72,16 @@ export function usePrivyTransaction() {
             args: [BigInt(quantity)],
         });
 
-        return client.sendTransaction({
+        const txHash = await client.sendTransaction({
             to: KEY_SHOP_ADDRESS,
             data,
             value: parseEther(totalAvax),
             chainId: CHAIN_ID,
         });
+
+        await publicClient.waitForTransactionReceipt({ hash: txHash });
+
+        return txHash;
     }
 
     return { sendTransactionBuyUSDT, sendTransactionBuyAVAX, sendTransactionBuyKeys }
