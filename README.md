@@ -229,4 +229,3 @@ GameScene (main loop)
 
 Items purchasable with AVAX (testnet):
 - Keys: 0.25 AVAX each
-- Golden Tickets: 0.5 AVAX each
