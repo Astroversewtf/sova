@@ -67,7 +67,27 @@ export interface TrapSpawnData {
   type: TrapType;
 }
 
-export type PropType = "rock_small" | "rock_big";
+export type PropType =
+  | "rock_small"
+  | "rock_big"
+  | "decorative_musgo_01"
+  | "decorative_musgo_02"
+  | "decorative_musgo_03"
+  | "decorative_musgo_04"
+  | "decorative_musgo_05"
+  | "decorative_musgo_06"
+  | "decorative_rocks_01"
+  | "decorative_rocks_02"
+  | "decorative_quarter01"
+  | "decorative_cuarter02"
+  | "decorative_cuarter_tile01"
+  | "decorative_cuarter_tile02"
+  | "decorative_cuarter_tile03"
+  | "decorative_cuarter_tile04"
+  | "decorative_cuarter_tile05"
+  | "decorative_cuarter_tile06"
+  | "decorative_cuarter_tile07"
+  | "decorative_cuarter_tile08";
 export type WallPropType = "light" | "plank";
 
 export interface PropSpawnData {

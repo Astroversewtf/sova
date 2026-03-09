@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import { Direction } from "grid-engine";
 import type { GridEngine } from "grid-engine";
-import { CellType, TurnPhase, type FloorMap, type TilePos } from "../types";
+import { CellType, TurnPhase, type FloorMap, type TilePos, type PropType } from "../types";
 import {
   TILE_SIZE, GAME_WIDTH, GAME_HEIGHT,
   CAMERA_ZOOM, CAMERA_LERP, C,
@@ -277,8 +277,21 @@ export class GameScene extends Phaser.Scene {
       ? new Fountain(this, fountainSpawn, "fountain-0")
       : null;
 
-    // Decorative floor props disabled
+    // Decorative floor props (visual only)
     this.props = [];
+    for (const prop of propSpawns) {
+      const texKey = this.getPropTextureKey(prop.type);
+      if (!this.textures.exists(texKey)) continue;
+      const img = this.add.image(
+        prop.pos.x * TILE_SIZE + TILE_SIZE / 2,
+        prop.pos.y * TILE_SIZE + TILE_SIZE / 2,
+        texKey,
+      );
+      img.setDepth(110);
+      img.setOrigin(0.5, 0.5);
+      img.setData("tilePos", { x: prop.pos.x, y: prop.pos.y });
+      this.props.push(img);
+    }
 
     // Wall decorative props (lights & planks on south-facing walls)
     for (const wp of wallPropSpawns) {
@@ -1112,6 +1125,17 @@ export class GameScene extends Phaser.Scene {
     return map.cells[pos.y][pos.x] !== CellType.VOID;
   }
 
+  private getPropTextureKey(type: PropType): string {
+    switch (type) {
+      case "rock_small":
+        return "prop-rock-small";
+      case "rock_big":
+        return "prop-rock-big";
+      default:
+        return `prop-static-${type}`;
+    }
+  }
+
   private setGameCursorHand() {
     const canvas = this.game.canvas as HTMLCanvasElement | null;
     if (!canvas) return;
@@ -1158,21 +1182,10 @@ export class GameScene extends Phaser.Scene {
   private showUpgradeScreen() {
     this.scene.pause();
 
-    // Apply +10 energy bonus (always, regardless of upgrade limit)
+    // Apply +10 energy bonus on each floor completion.
     const store = useGameStore.getState();
     const energyBonus = 10;
     store.setEnergy(Math.min(store.energy + energyBonus, store.maxEnergy));
-
-    // Skip upgrade screen after 3 upgrades — go straight to next floor
-    if (store.upgradesGiven >= 3) {
-      this.scene.resume();
-      this.buildFloor(this.currentFloor + 1);
-      this.vfxManager.playPixelatedFadeFromBlack(1000);
-      return;
-    }
-
-    // Track upgrade given
-    useGameStore.setState({ upgradesGiven: store.upgradesGiven + 1 });
 
     // Show React upgrade overlay
     store.showUpgradeScreen(this.currentFloor);

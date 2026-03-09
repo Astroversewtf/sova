@@ -990,30 +990,83 @@ function placeProps(
   h: number,
 ): PropSpawnData[] {
   const props: PropSpawnData[] = [];
-  const usedTiles = new Set<string>();
+  const mossTypes: PropType[] = [
+    "decorative_musgo_01",
+    "decorative_musgo_02",
+    "decorative_musgo_03",
+    "decorative_musgo_04",
+    "decorative_musgo_05",
+    "decorative_musgo_06",
+  ];
+  const rockTypes: PropType[] = [
+    "decorative_rocks_01",
+    "decorative_rocks_02",
+  ];
+  const quarterTypes: PropType[] = [
+    "decorative_quarter01",
+    "decorative_cuarter02",
+    "decorative_cuarter_tile01",
+    "decorative_cuarter_tile02",
+    "decorative_cuarter_tile03",
+    "decorative_cuarter_tile04",
+    "decorative_cuarter_tile05",
+    "decorative_cuarter_tile06",
+    "decorative_cuarter_tile07",
+    "decorative_cuarter_tile08",
+  ];
+
+  const isAdjacentToWall = (x: number, y: number): boolean => {
+    for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+      const nx = x + dx;
+      const ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+      if (cells[ny][nx] === CellType.VOID) return true;
+    }
+    return false;
+  };
+
+  const pickType = (): PropType => {
+    const roll = Math.random();
+    if (roll < 0.55) return mossTypes[randInt(0, mossTypes.length - 1)];
+    if (roll < 0.85) return rockTypes[randInt(0, rockTypes.length - 1)];
+    return quarterTypes[randInt(0, quarterTypes.length - 1)];
+  };
 
   for (const room of rooms) {
-    const count = randInt(1, 3);
-
-    // Collect candidate tiles strictly inside this room (not on edges that face passages)
-    const candidates: TilePos[] = [];
+    const roomCandidates: TilePos[] = [];
     for (let y = room.y; y < room.y + room.h; y++) {
       for (let x = room.x; x < room.x + room.w; x++) {
         if (cells[y][x] !== CellType.FLOOR) continue;
-        const key = `${x},${y}`;
-        if (occupied.has(key) || usedTiles.has(key)) continue;
-        candidates.push({ x, y });
+        if (occupied.has(`${x},${y}`)) continue;
+        roomCandidates.push({ x, y });
       }
     }
-    shuffle(candidates);
 
-    let placed = 0;
-    for (const pos of candidates) {
-      if (placed >= count) break;
-      const type: PropType = Math.random() < 0.9 ? "rock_small" : "rock_big";
+    if (roomCandidates.length === 0) continue;
+
+    const candidates = shuffle([...roomCandidates]);
+    const mossCandidates = shuffle(roomCandidates.filter((t) => isAdjacentToWall(t.x, t.y)));
+    const usedInRoom = new Set<string>();
+
+    const takeFrom = (list: TilePos[]): TilePos | null => {
+      while (list.length > 0) {
+        const pos = list.pop()!;
+        const key = `${pos.x},${pos.y}`;
+        if (usedInRoom.has(key)) continue;
+        usedInRoom.add(key);
+        return pos;
+      }
+      return null;
+    };
+
+    const desiredCount = randInt(1, 4);
+    const placeCount = Math.min(desiredCount, roomCandidates.length);
+    for (let i = 0; i < placeCount; i++) {
+      const type = pickType();
+      const isMoss = type.startsWith("decorative_musgo_");
+      const pos = isMoss ? (takeFrom(mossCandidates) ?? takeFrom(candidates)) : takeFrom(candidates);
+      if (!pos) break;
       props.push({ pos, type });
-      usedTiles.add(`${pos.x},${pos.y}`);
-      placed++;
     }
   }
 

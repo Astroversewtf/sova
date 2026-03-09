@@ -17,10 +17,12 @@ interface LobbyState {
   activeTab: LobbyTab;
   activeStashSubTab: StashSubTab;
   activeRankingsSubTab: RankingsSubTab;
+  keyPickerOpen: boolean;
   chatMessages: ChatMessage[];
   setActiveTab: (tab: LobbyTab) => void;
   setStashSubTab: (tab: StashSubTab) => void;
   setRankingsSubTab: (tab: RankingsSubTab) => void;
+  setKeyPickerOpen: (open: boolean) => void;
   addChatMessage: (msg: Omit<ChatMessage, "id" | "timestamp">) => void;
 }
 
@@ -28,8 +30,10 @@ export const useLobbyStore = create<LobbyState>((set) => ({
   activeTab: "home",
   activeStashSubTab: "earnings",
   activeRankingsSubTab: "weekly",
+  keyPickerOpen: false,
   chatMessages: [],
-  setActiveTab: (tab) => set({ activeTab: tab }),
+  setActiveTab: (tab) => set({ activeTab: tab, keyPickerOpen: false }),
+  setKeyPickerOpen: (open) => set({ keyPickerOpen: open }),
   setStashSubTab: (tab) => set({ activeStashSubTab: tab }),
   setRankingsSubTab: (tab) => set({ activeRankingsSubTab: tab }),
   addChatMessage: (msg) =>

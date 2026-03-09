@@ -9,6 +9,7 @@ type OverlayFrameProps = {
   edge?: number;
   innerEdge?: number;
   basePath?: string;
+  namePrefix?: string;
 };
 
 function joinClasses(...classes: Array<string | undefined>) {
@@ -22,6 +23,7 @@ export function OverlayFrame({
   edge = 32,
   innerEdge = 32,
   basePath = "/sprites/ui/overlay",
+  namePrefix = "overlay",
 }: OverlayFrameProps) {
   const edgePx = `${edge}px`;
   const innerEdgePx = `${innerEdge}px`;
@@ -45,41 +47,41 @@ export function OverlayFrame({
       >
         <div
           className="absolute top-0 left-0"
-          style={{ width: edgePx, height: edgePx, ...bgStyle("overlay_tl_01.png", "no-repeat") }}
+          style={{ width: edgePx, height: edgePx, ...bgStyle(`${namePrefix}_tl_01.png`, "no-repeat") }}
         />
         <div
           className="absolute top-0"
-          style={{ left: edgePx, right: edgePx, height: edgePx, ...bgStyle("overlay_tm_01.png", "repeat-x") }}
+          style={{ left: edgePx, right: edgePx, height: edgePx, ...bgStyle(`${namePrefix}_tm_01.png`, "repeat-x") }}
         />
         <div
           className="absolute top-0 right-0"
-          style={{ width: edgePx, height: edgePx, ...bgStyle("overlay_tr_01.png", "no-repeat") }}
+          style={{ width: edgePx, height: edgePx, ...bgStyle(`${namePrefix}_tr_01.png`, "no-repeat") }}
         />
 
         <div
           className="absolute left-0"
-          style={{ top: edgePx, bottom: edgePx, width: edgePx, ...bgStyle("overlay_ml_01.png", "repeat-y") }}
+          style={{ top: edgePx, bottom: edgePx, width: edgePx, ...bgStyle(`${namePrefix}_ml_01.png`, "repeat-y") }}
         />
         <div
           className="absolute"
-          style={{ top: edgePx, right: edgePx, bottom: edgePx, left: edgePx, ...bgStyle("overlay_fill_01.png", "repeat") }}
+          style={{ top: edgePx, right: edgePx, bottom: edgePx, left: edgePx, ...bgStyle(`${namePrefix}_fill_01.png`, "repeat") }}
         />
         <div
           className="absolute right-0"
-          style={{ top: edgePx, bottom: edgePx, width: edgePx, ...bgStyle("overlay_mr_01.png", "repeat-y") }}
+          style={{ top: edgePx, bottom: edgePx, width: edgePx, ...bgStyle(`${namePrefix}_mr_01.png`, "repeat-y") }}
         />
 
         <div
           className="absolute bottom-0 left-0"
-          style={{ width: edgePx, height: edgePx, ...bgStyle("overlay_dl_01.png", "no-repeat") }}
+          style={{ width: edgePx, height: edgePx, ...bgStyle(`${namePrefix}_dl_01.png`, "no-repeat") }}
         />
         <div
           className="absolute bottom-0"
-          style={{ left: edgePx, right: edgePx, height: edgePx, ...bgStyle("overlay_dm_01.png", "repeat-x") }}
+          style={{ left: edgePx, right: edgePx, height: edgePx, ...bgStyle(`${namePrefix}_dm_01.png`, "repeat-x") }}
         />
         <div
           className="absolute right-0 bottom-0"
-          style={{ width: edgePx, height: edgePx, ...bgStyle("overlay_dr_01.png", "no-repeat") }}
+          style={{ width: edgePx, height: edgePx, ...bgStyle(`${namePrefix}_dr_01.png`, "no-repeat") }}
         />
       </div>
 

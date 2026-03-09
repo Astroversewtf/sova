@@ -2,7 +2,7 @@
 
 import { usePlayerStore } from "@/stores/playerStore";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { OverlayFrame } from "@/components/OverlayFrame";
+import { useLobbyStore } from "@/stores/lobbyStore";
 import { useEffect, useState } from "react";
 
 function useCountdownToFriday() {
@@ -40,15 +40,6 @@ function useCountdownToFriday() {
   }, []);
 
   return text;
-}
-
-function LootStat({ icon, value, alt }: { icon: string; value: string; alt: string }) {
-  return (
-    <div className="flex items-center gap-1.5">
-      <img src={icon} alt={alt} className="w-5 h-5" style={{ imageRendering: "pixelated" }} />
-      <span className="font-press-start text-[10px] text-white text-outline">{value}</span>
-    </div>
-  );
 }
 
 function PrizeCard({
@@ -102,8 +93,9 @@ function PrizeCard({
 export function TopBar() {
   const { coins, gems, keys } = usePlayerStore();
   const openSettings = useSettingsStore((s) => s.open);
+  const setActiveTab = useLobbyStore((s) => s.setActiveTab);
   const countdown = useCountdownToFriday();
-  const rowAnchorY = "58%";
+  const rowAnchorY = "66%";
 
   return (
     <div className="relative shrink-0 h-[clamp(138px,18vh,186px)] px-[1.8%]">
@@ -118,7 +110,7 @@ export function TopBar() {
           aria-label="Open settings"
         >
           <img
-            src="/sprites/ui/onboarding/square_button_01.png"
+            src="/sprites/ui/onboarding/buttons_menu_01.png"
             alt=""
             className="absolute inset-0 w-full h-full"
             style={{ imageRendering: "pixelated" }}
@@ -127,21 +119,75 @@ export function TopBar() {
       </div>
 
       <div
-        className="absolute z-30 -translate-y-1/2"
+        className="absolute z-30 -translate-y-1/2 flex items-center gap-2"
         style={{ top: rowAnchorY, right: "2%" }}
       >
-        <OverlayFrame
-          className="w-[220px] h-[64px]"
-          contentClassName="h-full w-full"
-          edge={16}
-          innerEdge={10}
+        <div className="relative h-[52px] min-w-[52px] px-3 bg-transparent flex items-center justify-center gap-2">
+          <img
+            src="/sprites/ui/settings/buttons_overlay_empty_02.png"
+            alt=""
+            className="absolute inset-0 w-full h-full pointer-events-none"
+            style={{ imageRendering: "pixelated" }}
+          />
+          <img
+            src="/sprites/items/coin/coin_01.png"
+            alt="Coins"
+            className="absolute left-1/2 top-0 w-10 h-10 -translate-x-1/2 -translate-y-[50%]"
+            style={{ imageRendering: "pixelated" }}
+          />
+          <span
+            className="relative font-press-start-crisp text-[11px] text-amber-300 leading-none"
+            style={{ textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000" }}
+          >
+            {coins.toLocaleString()}
+          </span>
+        </div>
+
+        <div className="relative w-[52px] h-[52px] bg-transparent flex items-center justify-center">
+          <img
+            src="/sprites/ui/settings/buttons_overlay_empty_02.png"
+            alt=""
+            className="absolute inset-0 w-full h-full pointer-events-none"
+            style={{ imageRendering: "pixelated" }}
+          />
+          <img
+            src="/sprites/items/orb/item_orb_01.png"
+            alt="Orbs"
+            className="absolute left-1/2 top-0 w-10 h-10 -translate-x-1/2 -translate-y-[50%]"
+            style={{ imageRendering: "pixelated" }}
+          />
+          <span
+            className="font-press-start-crisp text-[11px] text-teal-300 leading-none mt-[2px]"
+            style={{ textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000" }}
+          >
+            {gems}
+          </span>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("shop")}
+          className="relative w-[52px] h-[52px] bg-transparent flex items-center justify-center"
         >
-          <div className="h-full w-full flex items-center justify-center gap-3">
-            <LootStat icon="/sprites/items/coin/coin_01.png" alt="Coins" value={coins.toLocaleString()} />
-            <LootStat icon="/sprites/items/orb/item_orb_01.png" alt="Orbs" value={gems.toLocaleString()} />
-            <LootStat icon="/sprites/items/key/key_02.png" alt="Keys" value={keys.toLocaleString()} />
-          </div>
-        </OverlayFrame>
+          <img
+            src="/sprites/ui/settings/buttons_overlay_empty_02.png"
+            alt=""
+            className="absolute inset-0 w-full h-full pointer-events-none"
+            style={{ imageRendering: "pixelated" }}
+          />
+          <img
+            src="/sprites/items/key/key_02.png"
+            alt="Keys"
+            className="absolute left-1/2 top-0 w-8 h-8 -translate-x-1/2 -translate-y-[60%]"
+            style={{ imageRendering: "pixelated" }}
+          />
+          <span
+            className="font-press-start-crisp text-[11px] text-yellow-200 leading-none mt-[2px]"
+            style={{ textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000" }}
+          >
+            {keys}
+          </span>
+        </button>
       </div>
 
       <div

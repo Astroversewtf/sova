@@ -6,6 +6,7 @@ import { GameHUD } from "./GameHUD";
 import { UpgradeOverlay } from "./UpgradeOverlay";
 import { LootRevealOverlay } from "./LootRevealOverlay";
 import { GameOverOverlay } from "./GameOverOverlay";
+import { RunEndBackdropOverlay } from "./RunEndBackdropOverlay";
 
 export function PhaserGame() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -94,6 +95,7 @@ export function PhaserGame() {
       <div ref={containerRef} className="absolute inset-0" />
       <GameHUD />
       <UpgradeOverlay />
+      <RunEndBackdropOverlay />
       <LootRevealOverlay />
       <GameOverOverlay />
     </div>
