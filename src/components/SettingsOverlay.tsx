@@ -1,14 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useLogout } from "@privy-io/react-auth";
+import { useLogout, usePrivy } from "@privy-io/react-auth";
 import { OverlayFrame } from "@/components/OverlayFrame";
-import { OverlayTitlePill } from "@/components/OverlayTitlePill";
 import { useWalletStore } from "@/stores/walletStore";
 import { useGameStore } from "@/stores/gameStore";
 import {
   type ControlAction,
-  DEFAULT_CONTROL_BINDINGS,
   useSettingsStore,
 } from "@/stores/settingsStore";
 
@@ -27,7 +25,7 @@ function bindingLabel(binding: string) {
     case "DOWN": return "↓";
     case "LEFT": return "←";
     case "RIGHT": return "→";
-    case "SPACE": return "Space";
+    case "SPACE": return "SPC";
     default: return binding;
   }
 }
@@ -63,6 +61,7 @@ export function SettingsOverlay() {
   const lootPhase = useGameStore((s) => s.lootPhase);
   const runEndActive = useGameStore((s) => s.runEndActive);
   const { logout } = useLogout();
+  const { user } = usePrivy();
   const [bindingCapture, setBindingCapture] = useState<{
     action: ControlAction;
     slot: number;
@@ -123,7 +122,15 @@ export function SettingsOverlay() {
     ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`
     : "0x------";
   const profileName = walletAddress ? `PLAYER ${walletAddress.slice(2, 6).toUpperCase()}` : "SOVA PLAYER";
-  const muteKey = bindings.mute[0] ?? DEFAULT_CONTROL_BINDINGS.mute[0];
+  const defaultAvatar = "/images/FUD.png";
+  const googleAvatar = ((user as any)?.google?.picture
+    ?? (user as any)?.google?.profilePictureUrl
+    ?? (user as any)?.google?.avatarUrl
+    ?? null) as string | null;
+  const walletAvatar = walletAddress
+    ? `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(walletAddress)}`
+    : null;
+  const profileAvatar = googleAvatar || walletAvatar || defaultAvatar;
 
   return (
     <>
@@ -136,7 +143,7 @@ export function SettingsOverlay() {
             aria-label="Open settings"
           >
             <img
-              src="/sprites/ui/onboarding/square_button_01.png"
+              src="/sprites/ui/onboarding/buttons_menu_01.png"
               alt=""
               className="absolute inset-0 w-full h-full"
               style={{ imageRendering: "pixelated" }}
@@ -147,7 +154,7 @@ export function SettingsOverlay() {
 
       {isOpen && (
         <div
-          className="fixed inset-0 z-[120] pointer-events-auto bg-black/72 backdrop-blur-[3px] flex items-center justify-center px-4 py-6"
+          className="settings-overlay fixed inset-0 z-[120] pointer-events-auto bg-black/72 backdrop-blur-[3px] flex items-center justify-center px-4 py-6"
           onClick={close}
         >
           <div onClick={(e) => e.stopPropagation()}>
@@ -156,20 +163,25 @@ export function SettingsOverlay() {
               contentClassName="flex h-full w-full flex-col"
               edge={64}
             >
-              <div className="relative flex h-full w-full flex-col px-3 sm:px-4 py-2">
-                <OverlayTitlePill
-                  title="Settings"
-                  className="absolute left-1/2 top-0 z-20 -translate-x-1/2 -translate-y-[72%]"
-                  width="min(260px,72%)"
+              <div className="relative flex h-full w-full flex-col px-3 sm:px-4 py-2 bg-[#3d4139]">
+                <img
+                  src="/sprites/ui/onboarding/buttons_settings_01.png"
+                  alt=""
+                  className="absolute left-1/2 top-0 z-20 w-[min(220px,62%)] -translate-x-1/2 -translate-y-[78%] pointer-events-none"
+                  style={{ imageRendering: "pixelated" }}
                 />
-                <div className="flex-1 overflow-y-auto scrollbar-hidden pr-1 pt-4">
+                <div className="flex-1 overflow-y-auto scrollbar-hidden pt-5">
               <button
                 type="button"
                 onClick={() => setMuteAll(!muteAll)}
-                className="w-full rounded-md border border-[#364454] bg-[#121c28] px-4 py-2.5 flex items-center justify-between hover:bg-[#182433] transition-colors"
+                className="relative mx-auto block w-[min(150px,46%)] aspect-[3/1]"
               >
-                <span className="font-pixel text-[13px] text-white">🔊 MUTE ALL</span>
-                <span className="font-pixel text-[11px] text-[#8ea0b6]">[{bindingLabel(muteKey)}]</span>
+                <img
+                  src="/sprites/ui/lobby-buttons/buttons_muteall_01.png"
+                  alt=""
+                  className="absolute inset-0 w-full h-full object-contain"
+                  style={{ imageRendering: "pixelated" }}
+                />
               </button>
 
               <div className="mt-5 flex flex-col items-center gap-4">
@@ -229,26 +241,47 @@ export function SettingsOverlay() {
                           <button
                             type="button"
                             onClick={() => setBindingCapture({ action: row.action, slot: 0 })}
-                            className="min-w-[42px] h-8 rounded-md border border-[#384658] bg-[#1b2635] px-2 font-pixel text-[11px] text-white hover:bg-[#243247]"
+                            className="relative w-8 h-8 flex items-center justify-center"
                           >
-                            {bindingCapture?.action === row.action && bindingCapture.slot === 0 ? "..." : (first ? bindingLabel(first) : "-")}
+                            <img
+                              src="/sprites/ui/onboarding/square_button_01.png"
+                              alt=""
+                              className="absolute inset-0 w-full h-full"
+                              style={{ imageRendering: "pixelated" }}
+                            />
+                            <span className="relative z-10 font-press-start text-[7px] text-white leading-none">
+                              {bindingCapture?.action === row.action && bindingCapture.slot === 0 ? "..." : (first ? bindingLabel(first) : "-")}
+                            </span>
                           </button>
                           {row.hasSecondary && (
                             <button
                               type="button"
                               onClick={() => setBindingCapture({ action: row.action, slot: 1 })}
-                              className="min-w-[42px] h-8 rounded-md border border-[#384658] bg-[#1b2635] px-2 font-pixel text-[11px] text-white hover:bg-[#243247]"
+                              className="relative w-8 h-8 flex items-center justify-center"
                             >
-                              {bindingCapture?.action === row.action && bindingCapture.slot === 1 ? "..." : (second ? bindingLabel(second) : "-")}
+                              <img
+                                src="/sprites/ui/onboarding/square_button_01.png"
+                                alt=""
+                                className="absolute inset-0 w-full h-full"
+                                style={{ imageRendering: "pixelated" }}
+                              />
+                              <span className="relative z-10 font-press-start text-[7px] text-white leading-none">
+                                {bindingCapture?.action === row.action && bindingCapture.slot === 1 ? "..." : (second ? bindingLabel(second) : "-")}
+                              </span>
                             </button>
                           )}
                           <button
                             type="button"
                             onClick={() => setBindingCapture({ action: row.action, slot: row.hasSecondary ? 1 : 0 })}
-                            className="w-8 h-8 rounded-md border border-[#384658] bg-[#151f2c] font-pixel text-[12px] text-white hover:bg-[#233144]"
+                            className="relative w-8 h-8"
                             aria-label={`Set key for ${row.label}`}
                           >
-                            +
+                            <img
+                              src="/sprites/ui/lobby-buttons/buttons_plus_01.png"
+                              alt=""
+                              className="absolute inset-0 w-full h-full"
+                              style={{ imageRendering: "pixelated" }}
+                            />
                           </button>
                         </div>
                       </div>
@@ -258,9 +291,17 @@ export function SettingsOverlay() {
                   <button
                     type="button"
                     onClick={resetBindings}
-                    className="w-full max-w-[460px] mt-2 h-9 rounded-md border border-[#384658] bg-[#101925] hover:bg-[#172233] transition-colors font-pixel text-[11px] text-[#b6c5d8]"
+                    className="relative w-[min(220px,72%)] aspect-[3/1] mt-2"
                   >
-                    RESET TO DEFAULTS
+                    <img
+                      src="/sprites/ui/onboarding/buttons_empty_01.png"
+                      alt=""
+                      className="absolute inset-0 w-full h-full object-contain"
+                      style={{ imageRendering: "pixelated" }}
+                    />
+                    <span className="relative z-10 -translate-y-[1px] font-press-start font-bold text-[9px] text-gray-300 leading-none">
+                      RESET TO DEFAULTS
+                    </span>
                   </button>
                   {bindingCapture && (
                     <p className="font-pixel text-[11px] text-[#6fb6ff] text-center">
@@ -274,11 +315,24 @@ export function SettingsOverlay() {
 
               <div className="flex items-center justify-center mb-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full overflow-hidden border border-[#ffdf8f] bg-[#252116] flex items-center justify-center">
+                  <div className="relative w-12 h-12">
+                    <div className="absolute inset-0 rounded-md overflow-hidden bg-[#252116] flex items-center justify-center">
+                      <img
+                        src={profileAvatar}
+                        alt=""
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          const img = e.currentTarget;
+                          if (img.dataset.fallback === "1") return;
+                          img.dataset.fallback = "1";
+                          img.src = defaultAvatar;
+                        }}
+                      />
+                    </div>
                     <img
-                      src="/sprites/player/idle/astro_idle_front_01.png"
+                      src="/sprites/ui/settings/buttons_overlay_empty_02.png"
                       alt=""
-                      className="w-9 h-9"
+                      className="absolute inset-0 z-10 w-full h-full scale-[1.08] pointer-events-none"
                       style={{ imageRendering: "pixelated" }}
                     />
                   </div>
@@ -289,13 +343,20 @@ export function SettingsOverlay() {
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={handleSignOut}
-                className="w-full h-11 rounded-md border border-[#7b3b3b] bg-[#2f1719] hover:bg-[#3b1e21] transition-colors font-pixel text-[13px] text-[#f06a6a]"
-              >
-                SIGN OUT
-              </button>
+              <div className="w-full flex justify-center">
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  className="relative block w-[min(142px,48%)] aspect-[2/1]"
+                >
+                  <img
+                    src="/sprites/ui/lobby-buttons/buttons_logout_01.png"
+                    alt=""
+                    className="absolute inset-0 w-full h-full object-contain"
+                    style={{ imageRendering: "pixelated" }}
+                  />
+                </button>
+              </div>
                 </div>
               </div>
             </OverlayFrame>

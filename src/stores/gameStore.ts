@@ -19,6 +19,7 @@ interface GameState {
   goldenTicketsCollected: number;
   turnPhase: TurnPhase;
   upgrades: Record<string, number>;
+  recentUpgrades: UpgradeId[]; // active window: last 3 chosen upgrades
   enemiesRemaining: number;
   enemiesKilled: number;
   bossesKilled: number;
@@ -26,7 +27,7 @@ interface GameState {
   trapsTriggered: number;
   poisonTurns: number; // remaining turns of poison DoT
   upgradeScreenFloor: number | null; // non-null = upgrade overlay visible
-  upgradesGiven: number; // how many upgrade screens shown this run (max 3)
+  upgradesGiven: number; // legacy counter (upgrade screen no longer capped)
   keysUsed: number; // keys wagered for this run (1-5)
   rerollCount: number; // persists across floors within a run
   gameOverData: GameOverData | null; // non-null = game over overlay visible
@@ -75,6 +76,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   goldenTicketsCollected: 0,
   turnPhase: TurnPhase.PLAYER_INPUT,
   upgrades: {},
+  recentUpgrades: [],
   enemiesRemaining: 0,
   enemiesKilled: 0,
   bossesKilled: 0,
@@ -102,6 +104,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       goldenTicketsCollected: 0,
       turnPhase: TurnPhase.PLAYER_INPUT,
       upgrades: {},
+      recentUpgrades: [],
       enemiesRemaining: 0,
       enemiesKilled: 0,
       bossesKilled: 0,
@@ -136,12 +139,13 @@ export const useGameStore = create<GameState>((set, get) => ({
   setTurnPhase: (phase) => set({ turnPhase: phase }),
 
   addUpgrade: (id) =>
-    set((s) => ({
-      upgrades: {
-        ...s.upgrades,
-        [id]: (s.upgrades[id] ?? 0) + 1,
-      },
-    })),
+    set((s) => {
+      // Upgrades last 3 rounds: keep only the 3 most recent picks.
+      const recent = [...s.recentUpgrades, id].slice(-3);
+      const upgrades: Record<string, number> = {};
+      for (const u of recent) upgrades[u] = (upgrades[u] ?? 0) + 1;
+      return { recentUpgrades: recent, upgrades };
+    }),
 
   getUpgradeStacks: (id) => get().upgrades[id] ?? 0,
 

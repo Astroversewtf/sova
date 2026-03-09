@@ -132,10 +132,60 @@
   animation: floor-label 1.8s ease-in-out forwards;
 }
 
+@keyframes lobby-attic-seq-0 {
+  0%, 100% { opacity: 1; }
+  25%, 75% { opacity: 0; }
+}
+
+@keyframes lobby-attic-seq-1 {
+  0%, 50%, 100% { opacity: 0; }
+  25%, 75% { opacity: 1; }
+}
+
+@keyframes lobby-attic-seq-2 {
+  0%, 25%, 75%, 100% { opacity: 0; }
+  50% { opacity: 1; }
+}
+
+@utility animate-lobby-attic-seq-0 {
+  animation: lobby-attic-seq-0 6s ease-in-out infinite;
+}
+
+@utility animate-lobby-attic-seq-1 {
+  animation: lobby-attic-seq-1 6s ease-in-out infinite;
+}
+
+@utility animate-lobby-attic-seq-2 {
+  animation: lobby-attic-seq-2 6s ease-in-out infinite;
+}
+
+@keyframes sova-loading-dot {
+  0%,
+  20% {
+    opacity: 0;
+  }
+  35%,
+  100% {
+    opacity: 1;
+  }
+}
+
+@layer components {
+  .sova-loading-dot {
+    opacity: 0;
+    animation: sova-loading-dot 1.2s ease-in-out infinite;
+  }
+}
+
 /* ── Onboarding + Lobby button hover feel ── */
 @layer components {
   .onboarding-screen button,
   .lobby-screen button {
+    transition: transform 120ms ease, filter 120ms ease;
+    transform-origin: center;
+  }
+
+  .settings-overlay button {
     transition: transform 120ms ease, filter 120ms ease;
     transform-origin: center;
   }
@@ -148,11 +198,19 @@
     transform: scale(0.97);
   }
 
+  .settings-overlay button:not(:disabled):hover {
+    transform: scale(0.97);
+  }
+
   .onboarding-screen button:not(:disabled):active {
     transform: scale(0.9);
   }
 
   .lobby-screen button:not(:disabled):active {
+    transform: scale(0.95);
+  }
+
+  .settings-overlay button:not(:disabled):active {
     transform: scale(0.95);
   }
 }

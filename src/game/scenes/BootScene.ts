@@ -169,6 +169,36 @@ export class BootScene extends Phaser.Scene {
     // Decorative props (rocks)
     this.load.image("prop-rock-small", "sprites/props/rock_small.png");
     this.load.image("prop-rock-big", "sprites/props/rock_big.png");
+    // Decorative static floor props (moss, rocks, quarter tiles)
+    for (let i = 1; i <= 6; i++) {
+      const suffix = i.toString().padStart(2, "0");
+      this.load.image(
+        `prop-static-decorative_musgo_${suffix}`,
+        `sprites/props/static/decorative_musgo_${suffix}.png`,
+      );
+    }
+    for (let i = 1; i <= 2; i++) {
+      const suffix = i.toString().padStart(2, "0");
+      this.load.image(
+        `prop-static-decorative_rocks_${suffix}`,
+        `sprites/props/static/decorative_rocks_${suffix}.png`,
+      );
+    }
+    this.load.image(
+      "prop-static-decorative_quarter01",
+      "sprites/props/static/decorative_quarter01.png",
+    );
+    this.load.image(
+      "prop-static-decorative_cuarter02",
+      "sprites/props/static/decorative_cuarter02.png",
+    );
+    for (let i = 1; i <= 8; i++) {
+      const suffix = i.toString().padStart(2, "0");
+      this.load.image(
+        `prop-static-decorative_cuarter_tile${suffix}`,
+        `sprites/props/static/decorative_cuarter_tile${suffix}.png`,
+      );
+    }
 
     // Wall decorative props
     this.load.image("prop-wall-light", "sprites/props/wall/light_01.png");

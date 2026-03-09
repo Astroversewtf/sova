@@ -143,19 +143,25 @@ export function GameHUD() {
               return (
                 <div
                   key={`upgrade-slot-${idx}`}
-                  className="relative w-10 h-10 border-[4px] border-[#3a3f48] bg-transparent flex items-center justify-center"
+                  className="relative w-10 h-10 bg-transparent flex items-center justify-center"
                 >
+                  <img
+                    src="/sprites/ui/settings/buttons_overlay_empty_02.png"
+                    alt=""
+                    className="absolute inset-0 z-0 w-full h-full pointer-events-none"
+                    style={{ imageRendering: "pixelated" }}
+                  />
                   {id && (
                     <>
                       <img
                         src={UPGRADE_ICON_BY_ID[id]}
                         alt=""
-                        className="w-10 h-10"
+                        className="relative z-10 w-10 h-10"
                         style={{ imageRendering: "pixelated" }}
                       />
                       {stacks > 1 && (
                         <span
-                          className="absolute -right-1 -bottom-1 font-pixel text-[7px] leading-none text-lime-300"
+                          className="absolute z-20 -right-1 -bottom-1 font-pixel text-[7px] leading-none text-lime-300"
                           style={{ textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000" }}
                         >
                           {stacks}
@@ -170,7 +176,13 @@ export function GameHUD() {
 
           {/* Loot (right, per-square, anchored to energy bar) */}
           <div className="absolute top-1/2 left-full ml-[clamp(28px,3.2vw,56px)] -translate-y-1/2 flex items-center gap-2">
-            <div className="relative w-[42px] h-[42px] border-[4px] border-[#3a3f48] bg-transparent flex items-center justify-center">
+            <div className="relative w-[42px] h-[42px] bg-transparent flex items-center justify-center">
+              <img
+                src="/sprites/ui/settings/buttons_overlay_empty_02.png"
+                alt=""
+                className="absolute inset-0 w-full h-full pointer-events-none"
+                style={{ imageRendering: "pixelated", transform: "scaleX(1.18)" }}
+              />
               <img
                 src="/sprites/items/coin/coin_01.png"
                 alt=""
@@ -185,7 +197,13 @@ export function GameHUD() {
               </span>
             </div>
 
-            <div className="relative w-[42px] h-[42px] border-[4px] border-[#3a3f48] bg-transparent flex items-center justify-center">
+            <div className="relative w-[42px] h-[42px] bg-transparent flex items-center justify-center">
+              <img
+                src="/sprites/ui/settings/buttons_overlay_empty_02.png"
+                alt=""
+                className="absolute inset-0 w-full h-full pointer-events-none"
+                style={{ imageRendering: "pixelated" }}
+              />
               <img
                 src="/sprites/items/orb/item_orb_01.png"
                 alt=""
@@ -200,7 +218,13 @@ export function GameHUD() {
               </span>
             </div>
 
-            <div className="relative w-[42px] h-[42px] border-[4px] border-[#3a3f48] bg-transparent flex items-center justify-center">
+            <div className="relative w-[42px] h-[42px] bg-transparent flex items-center justify-center">
+              <img
+                src="/sprites/ui/settings/buttons_overlay_empty_02.png"
+                alt=""
+                className="absolute inset-0 w-full h-full pointer-events-none"
+                style={{ imageRendering: "pixelated" }}
+              />
               <img
                 src="/sprites/items/golden_ticket/golden_ticket_lil_01.png"
                 alt=""
@@ -215,9 +239,15 @@ export function GameHUD() {
               </span>
             </div>
 
-            <div className="relative w-[42px] h-[42px] border-[4px] border-[#3a3f48] bg-transparent flex items-center justify-center">
+            <div className="relative w-[42px] h-[42px] bg-transparent flex items-center justify-center">
+              <img
+                src="/sprites/ui/onboarding/buttons_square_01.png"
+                alt=""
+                className="absolute inset-0 z-0 w-full h-full pointer-events-none"
+                style={{ imageRendering: "pixelated" }}
+              />
               <span
-                className="font-press-start-crisp text-[10px] text-slate-300 leading-none"
+                className="relative z-10 font-press-start-crisp text-[10px] text-slate-300 leading-none"
                 style={{ textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000" }}
               >
                 F{floor}

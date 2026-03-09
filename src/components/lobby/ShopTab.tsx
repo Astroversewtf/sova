@@ -4,6 +4,7 @@ import { usePrivyTransaction } from "@/lib/privy";
 import { usePlayerStore } from "@/stores/playerStore";
 import { useWallets } from "@privy-io/react-auth";
 import { useState } from "react";
+import { OverlayFrame } from "@/components/OverlayFrame";
 
 const ENTRY_KEY_PRICE = 0.25;
 
@@ -42,78 +43,101 @@ export function ShopTab() {
   };
 
   return (
-    <div className="h-full overflow-y-auto p-6">
-      <div className="mx-auto w-full max-w-[760px] space-y-4">
-        <h3 className="font-pixel text-sm text-white uppercase text-outline">ENTRY KEYS</h3>
+    <div className="h-full flex flex-col">
+      <div className="flex-1 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <span className="font-pixel text-xs text-white text-outline uppercase">
+            BUY ENTRY KEYS
+          </span>
 
-        <div className="rounded-md border border-[#3b4652] bg-[#0f1722] p-5">
-          <div className="flex justify-center">
-            <img
-              src="/sprites/items/key/key_02.png"
-              alt="Entry key"
-              className="w-12 h-12"
-              style={{ imageRendering: "pixelated" }}
-            />
+          <img
+            src="/sprites/items/key/key_02.png"
+            alt="Entry key"
+            className="w-10 h-10"
+            style={{ imageRendering: "pixelated" }}
+          />
+
+          {/* +5  +10  MAX */}
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => setQuantity(quantity + 5)}>
+              <img
+                src="/sprites/ui/buttons/buttons_five_01.png"
+                alt="+5"
+                className="h-10 w-auto"
+                style={{ imageRendering: "pixelated" }}
+              />
+            </button>
+            <button type="button" onClick={() => setQuantity(quantity + 10)}>
+              <img
+                src="/sprites/ui/buttons/buttons_ten_01.png"
+                alt="+10"
+                className="h-10 w-auto"
+                style={{ imageRendering: "pixelated" }}
+              />
+            </button>
+            <button type="button" onClick={() => setQuantity(99)}>
+              <img
+                src="/sprites/ui/buttons/buttons_max_01.png"
+                alt="MAX"
+                className="h-10 w-auto"
+                style={{ imageRendering: "pixelated" }}
+              />
+            </button>
           </div>
 
-          <div className="mt-4 flex items-center justify-center gap-2">
-            <button
-              type="button"
-              onClick={() => setQuantity(Math.max(1, quantity - 1))}
-              className="h-14 w-14 rounded-md border border-[#313e4f] bg-[#1a2431] font-press-start text-2xl leading-none text-white text-outline"
-              aria-label="Decrease quantity"
-            >
-              -
+          {/* -  [key + count]  + */}
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => setQuantity(Math.max(1, quantity - 1))}>
+              <img
+                src="/sprites/ui/buttons/buttons_minus_02.png"
+                alt="-"
+                className="h-12 w-auto"
+                style={{ imageRendering: "pixelated" }}
+              />
             </button>
 
-            <div className="h-14 min-w-[200px] rounded-md border border-[#32506f] bg-[#0e1c2b] px-4 flex items-center justify-center gap-3">
+            <OverlayFrame
+              className="h-12 min-w-[180px]"
+              contentClassName="flex items-center justify-center gap-3 !p-0"
+              namePrefix="square"
+              edge={16}
+              innerEdge={16}
+            >
               <img
                 src="/sprites/items/key/key_02.png"
                 alt=""
                 className="w-6 h-6"
                 style={{ imageRendering: "pixelated" }}
               />
-              <span className="font-press-start text-2xl text-white text-outline">{quantity}</span>
-            </div>
+              <span className="font-press-start text-xl text-white text-outline">{quantity}</span>
+            </OverlayFrame>
 
-            <button
-              type="button"
-              onClick={() => setQuantity(quantity + 1)}
-              className="h-14 w-14 rounded-md border border-[#313e4f] bg-[#1a2431] font-press-start text-2xl leading-none text-white text-outline"
-              aria-label="Increase quantity"
-            >
-              +
+            <button type="button" onClick={() => setQuantity(quantity + 1)}>
+              <img
+                src="/sprites/ui/buttons/buttons_plus_02.png"
+                alt="+"
+                className="h-12 w-auto"
+                style={{ imageRendering: "pixelated" }}
+              />
             </button>
           </div>
 
-          <div className="mt-3 flex items-center justify-center gap-2">
-            <button
-              type="button"
-              onClick={() => setQuantity(quantity + 5)}
-              className="h-9 min-w-[90px] rounded-md border border-[#313e4f] bg-[#1a2431] px-4 font-press-start text-[10px] text-white text-outline"
-            >
-              +5
-            </button>
-            <button
-              type="button"
-              onClick={() => setQuantity(quantity + 10)}
-              className="h-9 min-w-[90px] rounded-md border border-[#313e4f] bg-[#1a2431] px-4 font-press-start text-[10px] text-white text-outline"
-            >
-              +10
-            </button>
-          </div>
-
-          <div className="mt-4 text-center font-press-start text-xs text-[#b4c0cf] text-outline">
+          <span className="font-press-start text-[10px] text-[#b4c0cf] text-outline">
             TOTAL: {totalPrice} AVAX
-          </div>
+          </span>
 
           <button
             type="button"
             onClick={handleBuy}
             disabled={isLoading}
-            className="mt-4 w-full rounded-md bg-[#6fb6ff] py-3 font-pixel text-sm text-white text-outline hover:bg-[#87c4ff] transition-colors disabled:cursor-not-allowed"
+            className="disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            BUY
+            <img
+              src="/sprites/ui/buttons/buttons_buy_01.png"
+              alt="BUY"
+              className="h-12 w-auto"
+              style={{ imageRendering: "pixelated" }}
+            />
           </button>
         </div>
       </div>

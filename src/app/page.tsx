@@ -16,6 +16,7 @@ import { SettingsOverlay } from "@/components/SettingsOverlay";
 import { AudioController } from "@/components/AudioController";
 import { OverlayFrame } from "@/components/OverlayFrame";
 import { OverlayTitlePill } from "@/components/OverlayTitlePill";
+import { LoadingScreen } from "@/components/LoadingScreen";
 import { useLobbyStore } from "@/stores/lobbyStore";
 import { usePlayerStore } from "@/stores/playerStore";
 import { useSettingsStore } from "@/stores/settingsStore";
@@ -26,11 +27,7 @@ const PhaserGame = dynamic(
   () => import("@/components/PhaserGame").then((mod) => mod.PhaserGame),
   {
     ssr: false,
-    loading: () => (
-      <div className="w-full h-full flex items-center justify-center bg-[#0c1220]">
-        <span className="font-pixel text-xs text-gray-500 animate-pulse">LOADING...</span>
-      </div>
-    ),
+    loading: () => <LoadingScreen />,
   },
 );
 
@@ -258,7 +255,7 @@ function LobbyView() {
         <div className="flex-1 flex flex-col min-w-0 relative">
           <TopBar />
           <div className="relative flex-1 overflow-hidden">
-            <div className="h-full box-border pt-[12%] px-[108px] sm:px-[120px] lg:px-[132px]">
+            <div className="h-full box-border pt-[12%] px-[24px] sm:px-[40px] lg:px-[60px]">
               {activeTab === "home" && <HomeTab />}
               {activeTab === "shop" && <ShopTab />}
               {activeTab === "quests" && <QuestsTab />}

@@ -1,27 +1,33 @@
 "use client";
 
 import { useLobbyStore, type LobbyTab } from "@/stores/lobbyStore";
-import { OverlayFrame } from "@/components/OverlayFrame";
 
-type LeftNavItem = {
+type NavItem = {
   id: LobbyTab | "guide";
   label: string;
+  icon: string;
 };
 
-const leftItems: LeftNavItem[] = [
-  { id: "home", label: "HOME" },
-  { id: "stash", label: "STASH" },
-  { id: "rankings", label: "LEADERBOARD" },
-  { id: "shop", label: "SHOP" },
-  { id: "guide", label: "GUIDE" },
+const leftItems: NavItem[] = [
+  { id: "rankings", label: "LEADERBOARD", icon: "/sprites/ui/onboarding/icons_leaderboard_01.png" },
+  { id: "stash", label: "STASH", icon: "/sprites/ui/onboarding/icons_stash_01.png" },
+  { id: "home", label: "HOME", icon: "/sprites/ui/onboarding/icons_home_01.png" },
 ];
 
-function SquareNavButton({
+const rightItems: NavItem[] = [
+  { id: "quests", label: "QUESTS", icon: "/sprites/ui/onboarding/icons_quest_01.png" },
+  { id: "shop", label: "SHOP", icon: "/sprites/ui/onboarding/icons_shop_01.png" },
+  { id: "guide", label: "GUIDE", icon: "/sprites/ui/onboarding/icons_guide_01.png" },
+];
+
+function NavButton({
   label,
+  icon,
   active = false,
   onClick,
 }: {
   label: string;
+  icon: string;
   active?: boolean;
   onClick?: () => void;
 }) {
@@ -31,65 +37,96 @@ function SquareNavButton({
       onClick={onClick}
       title={label}
       aria-label={label}
-      className="relative w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center"
+      className="w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center"
     >
       <img
-        src="/sprites/ui/onboarding/square_button_01.png"
+        src={icon}
         alt=""
-        className={`absolute inset-0 w-full h-full ${active ? "opacity-100" : "opacity-90"}`}
+        className={`w-full h-full ${active ? "opacity-100" : "opacity-80"}`}
         style={{ imageRendering: "pixelated" }}
       />
-      <span className={`font-pixel text-[8px] ${active ? "text-white" : "text-white/80"}`}>
-        {label[0]}
-      </span>
     </button>
   );
 }
 
 export function BottomNav() {
-  const { activeTab, setActiveTab } = useLobbyStore();
+  const { activeTab, setActiveTab, keyPickerOpen, setKeyPickerOpen } = useLobbyStore();
+
+  function handlePlayClick() {
+    if (keyPickerOpen) {
+      // Key picker is open — trigger actual game start
+      window.dispatchEvent(new Event("sova:request-play"));
+    } else {
+      // Open key picker, switch to home tab
+      setActiveTab("home");
+      setKeyPickerOpen(true);
+    }
+  }
+
+  function handleHomeClick() {
+    setKeyPickerOpen(false);
+    setActiveTab("home");
+  }
+
+  function handleNavClick(item: NavItem) {
+    if (item.id === "home") {
+      handleHomeClick();
+    } else if (item.id !== "guide") {
+      setActiveTab(item.id as LobbyTab);
+    }
+  }
 
   return (
-    <div className="pointer-events-none absolute inset-y-0 left-6 right-8 z-30 flex items-center justify-between">
-      <div className="pointer-events-auto">
-        <OverlayFrame
-          className="w-[92px] h-[390px]"
-          contentClassName="h-full w-full"
-          edge={16}
-          innerEdge={10}
-        >
-          <div className="h-full w-full flex flex-col items-center justify-between py-3">
-            {leftItems.map((item) => {
-              const isTab = item.id !== "guide";
-              const active = isTab ? activeTab === item.id : false;
-              return (
-                <SquareNavButton
-                  key={item.id}
-                  label={item.label}
-                  active={active}
-                  onClick={isTab ? () => setActiveTab(item.id as LobbyTab) : undefined}
-                />
-              );
-            })}
-          </div>
-        </OverlayFrame>
-      </div>
-
-      <div className="pointer-events-auto mr-2">
-        <OverlayFrame
-          className="w-[92px] h-[122px]"
-          contentClassName="h-full w-full"
-          edge={16}
-          innerEdge={10}
-        >
-          <div className="h-full w-full flex items-center justify-center">
-            <SquareNavButton
-              label="QUESTS"
-              active={activeTab === "quests"}
-              onClick={() => setActiveTab("quests")}
+    <div className="pointer-events-none absolute bottom-3 left-0 right-0 z-30 flex items-center justify-center">
+      <div className="pointer-events-auto flex items-center gap-3">
+        {leftItems.map((item) => {
+          const isTab = item.id !== "guide";
+          const active = isTab ? activeTab === item.id && !keyPickerOpen : false;
+          return (
+            <NavButton
+              key={item.id}
+              label={item.label}
+              icon={item.icon}
+              active={active}
+              onClick={() => handleNavClick(item)}
             />
-          </div>
-        </OverlayFrame>
+          );
+        })}
+
+        <div className="w-4" />
+
+        <button
+          type="button"
+          onClick={handlePlayClick}
+          className={`relative w-[min(220px,30vw)] h-[min(55px,7.5vw)] flex items-center justify-center ${keyPickerOpen ? "animate-play-pulse" : ""}`}
+          aria-label="Play"
+        >
+          <img
+            src={keyPickerOpen
+              ? "/sprites/ui/buttons/buttons_play_lobby_01.png"
+              : "/sprites/ui/buttons/buttons_play_01.png"
+            }
+            alt=""
+            className="h-full w-auto"
+            style={{ imageRendering: "pixelated" }}
+          />
+        </button>
+
+        <div className="w-4" />
+
+        {rightItems.map((item) => {
+          const isTab = item.id !== "guide";
+          const active = isTab ? activeTab === item.id : false;
+          return (
+            <NavButton
+              key={item.id}
+              label={item.label}
+              icon={item.icon}
+              active={active}
+              onClick={() => handleNavClick(item)}
+            />
+          );
+        })}
       </div>
     </div>
   );
