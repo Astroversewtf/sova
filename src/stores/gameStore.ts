@@ -26,10 +26,12 @@ interface GameState {
   trapsTriggered: number;
   poisonTurns: number; // remaining turns of poison DoT
   upgradeScreenFloor: number | null; // non-null = upgrade overlay visible
+  upgradesGiven: number; // how many upgrade screens shown this run (max 3)
   keysUsed: number; // keys wagered for this run (1-5)
   rerollCount: number; // persists across floors within a run
   gameOverData: GameOverData | null; // non-null = game over overlay visible
   lootPhase: "coins" | "orbs" | "summary" | null;
+  runEndActive: boolean; // true while RunEndScene chest sequence is active
 
   startRun: (keysUsed?: number) => void;
   endRun: () => void;
@@ -55,6 +57,7 @@ interface GameState {
   hideGameOver: () => void;
   startLootReveal: (data: GameOverData) => void;
   advanceLootPhase: () => void;
+  setRunEndActive: (active: boolean) => void;
   spendCoins: (amount: number) => void;
   incrementReroll: () => void;
   getRerollCost: () => number;
@@ -79,10 +82,12 @@ export const useGameStore = create<GameState>((set, get) => ({
   trapsTriggered: 0,
   poisonTurns: 0,
   keysUsed: 1,
+  upgradesGiven: 0,
   upgradeScreenFloor: null,
   rerollCount: 0,
   gameOverData: null,
   lootPhase: null,
+  runEndActive: false,
 
   startRun: (keysUsed = 1) =>
     set({
@@ -104,10 +109,12 @@ export const useGameStore = create<GameState>((set, get) => ({
       trapsTriggered: 0,
       poisonTurns: 0,
       rerollCount: 0,
+      upgradesGiven: 0,
       keysUsed,
+      runEndActive: false,
     }),
 
-  endRun: () => set({ isRunning: false, gameOverData: null }),
+  endRun: () => set({ isRunning: false, gameOverData: null, runEndActive: false }),
 
   nextFloor: () => set((s) => ({ floor: s.floor + 1 })),
 
@@ -173,15 +180,17 @@ export const useGameStore = create<GameState>((set, get) => ({
   showUpgradeScreen: (floor) => set({ upgradeScreenFloor: floor }),
   hideUpgradeScreen: () => set({ upgradeScreenFloor: null }),
 
-  showGameOver: (data) => set({ gameOverData: data, lootPhase: "summary" }),
-  hideGameOver: () => set({ gameOverData: null, lootPhase: null }),
+  showGameOver: (data) => set({ gameOverData: data, lootPhase: "summary", runEndActive: false }),
+  hideGameOver: () => set({ gameOverData: null, lootPhase: null, runEndActive: false }),
 
-  startLootReveal: (data) => set({ gameOverData: data, lootPhase: "coins" }),
+  startLootReveal: (data) => set({ gameOverData: data, lootPhase: "coins", runEndActive: false }),
   advanceLootPhase: () => {
     const phase = get().lootPhase;
     if (phase === "coins") set({ lootPhase: "orbs" });
     else if (phase === "orbs") set({ lootPhase: "summary" });
   },
+
+  setRunEndActive: (active) => set({ runEndActive: active }),
 
   spendCoins: (amount) =>
     set((s) => ({ coinsCollected: Math.max(0, s.coinsCollected - amount) })),

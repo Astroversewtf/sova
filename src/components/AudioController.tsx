@@ -11,9 +11,10 @@ function trackForView(view: string): string | null {
   return null;
 }
 
-const SFX_SRC: Record<Exclude<SfxEventKey, "boss-intro-start" | "boss-intro-stop">, string> = {
+const SFX_SRC: Record<Exclude<SfxEventKey, "boss-intro-start" | "boss-intro-stop" | "skills-shuffle-start" | "skills-shuffle-stop" | "heartbeat-start" | "heartbeat-stop">, string> = {
   death: "/sounds/sfx/death/death.mp3",
   "boss-spot": "/sounds/sfx/boss/boss-spot.mp3",
+  "skills-shuffle-end": "/sounds/sfx/skills/after-shaffle-skills.wav",
   "user-attack": "/sounds/sfx/player/user-attack.wav",
   breakbles: "/sounds/sfx/breakbles/breakbles.wav",
   "user-step": "/sounds/sfx/player/user-step.wav",
@@ -30,18 +31,22 @@ const SFX_GAIN: Partial<Record<SfxEventKey, number>> = {
   "user-step": 0.45,
   "click-button": 0.55,
   "boss-intro-start": 0.75,
+  "skills-shuffle-start": 0.72,
 };
 
 const SFX_MAX_MS: Partial<Record<SfxEventKey, number>> = {
   "user-attack": 1000,
   "user-step": 220,
   "collect-energy": 260,
+  "skills-shuffle-end": 1000,
 };
 const SFX_START_AT_MS: Partial<Record<SfxEventKey, number>> = {
   death: 520,
 };
 
 const BOSS_INTRO_SRC = "/sounds/sfx/boss/boss-intro.wav";
+const SKILLS_SHUFFLE_SRC = "/sounds/sfx/skills/shaffle-skills.wav";
+const HEARTBEAT_SRC = "/sounds/sfx/heartbeat/heartbeat.wav";
 const clamp01 = (value: number) => Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
 
 export function AudioController() {
@@ -59,9 +64,12 @@ export function AudioController() {
   const musicFadeRafRef = useRef<number | null>(null);
 
   const bossIntroRef = useRef<HTMLAudioElement | null>(null);
+  const skillsShuffleRef = useRef<HTMLAudioElement | null>(null);
   const bossFadeRafRef = useRef<number | null>(null);
+  const heartbeatRef = useRef<HTMLAudioElement | null>(null);
+  const heartbeatIntensityRef = useRef(0);
   const activeMonoRef = useRef<
-    Partial<Record<Exclude<SfxEventKey, "boss-intro-start" | "boss-intro-stop">, { audio: HTMLAudioElement; timer: number | null }>>
+    Partial<Record<Exclude<SfxEventKey, "boss-intro-start" | "boss-intro-stop" | "skills-shuffle-start" | "skills-shuffle-stop" | "heartbeat-start" | "heartbeat-stop">, { audio: HTMLAudioElement; timer: number | null }>>
   >({});
   const muteRef = useRef(muteAll);
   const musicVolumeRef = useRef(musicVolume);
@@ -147,7 +155,7 @@ export function AudioController() {
     return sfxBaseVolume() * (SFX_GAIN[key] ?? 1);
   }
 
-  function playOneShot(key: Exclude<SfxEventKey, "boss-intro-start" | "boss-intro-stop">) {
+  function playOneShot(key: Exclude<SfxEventKey, "boss-intro-start" | "boss-intro-stop" | "skills-shuffle-start" | "skills-shuffle-stop" | "heartbeat-start" | "heartbeat-stop">) {
     if (!unlockedRef.current) return;
     const src = SFX_SRC[key];
     if (!src) return;
@@ -207,6 +215,38 @@ export function AudioController() {
     audio.play().catch(() => undefined);
   }
 
+  function startHeartbeat() {
+    if (!unlockedRef.current) return;
+    if (heartbeatRef.current) return; // already playing
+
+    const audio = new Audio(HEARTBEAT_SRC);
+    audio.preload = "auto";
+    audio.loop = true;
+    const vol = sfxBaseVolume() * heartbeatIntensityRef.current;
+    setAudioVolume(audio, vol);
+    heartbeatRef.current = audio;
+    audio.play().catch(() => undefined);
+  }
+
+  function stopHeartbeat() {
+    const audio = heartbeatRef.current;
+    if (!audio) return;
+    stopAudio(audio);
+    heartbeatRef.current = null;
+  }
+
+  function updateHeartbeatVolume(intensity: number) {
+    heartbeatIntensityRef.current = clamp01(intensity);
+    // Recovery path: if heartbeat-start was emitted before audio unlock,
+    // start as soon as we receive intensity updates while unlocked.
+    if (heartbeatIntensityRef.current > 0 && unlockedRef.current && !heartbeatRef.current) {
+      startHeartbeat();
+    }
+    const audio = heartbeatRef.current;
+    if (!audio) return;
+    setAudioVolume(audio, sfxBaseVolume() * heartbeatIntensityRef.current);
+  }
+
   function startBossLoop() {
     if (!unlockedRef.current) return;
     const volume = clamp01(sfxVolumeFor("boss-intro-start"));
@@ -226,6 +266,33 @@ export function AudioController() {
     setAudioVolume(loop, volume);
     bossIntroRef.current = loop;
     loop.play().catch(() => undefined);
+  }
+
+  function startSkillsShuffle() {
+    if (!unlockedRef.current) return;
+    const volume = clamp01(sfxVolumeFor("skills-shuffle-start"));
+
+    if (skillsShuffleRef.current) {
+      setAudioVolume(skillsShuffleRef.current, volume);
+      if (skillsShuffleRef.current.paused) {
+        skillsShuffleRef.current.play().catch(() => undefined);
+      }
+      return;
+    }
+
+    const loop = new Audio(SKILLS_SHUFFLE_SRC);
+    loop.preload = "auto";
+    loop.loop = true;
+    setAudioVolume(loop, volume);
+    skillsShuffleRef.current = loop;
+    loop.play().catch(() => undefined);
+  }
+
+  function stopSkillsShuffle() {
+    const audio = skillsShuffleRef.current;
+    if (!audio) return;
+    stopAudio(audio);
+    skillsShuffleRef.current = null;
   }
 
   useEffect(() => {
@@ -248,6 +315,11 @@ export function AudioController() {
     muteRef.current = muteAll;
     musicVolumeRef.current = Math.max(0, Math.min(100, Number.isFinite(musicVolume) ? musicVolume : 0));
     sfxVolumeRef.current = Math.max(0, Math.min(100, Number.isFinite(sfxVolume) ? sfxVolume : 0));
+
+    // If user unmutes while low energy state is active, ensure heartbeat resumes.
+    if (!muteRef.current && heartbeatIntensityRef.current > 0 && unlockedRef.current && !heartbeatRef.current) {
+      startHeartbeat();
+    }
   }, [muteAll, musicVolume, sfxVolume]);
 
   useEffect(() => {
@@ -332,11 +404,20 @@ export function AudioController() {
 
   useEffect(() => {
     const boss = bossIntroRef.current;
-    if (!boss) return;
-    setAudioVolume(boss, sfxVolumeFor("boss-intro-start"));
-    if (muteRef.current && !boss.paused) {
-      // Keep loop object alive; only mute by volume so it can resume cleanly.
-      setAudioVolume(boss, 0);
+    if (boss) {
+      setAudioVolume(boss, sfxVolumeFor("boss-intro-start"));
+      if (muteRef.current && !boss.paused) {
+        setAudioVolume(boss, 0);
+      }
+    }
+    // Sync heartbeat volume with mute/sfx settings
+    const hb = heartbeatRef.current;
+    if (hb) {
+      setAudioVolume(hb, sfxBaseVolume() * heartbeatIntensityRef.current);
+    }
+    const shuffle = skillsShuffleRef.current;
+    if (shuffle) {
+      setAudioVolume(shuffle, sfxVolumeFor("skills-shuffle-start"));
     }
   }, [muteAll, sfxVolume]);
 
@@ -355,6 +436,22 @@ export function AudioController() {
         fadeOutBossLoop();
         return;
       }
+      if (key === "skills-shuffle-start") {
+        startSkillsShuffle();
+        return;
+      }
+      if (key === "skills-shuffle-stop") {
+        stopSkillsShuffle();
+        return;
+      }
+      if (key === "heartbeat-start") {
+        startHeartbeat();
+        return;
+      }
+      if (key === "heartbeat-stop") {
+        stopHeartbeat();
+        return;
+      }
 
       playOneShot(key);
     };
@@ -367,11 +464,18 @@ export function AudioController() {
       playOneShot("click-button");
     };
 
+    const onHeartbeatVolume = (event: Event) => {
+      const intensity = (event as CustomEvent<number>).detail;
+      updateHeartbeatVolume(intensity);
+    };
+
     window.addEventListener("sova:sfx", onSfx as EventListener);
+    window.addEventListener("sova:heartbeat-volume", onHeartbeatVolume as EventListener);
     window.addEventListener("pointerdown", onUiClick, true);
 
     return () => {
       window.removeEventListener("sova:sfx", onSfx as EventListener);
+      window.removeEventListener("sova:heartbeat-volume", onHeartbeatVolume as EventListener);
       window.removeEventListener("pointerdown", onUiClick, true);
     };
   }, []);
@@ -383,6 +487,10 @@ export function AudioController() {
       stopAudio(musicSecondaryRef.current);
       stopAudio(musicPrimaryRef.current);
       stopAudio(bossIntroRef.current);
+      stopAudio(skillsShuffleRef.current);
+      stopAudio(heartbeatRef.current);
+      heartbeatRef.current = null;
+      skillsShuffleRef.current = null;
       Object.values(activeMonoRef.current).forEach((entry) => {
         if (!entry) return;
         if (entry.timer !== null) clearTimeout(entry.timer);

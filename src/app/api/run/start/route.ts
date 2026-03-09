@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "missing address" }, { status: 400 });
     }
 
-    const keys = Math.min(Math.max(Math.floor(keysUsed), 1), 5);
+    const keys = Math.min(Math.max(Math.floor(keysUsed), 1), 15);
 
     const user = await getUser(addr);
     if (!user) {

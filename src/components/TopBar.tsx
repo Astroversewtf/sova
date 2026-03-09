@@ -1,9 +1,9 @@
 "use client";
 
 import { usePlayerStore } from "@/stores/playerStore";
-import { useWalletStore } from "@/stores/walletStore";
-import { useLogout } from "@privy-io/react-auth";
-import { useState, useEffect } from "react";
+import { useSettingsStore } from "@/stores/settingsStore";
+import { OverlayFrame } from "@/components/OverlayFrame";
+import { useEffect, useState } from "react";
 
 function useCountdownToFriday() {
   const [text, setText] = useState("");
@@ -33,6 +33,7 @@ function useCountdownToFriday() {
       const s = Math.floor((ms % 60000) / 1000);
       setText(`${d}D ${h}H ${String(m).padStart(2, "0")}M ${String(s).padStart(2, "0")}S`);
     }
+
     calc();
     const id = setInterval(calc, 1000);
     return () => clearInterval(id);
@@ -41,163 +42,130 @@ function useCountdownToFriday() {
   return text;
 }
 
-export function TopBar() {
-  const { coins, gems, keys, goldenTickets, avaxBalance } = usePlayerStore();
-  const countdown = useCountdownToFriday();
-  const { logout } = useLogout();
-  const [copied, setCopied] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const walletDisconnect = useWalletStore((s) => s.disconnect)
-  const walletAdress = useWalletStore((s) => s.address)
-  const truncatedAddress = walletAdress ? `${walletAdress.slice(0,6)}...${walletAdress.slice(-4)}`: "";
-
-  async function handleLogout() {
-    await logout();
-    walletDisconnect();
-  }
-
-
+function LootStat({ icon, value, alt }: { icon: string; value: string; alt: string }) {
   return (
-    <div className="shrink-0 flex items-start px-3 pt-2 pb-1 sm:px-4 sm:pt-3">
-      {/* Left — Menu button */}
-      <div className="shrink-0 pt-3 relative">
-        <button 
-        className="w-11 h-11 sm:w-12 sm:h-12 bg-[#1a2332] rounded-xl border border-white/10 flex items-center justify-center hover:bg-[#243044] transition-colors"
-        onClick={() => setMenuOpen((v) => !v)}
-        >
-          <div className="space-y-1">
-            <div className="w-4 h-0.5 bg-white rounded-full" />
-            <div className="w-4 h-0.5 bg-white rounded-full" />
-            <div className="w-4 h-0.5 bg-white rounded-full" />
-          </div>
-        </button>
-        {menuOpen && (
-    <>
-      {/* Backdrop to close menu */}
-      <div
-        className="fixed inset-0 z-40"
-        onClick={() => setMenuOpen(false)}
-      />
-      {/* Menu panel */}
-      <div className="absolute top-full left-0 mt-2 z-50 w-56 bg-[#1a2332] border border-white/10 rounded-xl p-3 space-y-3 shadow-lg">
-        {/* Wallet address */}
-        {truncatedAddress && (
-          <div onClick={() => {
-            if(walletAdress) {
-              navigator.clipboard.writeText(walletAdress)
-              setCopied(true);
-              setTimeout(() => setCopied(false), 2000)
-            }
-          }} 
-          className="flex items-center gap-2 px-2 py-1.5 bg-white/5 rounded-lg">
-            <span className="text-white/50 text-xs">Wallet:</span>
-            <span className="font-pixel text-[10px] text-white text-outline">
-              {truncatedAddress}
-            </span>
-          </div>
-        )}
-
-        {copied && (
-          <span className="text-green-400 text-xs px-2 font-pixel">Copied!</span>
-        )}
-
-        {/* Logout */}
-        <button
-          onClick={() => {
-            handleLogout();
-            setMenuOpen(false);
-          }}
-          className="w-full text-left px-2 py-1.5 text-sm text-red-400 hover:text-red-300 hover:bg-white/5 rounded-lg transition-colors"
-        >
-          Logout
-        </button>
-      </div>
-    </>
-  )}
-      </div>
-
-      {/* Center — Pool Cards using designer images */}
-      <div className="flex-1 flex justify-center gap-4 sm:gap-6 pt-1">
-        {/* Weekly Pool */}
-        <div className="relative" style={{ width: 360, height: 102 }}>
-          <img
-            src="/images/prizepool_weekly.png"
-            alt="Weekly Pool"
-            className="absolute inset-0 w-full h-full"
-            style={{ imageRendering: "pixelated" }}
-          />
-          {/* USD value centered inside the card */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="flex items-baseline gap-2 pt-2">
-              <span className="font-pixel text-2xl sm:text-4xl text-[#d4a017] text-outline leading-none">
-                77,191
-              </span>
-              <span className="font-pixel text-sm sm:text-lg text-[#d4a017] text-outline">
-                USD
-              </span>
-            </div>
-          </div>
-          {/* Countdown overlapping bottom border */}
-          <div className="absolute left-1/2 -translate-x-1/2 -bottom-1">
-            <span className="font-pixel text-[9px] sm:text-xs text-white text-outline tracking-wider whitespace-nowrap leading-none">
-              {countdown}
-            </span>
-          </div>
-        </div>
-
-        {/* Jackpot */}
-        <div className="relative" style={{ width: 360, height: 102 }}>
-          <img
-            src="/images/prizepool_jackpot.png"
-            alt="Jackpot"
-            className="absolute inset-0 w-full h-full"
-            style={{ imageRendering: "pixelated" }}
-          />
-          {/* USD value centered inside the card */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="flex items-baseline gap-2 pt-2">
-              <span className="font-pixel text-2xl sm:text-4xl text-[#ff6eb4] text-outline leading-none">
-                14,313
-              </span>
-              <span className="font-pixel text-sm sm:text-lg text-[#ff6eb4] text-outline">
-                USD
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Right — Loot Grid (2 cols × 3 rows) */}
-      <div className="shrink-0 grid grid-cols-2 gap-1 sm:gap-1.5 pt-2">
-        <LootCard icon="🪙" value={coins.toLocaleString()} />
-        <LootCard icon="🗝️" value={keys.toLocaleString()} />
-        <LootCard icon="💎" value={gems.toLocaleString()} />
-        <LootCard icon="🎫" value={goldenTickets.toLocaleString()} />
-        <LootCard icon="💜" value={avaxBalance.toFixed(4)} colSpan />
-      </div>
+    <div className="flex items-center gap-1.5">
+      <img src={icon} alt={alt} className="w-5 h-5" style={{ imageRendering: "pixelated" }} />
+      <span className="font-press-start text-[10px] text-white text-outline">{value}</span>
     </div>
   );
 }
 
-function LootCard({
-  icon,
+function PrizeCard({
+  frame,
   value,
-  colSpan = false,
+  label,
+  glowColor,
+  countdown,
 }: {
-  icon: string;
+  frame: string;
   value: string;
-  colSpan?: boolean;
+  label: string;
+  glowColor: string;
+  countdown?: string;
 }) {
   return (
-    <div
-      className={`bg-[#1a2332]/90 rounded-lg px-2 py-1.5 sm:px-2.5 sm:py-2 flex items-center justify-between gap-2 border border-white/10 ${
-        colSpan ? "col-span-2" : ""
-      }`}
-    >
-      <span className="text-sm sm:text-base leading-none">{icon}</span>
-      <span className="font-pixel text-[8px] sm:text-[9px] text-white text-outline">
-        {value}
-      </span>
+    <div className="relative w-[clamp(248px,24vw,318px)] aspect-[8/5]">
+      <div
+        className="absolute inset-0 z-0 flex items-center justify-center"
+        aria-hidden="true"
+      >
+        <div
+          className="h-[62%] w-[84%] rounded-full blur-[20px] opacity-80"
+          style={{
+            background: `radial-gradient(circle at center, ${glowColor} 0%, rgba(0,0,0,0) 70%)`,
+          }}
+        />
+      </div>
+      <img
+        src={frame}
+        alt={label}
+        className="absolute inset-0 z-10 w-full h-full"
+        style={{ imageRendering: "pixelated" }}
+      />
+      <div className="absolute inset-0 z-20 flex items-center justify-center">
+        <span className="font-press-start text-[clamp(12px,1.2vw,18px)] text-white text-outline-5 leading-none text-center px-3">
+          {value}
+        </span>
+      </div>
+      {countdown && (
+        <div className="absolute left-1/2 -translate-x-1/2 -bottom-1">
+          <span className="font-press-start text-[9px] sm:text-xs text-white text-outline whitespace-nowrap leading-none">
+            {countdown}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function TopBar() {
+  const { coins, gems, keys } = usePlayerStore();
+  const openSettings = useSettingsStore((s) => s.open);
+  const countdown = useCountdownToFriday();
+  const rowAnchorY = "58%";
+
+  return (
+    <div className="relative shrink-0 h-[clamp(138px,18vh,186px)] px-[1.8%]">
+      <div
+        className="absolute z-30 w-[92px] flex justify-center -translate-y-1/2"
+        style={{ top: rowAnchorY, left: "2.2%" }}
+      >
+        <button
+          type="button"
+          onClick={openSettings}
+          className="relative w-12 h-12 flex items-center justify-center"
+          aria-label="Open settings"
+        >
+          <img
+            src="/sprites/ui/onboarding/square_button_01.png"
+            alt=""
+            className="absolute inset-0 w-full h-full"
+            style={{ imageRendering: "pixelated" }}
+          />
+        </button>
+      </div>
+
+      <div
+        className="absolute z-30 -translate-y-1/2"
+        style={{ top: rowAnchorY, right: "2%" }}
+      >
+        <OverlayFrame
+          className="w-[220px] h-[64px]"
+          contentClassName="h-full w-full"
+          edge={16}
+          innerEdge={10}
+        >
+          <div className="h-full w-full flex items-center justify-center gap-3">
+            <LootStat icon="/sprites/items/coin/coin_01.png" alt="Coins" value={coins.toLocaleString()} />
+            <LootStat icon="/sprites/items/orb/item_orb_01.png" alt="Orbs" value={gems.toLocaleString()} />
+            <LootStat icon="/sprites/items/key/key_02.png" alt="Keys" value={keys.toLocaleString()} />
+          </div>
+        </OverlayFrame>
+      </div>
+
+      <div
+        className="absolute left-1/2 z-20 -translate-y-1/2 -translate-x-[120%]"
+        style={{ top: rowAnchorY }}
+      >
+        <div className="relative">
+          <PrizeCard
+            frame="/sprites/ui/hud/prizes/weekly_prize_01.png"
+            label="Weekly Pool"
+            value="77,191 USD"
+            glowColor="#2f74ff"
+            countdown={countdown}
+          />
+          <div className="absolute top-0 left-full ml-[-6%]">
+            <PrizeCard
+              frame="/sprites/ui/hud/prizes/jackpot_prize_01.png"
+              label="Jackpot"
+              value="14,313 USD"
+              glowColor="#d3a13a"
+            />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

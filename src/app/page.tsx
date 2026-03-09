@@ -11,10 +11,14 @@ import { ShopTab } from "@/components/lobby/ShopTab";
 import { QuestsTab } from "@/components/lobby/QuestsTab";
 import { RankingsTab } from "@/components/lobby/RankingsTab";
 import { StashTab } from "@/components/lobby/StashTab";
+import { LobbySpotlightBackground } from "@/components/lobby/LobbySpotlightBackground";
 import { SettingsOverlay } from "@/components/SettingsOverlay";
 import { AudioController } from "@/components/AudioController";
+import { OverlayFrame } from "@/components/OverlayFrame";
+import { OverlayTitlePill } from "@/components/OverlayTitlePill";
 import { useLobbyStore } from "@/stores/lobbyStore";
 import { usePlayerStore } from "@/stores/playerStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { useLogin, usePrivy } from "@privy-io/react-auth";
 import { getBalance } from "@/lib/avax";
 
@@ -32,8 +36,6 @@ const PhaserGame = dynamic(
 
 function PrivyConnectView() {
   const { ready, authenticated, user } = usePrivy();
-  const [unlocked, setUnlocked] = useState(false);
-  const [code, setCode] = useState("");
   const walletStoreConnect = useWalletStore((s) => s.connect);
   const { setAvaxBalance, loadFromDB } = usePlayerStore();
   const { login } = useLogin({
@@ -59,145 +61,178 @@ function PrivyConnectView() {
     }
   }, [ready, authenticated, user]);
 
-  async function verifyCode() {
-    const res = await fetch("/api/beta", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code }),
-    });
-    if(res.ok) setUnlocked(true);
-  }
-
-  
-  if (!unlocked) {
-    return (
-      <div className="h-dvh relative overflow-hidden flex flex-col items-center justify-center bg-[#0c1220]">
-        <div
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-30"
-          style={{ backgroundImage: "url('/images/connect-bg.jpg')" }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#0c1220]/60 to-[#0c1220]" />
-
-        <div className="relative z-10 flex flex-col items-center gap-6 px-4">
-          <img
-            src="/images/logo-sova.png"
-            alt="SOVA"
-            className="h-40 sm:h-56 object-contain drop-shadow-[0_4px_20px_rgba(0,0,0,0.7)]"
-            style={{ imageRendering: "pixelated" }}
-          />
-          
-          <p className="font-pixel text-xs text-gray-400 uppercase tracking-widest">
-            Closed Beta Access
-          </p>
-
-          <div className="flex flex-col items-center gap-3 w-full max-w-xs">
-            <input
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") verifyCode();
-              }}
-              placeholder="Enter access code..."
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-sm text-white text-center placeholder-gray-500 focus:outline-none focus:border-[#b8e550]/50 focus:ring-1 focus:ring-[#b8e550]/30 transition-all"
-            />
-            <button
-              onClick={verifyCode}
-              className="w-full bg-[#b8e550] hover:bg-[#c5ed65] text-white font-pixel text-sm py-3 px-8 rounded-lg border-2 border-[#a0cc40]/50 transition-all uppercase tracking-wide shadow-[0_4px_0_#7a9e30] hover:shadow-[0_2px_0_#7a9e30] hover:translate-y-[2px] active:shadow-none active:translate-y-[4px]"
-              style={{ textShadow: "-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000" }}
-            >
-              Enter
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <ConnectLayout>
-      <button
-        onClick={login}
-        className="bg-[#b8e550] hover:bg-[#c5ed65] text-white font-pixel text-lg py-3 px-10 rounded-lg border-2 border-[#a0cc40]/50 transition-all uppercase tracking-wide shadow-[0_4px_0_#7a9e30] hover:shadow-[0_2px_0_#7a9e30] hover:translate-y-[2px] active:shadow-none active:translate-y-[4px]"
-        style={{ textShadow: "-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 -2px 0 #000, 0 2px 0 #000, -2px 0 0 #000, 2px 0 0 #000" }}
-      >
-        CONNECT
-      </button>
-    </ConnectLayout>
-  );
+  return <OnboardingLayout onPlay={login} />;
 }
 
 /** Dev connect (no Privy needed) */
 function DevConnectView() {
   const walletStoreConnect = useWalletStore((s) => s.connect);
+  const loadFromDB = usePlayerStore((s) => s.loadFromDB);
 
-  return (
-    <ConnectLayout>
-      <button
-        onClick={() => walletStoreConnect("DEV", 43113)}
-        className="bg-[#b8e550] hover:bg-[#c5ed65] text-white font-pixel text-lg py-3 px-10 rounded-lg border-2 border-[#a0cc40]/50 transition-all uppercase tracking-wide shadow-[0_4px_0_#7a9e30] hover:shadow-[0_2px_0_#7a9e30] hover:translate-y-[2px] active:shadow-none active:translate-y-[4px]"
-        style={{ textShadow: "-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 -2px 0 #000, 0 2px 0 #000, -2px 0 0 #000, 2px 0 0 #000" }}
-      >
-        PLAY
-      </button>
-    </ConnectLayout>
-  );
+  return <OnboardingLayout onPlay={async () => {
+    walletStoreConnect("DEV", 43113);
+    await loadFromDB("DEV");
+  }} />;
 }
 
-function ConnectLayout({ children }: { children: React.ReactNode }) {
+function OnboardingLayout({ onPlay }: { onPlay: () => void }) {
+  const openSettings = useSettingsStore((s) => s.open);
+  const [leaderboardOpen, setLeaderboardOpen] = useState(false);
+  const HAND_CURSOR = "url('/sprites/ui/cursor/cursor_hand_01.png') 6 0, pointer";
+
+  const onLeaderboard = () => setLeaderboardOpen(true);
+  const onDiscord = () => window.open("https://discord.gg/invite/astroverse", "_blank");
+  const onTwitter = () => window.open("https://x.com/astroversewtf/", "_blank");
+  const onWebsite = () => window.open("https://www.astroverse.wtf", "_blank");
+
   return (
-    <div className="h-dvh relative overflow-hidden flex flex-col">
+    <div className="onboarding-screen h-dvh w-full relative overflow-hidden bg-black">
       <div
         className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-        style={{ backgroundImage: "url('/images/connect-bg.jpg')" }}
+        style={{ backgroundImage: "url('/images/onboarding-bg.png')", opacity: 0.8 }}
       />
-      <div className="absolute inset-0 bg-black/50" />
+      <div className="absolute inset-y-0 left-0 w-[28%] bg-gradient-to-r from-black via-black/65 to-transparent" />
+      <div className="absolute inset-y-0 right-0 w-[28%] bg-gradient-to-l from-black via-black/65 to-transparent" />
 
-      <header className="relative z-20 flex items-center justify-between px-6 py-3 bg-black/70 border-b border-white/10">
-        <img
-          src="/images/astroverse-logo.png"
-          alt="Astroverse"
-          className="h-8 sm:h-10 object-contain cursor-pointer"
-          onClick={() => window.open('https://astroverse.wtf', '_blank')}
-        />
-        <div className="flex items-center gap-5">
-          <button className="font-pixel text-[9px] text-gray-300 hover:text-white transition-colors uppercase tracking-wide">
-            Leaderboard
-          </button>
-          <button className="font-pixel text-[9px] text-gray-300 hover:text-white transition-colors uppercase tracking-wide">
-            Settings
-          </button>
-          {/* Discord */}
-          <a onClick={() => window.open("https://discord.gg/invite/astroverse")} href="#" className="text-gray-400 hover:text-white transition-colors">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03z" />
-            </svg>
-          </a>
-          {/* Twitter / X */}
-          <a onClick={() => window.open("https://x.com/astroversewtf")} href="#" className="text-gray-400 hover:text-white transition-colors">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-            </svg>
-          </a>
-        </div>
-      </header>
+      <div className="absolute inset-0 z-20 px-[clamp(8px,2vw,28px)] py-[clamp(8px,1.8vh,22px)]">
+        <div className="h-full w-full flex items-start justify-between">
+          <div
+            className="relative w-[clamp(180px,54vw,400px)]"
+            style={{ transform: "translate(clamp(10px,2vw,28px), clamp(14px,3vh,38px))" }}
+          >
+            <img
+              src="/images/logo-sova.png"
+              alt="SOVA"
+              className="mx-auto w-[86%] h-auto object-contain"
+              style={{ imageRendering: "pixelated" }}
+            />
 
-      <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 -mt-16 sm:-mt-24">
-        <div className="mb-0">
-          <img
-            src="/images/logo-sova.png"
-            alt="SOVA"
-            className="h-[28rem] sm:h-[36rem] object-contain mx-auto drop-shadow-[0_4px_20px_rgba(0,0,0,0.7)]"
-            style={{ imageRendering: "pixelated" }}
-          />
-        </div>
-        <div className="-mt-16 sm:-mt-20 relative z-10">
-          {children}
-        </div>
-      </main>
+            <div
+              className="mx-auto w-[86%] flex flex-col items-center gap-[clamp(6px,0.8vw,10px)]"
+              style={{ marginTop: "clamp(4px, 1.2vw, 14px)" }}
+            >
+              <button
+                type="button"
+                onClick={onPlay}
+                className="relative w-[74%] cursor-pointer"
+                style={{ cursor: HAND_CURSOR }}
+                aria-label="Play"
+              >
+                <img
+                  src="/sprites/ui/onboarding/buttons_play_01_trimmed.png"
+                  alt=""
+                  className="w-full h-auto object-contain"
+                  style={{ imageRendering: "pixelated" }}
+                />
+              </button>
 
-      <div className="relative z-10 py-3 text-center">
-        <span className="font-pixel text-[8px] text-white uppercase">
-          &copy; 2026 Astroverse. All rights reserved.
+              <button
+                type="button"
+                onClick={onLeaderboard}
+                className="relative w-[48%] cursor-pointer"
+                style={{ cursor: HAND_CURSOR }}
+                aria-label="Leaderboard"
+              >
+                <img
+                  src="/sprites/ui/onboarding/buttons_leaderboard_01.png"
+                  alt=""
+                  className="w-full h-auto object-contain"
+                  style={{ imageRendering: "pixelated" }}
+                />
+              </button>
+              <button
+                type="button"
+                onClick={openSettings}
+                className="relative w-[48%] cursor-pointer"
+                style={{ cursor: HAND_CURSOR }}
+                aria-label="Settings"
+              >
+                <img
+                  src="/sprites/ui/onboarding/buttons_settings_01.png"
+                  alt=""
+                  className="w-full h-auto object-contain"
+                  style={{ imageRendering: "pixelated" }}
+                />
+              </button>
+            </div>
+          </div>
+
+          <div className="self-center flex flex-col items-center gap-3 pr-[clamp(8px,1vw,20px)]">
+            <button
+              type="button"
+              onClick={onWebsite}
+              className="relative w-[clamp(34px,3.4vw,38px)] h-[clamp(34px,3.4vw,38px)] flex items-center justify-center cursor-pointer"
+              style={{ cursor: HAND_CURSOR }}
+              aria-label="Website"
+            >
+              <img
+                src="/sprites/ui/onboarding/buttons_website_01.png"
+                alt=""
+                className="absolute inset-0 w-full h-full object-fill"
+                style={{ imageRendering: "pixelated" }}
+              />
+            </button>
+            <button
+              type="button"
+              onClick={onTwitter}
+              className="relative w-[clamp(34px,3.4vw,38px)] h-[clamp(34px,3.4vw,38px)] flex items-center justify-center cursor-pointer"
+              style={{ cursor: HAND_CURSOR }}
+              aria-label="Twitter"
+            >
+              <img
+                src="/sprites/ui/onboarding/buttons_twitter_01.png"
+                alt=""
+                className="absolute inset-0 w-full h-full object-fill"
+                style={{ imageRendering: "pixelated" }}
+              />
+            </button>
+            <button
+              type="button"
+              onClick={onDiscord}
+              className="relative w-[clamp(34px,3.4vw,38px)] h-[clamp(34px,3.4vw,38px)] flex items-center justify-center cursor-pointer"
+              style={{ cursor: HAND_CURSOR }}
+              aria-label="Discord"
+            >
+              <img
+                src="/sprites/ui/onboarding/buttons_discord_01.png"
+                alt=""
+                className="absolute inset-0 w-full h-full object-fill"
+                style={{ imageRendering: "pixelated" }}
+              />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {leaderboardOpen && (
+        <div
+          className="fixed inset-0 z-[130] bg-black/72 backdrop-blur-[3px] flex items-center justify-center px-4 py-6"
+          onClick={() => setLeaderboardOpen(false)}
+        >
+          <div onClick={(e) => e.stopPropagation()}>
+            <OverlayFrame
+              className="w-[min(500px,90vw)] h-[min(640px,88dvh)]"
+              contentClassName="flex h-full w-full flex-col"
+              edge={64}
+            >
+              <div className="relative flex h-full w-full flex-col px-3 sm:px-4 py-2">
+                <OverlayTitlePill
+                  title="Leaderboard"
+                  className="absolute left-1/2 top-0 z-20 -translate-x-1/2 -translate-y-[72%]"
+                  width="min(290px,74%)"
+                />
+              <div className="flex-1 overflow-y-auto flex items-center justify-center pt-4">
+                <p className="font-pixel text-[14px] text-white/80 text-center">NO GAMES YET.</p>
+              </div>
+              </div>
+            </OverlayFrame>
+          </div>
+        </div>
+      )}
+
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 text-center">
+        <span className="font-press-start text-[8px] text-white uppercase">
+          © 2026 ASTROVERSE. ALL RIGHTS RESERVED.
         </span>
       </div>
     </div>
@@ -214,28 +249,24 @@ function LobbyView() {
   const activeTab = useLobbyStore((s) => s.activeTab);
 
   return (
-    <div className="h-dvh flex overflow-hidden">
-      {/* Chat sidebar (desktop: permanent, mobile: floating icon) */}
-      <ChatSidebar />
-      {/* Main content with background */}
-      <div className="flex-1 flex flex-col min-w-0 relative">
-        {/* Background image — only behind main content */}
-        <div
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-          style={{ backgroundImage: "url('/images/lobby-bg.png')" }}
-        />
-        <div className="absolute inset-0 bg-black/40" />
-
-        <div className="relative z-10 flex flex-col h-full">
+    <div className="lobby-screen h-dvh relative overflow-hidden bg-black">
+      <LobbySpotlightBackground />
+      <div className="relative z-10 h-full flex">
+        {/* Chat sidebar (desktop: permanent, mobile: floating icon) */}
+        <ChatSidebar />
+        {/* Main content */}
+        <div className="flex-1 flex flex-col min-w-0 relative">
           <TopBar />
-          <div className="flex-1 overflow-hidden">
-            {activeTab === "home" && <HomeTab />}
-            {activeTab === "shop" && <ShopTab />}
-            {activeTab === "quests" && <QuestsTab />}
-            {activeTab === "rankings" && <RankingsTab />}
-            {activeTab === "stash" && <StashTab />}
+          <div className="relative flex-1 overflow-hidden">
+            <div className="h-full box-border pt-[12%] px-[108px] sm:px-[120px] lg:px-[132px]">
+              {activeTab === "home" && <HomeTab />}
+              {activeTab === "shop" && <ShopTab />}
+              {activeTab === "quests" && <QuestsTab />}
+              {activeTab === "rankings" && <RankingsTab />}
+              {activeTab === "stash" && <StashTab />}
+            </div>
+            <BottomNav />
           </div>
-          <BottomNav />
         </div>
       </div>
     </div>

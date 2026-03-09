@@ -151,8 +151,8 @@ export class BootScene extends Phaser.Scene {
       this.load.image(`coin-${i}`, `sprites/items/coin/coin_0${i}.png`);
     }
 
-    // Energy item frames (8 frames, animated)
-    for (let i = 1; i <= 8; i++) {
+    // Energy item frames (4 frames, animated)
+    for (let i = 1; i <= 4; i++) {
       this.load.image(`energy-item-${i}`, `sprites/items/energy/energy_0${i}.png`);
     }
 
@@ -250,7 +250,7 @@ export class BootScene extends Phaser.Scene {
     if (this.textures.exists("energy-item-1")) {
       this.anims.create({
         key: "energy-pulse",
-        frames: [1, 2, 3, 4, 5, 6, 7, 8].map((i) => ({ key: `energy-item-${i}` })),
+        frames: [1, 2, 3, 4].map((i) => ({ key: `energy-item-${i}` })),
         frameRate: 8,
         repeat: -1,
       });

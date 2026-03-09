@@ -7,6 +7,11 @@ import { Treasure } from "../entities/Treasure";
 import { useGameStore } from "@/stores/gameStore";
 import { emitSfxEvent } from "@/lib/audioEvents";
 
+/** Golden Ticket multiplier — diminishing returns: keys^0.25 */
+function jackpotMultiplier(keys: number): number {
+  return Math.pow(Math.max(keys, 1), 0.25);
+}
+
 export class CombatSystem {
   private scene: GameScene;
 
@@ -114,23 +119,21 @@ export class CombatSystem {
     const pos = { x: tileX, y: tileY };
     const roll = Math.random();
 
-    // Boss — keep existing SOVA boss drop table
+    // Boss — always drops something
     if (enemyType === EnemyType.BOSS) {
       const floor = Math.max(7, this.scene.currentFloor);
-      const nothingChance = 0.5;
       const goldenChance = Math.min(0.08 + (floor - 7) * 0.01, 0.12);
-      const coinChance = (1 - nothingChance - goldenChance) / 2;
-      const orbChance = coinChance;
+      const coinChance = 0.55;
+      // Orb = remaining (1 - golden - coin)
 
-      let type: TreasureType | null;
-      if (roll < nothingChance) type = null;
-      else if (roll < nothingChance + goldenChance) type = TreasureType.GOLDEN_TICKET;
-      else if (roll < nothingChance + goldenChance + coinChance) type = TreasureType.COIN;
-      else if (roll < nothingChance + goldenChance + coinChance + orbChance) type = TreasureType.ORB;
-      else type = TreasureType.ORB; // float safety fallback
-
-      if (!type) return;
-      const bossValue = type === TreasureType.ORB ? 1 : type === TreasureType.COIN ? 150 : 1;
+      let type: TreasureType;
+      if (roll < goldenChance) type = TreasureType.GOLDEN_TICKET;
+      else if (roll < goldenChance + coinChance) type = TreasureType.COIN;
+      else type = TreasureType.ORB;
+      const keys = useGameStore.getState().keysUsed;
+      const baseBossValue = type === TreasureType.ORB ? 1 : type === TreasureType.COIN ? 150 : 1;
+      const keyMult = type === TreasureType.GOLDEN_TICKET ? jackpotMultiplier(keys) : keys;
+      const bossValue = Math.floor(baseBossValue * keyMult);
       const id = `enemy-loot-${Date.now()}`;
       const t = new Treasure(this.scene, pos, type, bossValue, id);
       this.scene.treasures.push(t);
@@ -155,16 +158,17 @@ export class CombatSystem {
 
     // Base values per enemy type, scaled by tier lootMult (orbs always 1)
     const tier = getTier(this.scene.currentFloor);
+    const keys = useGameStore.getState().keysUsed;
     let value: number;
     if (type === TreasureType.ORB) {
-      value = 1; // Always 1, no scaling
+      value = 1 * keys; // Linear key multiplier
     } else if (type === TreasureType.ENERGY) {
       const base = enemyType === EnemyType.GOLEM ? 10 : isGhost ? 7 : 5;
-      value = Math.floor(base * tier.lootMult);
+      value = Math.floor(base * tier.lootMult); // Energy NOT multiplied by keys
     } else {
       // COIN
       const base = enemyType === EnemyType.GOLEM ? 30 : isGhost ? 25 : 15;
-      value = Math.floor(base * tier.lootMult);
+      value = Math.floor(base * tier.lootMult * keys); // Linear key multiplier
     }
 
     const id = `enemy-loot-${Date.now()}`;

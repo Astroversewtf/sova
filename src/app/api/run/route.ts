@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
 
     await saveRun(addr, stats);
 
-    const multiplier = Math.min(Math.max(keysUsed, 1), 5);
+    const multiplier = Math.min(Math.max(keysUsed, 1), 15);
 
     const newCoins = user.coins + stats.coinsCollected;
     const newGems = user.gems + stats.orbsCollected;

@@ -60,9 +60,12 @@ export function GameHUD() {
   const activeUpgradeEntries = UPGRADE_ORDER
     .map((id) => [id, upgrades[id] ?? 0] as const)
     .filter(([, stacks]) => stacks > 0);
+  const visibleUpgradeEntries = activeUpgradeEntries.slice(0, 4);
 
   const [floorLabel, setFloorLabel] = useState<string | null>(null);
   const prevFloor = useRef(floor);
+  const prevEnergy = useRef(energy);
+  const [energyPulse, setEnergyPulse] = useState(false);
 
   useEffect(() => {
     if (floor !== prevFloor.current) {
@@ -73,86 +76,156 @@ export function GameHUD() {
     }
   }, [floor]);
 
+  useEffect(() => {
+    const before = prevEnergy.current;
+    prevEnergy.current = energy;
+    if (!isRunning) return;
+    if (energy > before) {
+      setEnergyPulse(true);
+      const t = window.setTimeout(() => setEnergyPulse(false), 150);
+      return () => window.clearTimeout(t);
+    }
+  }, [energy, isRunning]);
+
   if (!isRunning) return null;
 
   const barBg =
-    pct > 50
-      ? "linear-gradient(to bottom, #d4f07a, #b8e550, #9ecc3c)"
-      : pct > 25
-        ? "linear-gradient(to bottom, #fde68a, #fbbf24, #d97706)"
-        : "linear-gradient(to bottom, #fca5a5, #ef4444, #b91c1c)";
+    pct > 0
+      ? "linear-gradient(to bottom, #b9e6ff, #6fb6ff, #2f80d4)"
+      : "linear-gradient(to bottom, #334155, #1f2937, #111827)";
 
   return (
-    <div className="absolute inset-0 pointer-events-none z-10" style={{ cursor: "none" }}>
+    <div className="absolute inset-0 pointer-events-none z-10">
       <div className="absolute top-3 left-1/2 -translate-x-1/2 flex flex-col items-center">
-        <span
-          className="font-pixel text-[18px] text-[#b8e550]"
-          style={{ textShadow: MOG_SHADOW }}
-        >
-          ENERGY
-        </span>
-
         <div
-          className="relative w-[280px] h-[26px] mt-2 rounded-sm overflow-hidden"
-          style={{
-            boxShadow: "0 0 0 3px #fff, 0 0 0 5px #000",
-            background: "#111827",
-          }}
+          className="relative w-[clamp(320px,40vw,420px)] mt-0"
+          style={{ aspectRatio: "5 / 1" }}
         >
-          <div
-            className="absolute inset-0 transition-all duration-200"
-            style={{ width: `${pct}%`, background: barBg }}
-          />
-          <div
-            className="absolute top-0 left-0 h-1/2 opacity-20 bg-white"
-            style={{ width: `${pct}%` }}
-          />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span
-              className="font-pixel text-[16px] text-white"
-              style={{ textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 0 -1px 0 #000, 0 1px 0 #000, -1px 0 0 #000, 1px 0 0 #000" }}
+          <div className={`absolute inset-0 transition-transform duration-150 ${energyPulse ? "scale-[1.03]" : "scale-100"}`}>
+            <div className="absolute inset-0">
+              <div className="absolute left-[30%] right-[13.5%] top-[28%] bottom-[28%] rounded-[2px] overflow-hidden bg-[#0d2138]">
+                <div
+                  className="absolute inset-y-0 left-0 transition-all duration-200"
+                  style={{ width: `${pct}%`, background: barBg }}
+                />
+                <div
+                  className="absolute top-0 left-0 h-1/2 opacity-25 bg-white"
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+            </div>
+
+            <img
+              src="/sprites/ui/hud/hud_energybar_01.png"
+              alt=""
+              className="absolute inset-0 w-full h-full pointer-events-none"
+              style={{ imageRendering: "pixelated" }}
+            />
+
+            <div
+              className="absolute left-[23%] top-1/2 -translate-x-1/2 -translate-y-1/2"
+              style={{ width: "18%" }}
             >
-              {energy}
-            </span>
+              <span
+                className="block text-center font-press-start-crisp text-[15px] text-gray-300 leading-none"
+              >
+                {energy}
+              </span>
+            </div>
+          </div>
+
+          {/* Upgrades (left, anchored to energy bar) */}
+          <div className="absolute top-1/2 right-full mr-[clamp(28px,3.2vw,56px)] -translate-y-1/2 flex items-center gap-2">
+            {Array.from({ length: 4 }).map((_, idx) => {
+              const entry = visibleUpgradeEntries[idx];
+              const id = entry?.[0];
+              const stacks = entry?.[1] ?? 0;
+              return (
+                <div
+                  key={`upgrade-slot-${idx}`}
+                  className="relative w-10 h-10 border-[4px] border-[#3a3f48] bg-transparent flex items-center justify-center"
+                >
+                  {id && (
+                    <>
+                      <img
+                        src={UPGRADE_ICON_BY_ID[id]}
+                        alt=""
+                        className="w-10 h-10"
+                        style={{ imageRendering: "pixelated" }}
+                      />
+                      {stacks > 1 && (
+                        <span
+                          className="absolute -right-1 -bottom-1 font-pixel text-[7px] leading-none text-lime-300"
+                          style={{ textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000" }}
+                        >
+                          {stacks}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Loot (right, per-square, anchored to energy bar) */}
+          <div className="absolute top-1/2 left-full ml-[clamp(28px,3.2vw,56px)] -translate-y-1/2 flex items-center gap-2">
+            <div className="relative w-[42px] h-[42px] border-[4px] border-[#3a3f48] bg-transparent flex items-center justify-center">
+              <img
+                src="/sprites/items/coin/coin_01.png"
+                alt=""
+                className="absolute left-1/2 top-0 w-6 h-6 -translate-x-1/2 -translate-y-[60%]"
+                style={{ imageRendering: "pixelated" }}
+              />
+              <span
+                className="font-press-start-crisp text-[10px] text-amber-300 leading-none mt-[2px]"
+                style={{ textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000" }}
+              >
+                {coins}
+              </span>
+            </div>
+
+            <div className="relative w-[42px] h-[42px] border-[4px] border-[#3a3f48] bg-transparent flex items-center justify-center">
+              <img
+                src="/sprites/items/orb/item_orb_01.png"
+                alt=""
+                className="absolute left-1/2 top-0 w-6 h-6 -translate-x-1/2 -translate-y-[60%]"
+                style={{ imageRendering: "pixelated" }}
+              />
+              <span
+                className="font-press-start-crisp text-[10px] text-teal-300 leading-none mt-[2px]"
+                style={{ textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000" }}
+              >
+                {orbs}
+              </span>
+            </div>
+
+            <div className="relative w-[42px] h-[42px] border-[4px] border-[#3a3f48] bg-transparent flex items-center justify-center">
+              <img
+                src="/sprites/items/golden_ticket/golden_ticket_lil_01.png"
+                alt=""
+                className="absolute left-1/2 top-0 w-6 h-6 -translate-x-1/2 -translate-y-[60%]"
+                style={{ imageRendering: "pixelated" }}
+              />
+              <span
+                className="font-press-start-crisp text-[10px] text-yellow-200 leading-none mt-[2px]"
+                style={{ textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000" }}
+              >
+                {tickets}
+              </span>
+            </div>
+
+            <div className="relative w-[42px] h-[42px] border-[4px] border-[#3a3f48] bg-transparent flex items-center justify-center">
+              <span
+                className="font-press-start-crisp text-[10px] text-slate-300 leading-none"
+                style={{ textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000" }}
+              >
+                F{floor}
+              </span>
+            </div>
           </div>
         </div>
       </div>
-
-      <div className="absolute top-3 right-3 flex items-center gap-4">
-        <div className="flex items-center gap-1.5">
-          <img src="/sprites/items/coin/coin_01.png" alt="" className="w-6 h-6" style={{ imageRendering: "pixelated" }} />
-          <span className="font-pixel text-[11px] text-amber-300" style={{ textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000" }}>{coins}</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <img src="/sprites/items/orb/item_orb_01.png" alt="" className="w-6 h-6" style={{ imageRendering: "pixelated" }} />
-          <span className="font-pixel text-[11px] text-teal-300" style={{ textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000" }}>{orbs}</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <img src="/sprites/items/golden_ticket/golden_ticket_lil_01.png" alt="" className="w-6 h-6" style={{ imageRendering: "pixelated" }} />
-          <span className="font-pixel text-[11px] text-yellow-200" style={{ textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000" }}>{tickets}</span>
-        </div>
-        <span className="font-pixel text-[11px] text-slate-300" style={{ textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000" }}>
-          F{floor}
-        </span>
-      </div>
-
-      {activeUpgradeEntries.length > 0 && (
-        <div className="absolute top-3 left-3 flex items-center gap-2">
-          {activeUpgradeEntries.map(([id, stacks]) => (
-            <div key={id} className="relative w-5 h-5" title={`${id} x${stacks}`}>
-              <img src={UPGRADE_ICON_BY_ID[id]} alt="" className="w-5 h-5" style={{ imageRendering: "pixelated" }} />
-              {stacks > 1 && (
-                <span
-                  className="absolute -right-1 -bottom-1 font-pixel text-[8px] leading-none text-lime-300"
-                  style={{ textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000" }}
-                >
-                  {stacks}
-                </span>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
 
       {floorLabel && (
         <div className="absolute inset-0 flex items-center justify-center">
@@ -165,22 +238,20 @@ export function GameHUD() {
         </div>
       )}
 
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-auto" style={{ cursor: "none" }}>
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-auto">
         <button
           type="button"
-          onClick={() => window.dispatchEvent(new Event("sova:skip-turn"))}
+          onClick={() => window.dispatchEvent(new Event("sova:request-skip-turn"))}
           disabled={!canSkip}
-          className={`transition-all ${canSkip ? "hover:scale-110 active:scale-95 cursor-pointer" : "opacity-40 cursor-not-allowed"}`}
+          className={`transition-all ${canSkip ? "hover:scale-[1.03] active:scale-[0.98] cursor-pointer" : "opacity-45 cursor-not-allowed"}`}
+          aria-label="Pass turn"
         >
-          <span
-            className="font-pixel text-[20px]"
-            style={{
-              color: canSkip ? "#b8e550" : "#6b7280",
-              textShadow: MOG_SHADOW,
-            }}
-          >
-            PASS
-          </span>
+          <img
+            src="/sprites/ui/buttons/buttons_skip_01.png"
+            alt=""
+            className="w-[144px] h-auto"
+            style={{ imageRendering: "pixelated" }}
+          />
         </button>
       </div>
     </div>

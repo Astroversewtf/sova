@@ -8,6 +8,14 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: "Press Start 2P";
+  src: url("/fonts/PressStart2P-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --background: #0c1220;
   --foreground: #e5e7eb;
@@ -20,21 +28,54 @@ html, body {
   overflow: hidden;
 }
 
-/* Custom pixel cursors */
-*, *::before, *::after, canvas {
-  cursor: url('/sprites/ui/cursor/cursor_arrow_01.png') 0 0, auto !important;
+/* Custom pixel cursors — only our 2 PNGs, never browser defaults */
+*, *::before, *::after {
+  cursor: url('/sprites/ui/cursor/cursor_arrow_01.png') 0 0, url('/sprites/ui/cursor/cursor_hand_01.png') 6 0, auto !important;
+  -webkit-user-select: none;
+  user-select: none;
 }
-a, button, [role="button"], input[type="submit"], input[type="button"],
-select, label, summary, [onclick], .cursor-pointer {
-  cursor: url('/sprites/ui/cursor/cursor_hand_01.png') 6 0, pointer !important;
+/* Allow text selection only in inputs */
+input, textarea, [contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+a, a *,
+button, button *,
+[role="button"], [role="button"] *,
+input[type="submit"], input[type="button"],
+select, label, summary, [onclick], .cursor-pointer, .cursor-pointer * {
+  cursor: url('/sprites/ui/cursor/cursor_hand_01.png') 6 0, url('/sprites/ui/cursor/cursor_arrow_01.png') 0 0, pointer !important;
 }
 
 .font-pixel {
   font-family: "8bit Wonder", monospace;
 }
 
+.font-press-start {
+  font-family: "Press Start 2P", "8bit Wonder", monospace;
+}
+
+.font-press-start-crisp {
+  font-family: "Press Start 2P", "8bit Wonder", monospace !important;
+  -webkit-font-smoothing: none;
+  font-smooth: never;
+  text-rendering: optimizeSpeed;
+}
+
 .text-outline {
   text-shadow: -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 -2px 0 #000, 0 2px 0 #000, -2px 0 0 #000, 2px 0 0 #000;
+}
+
+.text-outline-5 {
+  text-shadow:
+    -5px -5px 0 #000,
+    5px -5px 0 #000,
+    -5px 5px 0 #000,
+    5px 5px 0 #000,
+    0 -5px 0 #000,
+    0 5px 0 #000,
+    -5px 0 0 #000,
+    5px 0 0 #000;
 }
 
 /* Custom scrollbar */
@@ -53,6 +94,18 @@ select, label, summary, [onclick], .cursor-pointer {
 
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
   background: #3a4f63;
+}
+
+/* Hide scrollbar but keep scrolling enabled */
+.scrollbar-hidden {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hidden::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
 }
 
 /* Play button breathing pulse */
@@ -79,4 +132,27 @@ select, label, summary, [onclick], .cursor-pointer {
 
 .animate-floor-label {
   animation: floor-label 1.8s ease-in-out forwards;
+}
+
+/* Onboarding + Lobby button hover feel: shrink (not grow) */
+.onboarding-screen button,
+.lobby-screen button {
+  transition: transform 120ms ease, filter 120ms ease;
+  transform-origin: center;
+}
+
+.onboarding-screen button:not(:disabled):hover {
+  transform: scale(0.94);
+}
+
+.lobby-screen button:not(:disabled):hover {
+  transform: scale(0.97);
+}
+
+.onboarding-screen button:not(:disabled):active {
+  transform: scale(0.9);
+}
+
+.lobby-screen button:not(:disabled):active {
+  transform: scale(0.95);
 }

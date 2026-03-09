@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useGameStore } from "@/stores/gameStore";
 import { UPGRADES } from "@/game/constants";
+import { emitSfxEvent } from "@/lib/audioEvents";
 import type { UpgradeDef, UpgradeId, UpgradeRarity } from "@/game/types";
 
 function getRarityLabel(rarity: UpgradeRarity): "Common" | "Rare" | "Epic" {
@@ -21,32 +22,28 @@ const UPGRADE_ICONS: Record<UpgradeId, string> = {
 };
 
 const RARITY_STYLES: Record<string, {
-  border: string;
   glow: string;
   outerGlow: string;
-  badge: string;
-  badgeText: string;
+  badgeImage: string;
+  cardBg: string;
 }> = {
   Common: {
-    border: "border-[#6b7280]",
-    glow: "shadow-[0_0_20px_rgba(107,114,128,0.3),inset_0_0_20px_rgba(107,114,128,0.05)]",
+    glow: "shadow-[0_0_20px_rgba(107,114,128,0.25)]",
     outerGlow: "bg-[#6b7280]/15 shadow-[0_0_60px_20px_rgba(107,114,128,0.25)]",
-    badge: "bg-[#6b7280]",
-    badgeText: "text-white",
+    badgeImage: "/sprites/ui/overlay/overlay_common_01.png",
+    cardBg: "#4f5751",
   },
   Rare: {
-    border: "border-[#3b82f6]",
-    glow: "shadow-[0_0_20px_rgba(59,130,246,0.4),inset_0_0_20px_rgba(59,130,246,0.08)]",
+    glow: "shadow-[0_0_20px_rgba(59,130,246,0.35)]",
     outerGlow: "bg-[#3b82f6]/15 shadow-[0_0_60px_20px_rgba(59,130,246,0.3)]",
-    badge: "bg-[#3b82f6]",
-    badgeText: "text-white",
+    badgeImage: "/sprites/ui/overlay/overlay_rare_01.png",
+    cardBg: "#143464",
   },
   Epic: {
-    border: "border-[#a855f7]",
-    glow: "shadow-[0_0_20px_rgba(168,85,247,0.4),inset_0_0_20px_rgba(168,85,247,0.08)]",
+    glow: "shadow-[0_0_20px_rgba(168,85,247,0.35)]",
     outerGlow: "bg-[#a855f7]/15 shadow-[0_0_60px_20px_rgba(168,85,247,0.3)]",
-    badge: "bg-[#a855f7]",
-    badgeText: "text-white",
+    badgeImage: "/sprites/ui/overlay/overlay_epic_01.png",
+    cardBg: "#403353",
   },
 };
 
@@ -106,6 +103,7 @@ export function UpgradeOverlay() {
   // Initialize when floor changes (screen opens)
   useEffect(() => {
     if (floor === null) {
+      emitSfxEvent("skills-shuffle-stop");
       setVisible(false);
       return;
     }
@@ -118,10 +116,13 @@ export function UpgradeOverlay() {
     return () => {
       spinTimers.current.forEach(clearInterval);
       spinTimers.current = [];
+      emitSfxEvent("skills-shuffle-stop");
     };
   }, [floor]);
 
   const spinAndReveal = useCallback((newChoices: UpgradeDef[]) => {
+    emitSfxEvent("skills-shuffle-stop");
+    emitSfxEvent("skills-shuffle-start");
     setIsSpinning(true);
     setRevealed([null, null, null]);
 
@@ -149,6 +150,8 @@ export function UpgradeOverlay() {
             revealedCount++;
             if (revealedCount >= newChoices.length) {
               setIsSpinning(false);
+              emitSfxEvent("skills-shuffle-stop");
+              emitSfxEvent("skills-shuffle-end");
             }
           } else {
             const fake = UPGRADES[Math.floor(Math.random() * UPGRADES.length)];
@@ -207,18 +210,26 @@ export function UpgradeOverlay() {
         </h1>
 
         {/* Energy bonus box */}
-        <div className="flex items-center gap-2 bg-[#16a34a]/85 border border-[#22c55e] rounded-lg px-5 py-1.5 mb-5">
-          <span className="font-pixel text-[12px] text-white">+10</span>
+        <div className="relative w-[190px] h-[44px] mb-5">
           <img
-            src="/sprites/energy-icon.png"
+            src="/sprites/ui/overlay/overlay_common_01_clean.png"
             alt=""
-            className="w-4 h-4"
+            className="absolute inset-0 w-full h-full"
             style={{ imageRendering: "pixelated" }}
           />
+          <div className="absolute inset-0 flex items-center justify-center gap-2">
+            <span className="font-press-start-crisp text-[11px] text-[#d1d5db] translate-y-[2px]">+10</span>
+            <img
+              src="/sprites/energy-icon.png"
+              alt=""
+              className="w-4 h-4"
+              style={{ imageRendering: "pixelated" }}
+            />
+          </div>
         </div>
 
         {/* Subtitle */}
-        <p className="font-pixel text-[9px] text-gray-400 mb-6 tracking-wider">
+        <p className="font-pixel text-[9px] text-gray-400 mb-[40px] tracking-wider">
           CHOOSE A SKILL
         </p>
 
@@ -236,24 +247,71 @@ export function UpgradeOverlay() {
           ))}
         </div>
 
-        {/* Reroll button — same 3D press as PLAY button */}
+        {/* Reroll button */}
         <button
           onClick={handleReroll}
           disabled={!canReroll}
-          className={`relative font-pixel text-[10px] px-10 py-3 rounded-lg border-2 border-[#d4a017]/50 transition-all uppercase tracking-wide ${
+          className={`relative w-[270px] h-[46px] transition-all ${
             canReroll
-              ? "bg-[#fbbf24] hover:bg-[#fde68a] text-white shadow-[0_4px_0_#b8860b] hover:shadow-[0_2px_0_#b8860b] hover:translate-y-[2px] active:shadow-none active:translate-y-[4px] cursor-pointer"
-              : "bg-[#fbbf24]/40 text-white/50 shadow-[0_4px_0_#b8860b]/40 cursor-not-allowed"
+              ? "hover:translate-y-[1px] active:translate-y-[2px] cursor-pointer"
+              : "opacity-50 cursor-not-allowed"
           }`}
-          style={{ textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 0 -1px 0 #000, 0 1px 0 #000, -1px 0 0 #000, 1px 0 0 #000" }}
         >
-          REROLL  -{rerollCost}
+          <img
+            src="/sprites/ui/buttons/buttons_tile_l_01.png"
+            alt=""
+            className="absolute left-0 top-0 h-full w-auto"
+            style={{ imageRendering: "pixelated", filter: "sepia(1) saturate(4.2) hue-rotate(345deg) brightness(1.08)" }}
+          />
+          <div
+            className="absolute top-0 bottom-0 left-[46px] right-[46px]"
+            style={{
+              backgroundImage: "url('/sprites/ui/buttons/buttons_tile_m_01.png')",
+              backgroundRepeat: "repeat-x",
+              backgroundSize: "auto 100%",
+              imageRendering: "pixelated",
+              filter: "sepia(1) saturate(4.2) hue-rotate(345deg) brightness(1.08)",
+            }}
+          />
+          <img
+            src="/sprites/ui/buttons/buttons_tile_r_01.png"
+            alt=""
+            className="absolute right-0 top-0 h-full w-auto"
+            style={{ imageRendering: "pixelated", filter: "sepia(1) saturate(4.2) hue-rotate(345deg) brightness(1.08)" }}
+          />
+
+          <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 -translate-y-[5px]">
+            <span
+              className="font-press-start-crisp text-[12px] text-white"
+              style={{ textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000" }}
+            >
+              REROLL
+            </span>
+            <img
+              src="/sprites/items/coin/coin_01.png"
+              alt=""
+              className="w-4 h-4"
+              style={{ imageRendering: "pixelated" }}
+            />
+            <span
+              className="font-press-start-crisp text-[12px] text-white"
+              style={{ textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000" }}
+            >
+              {rerollCost}
+            </span>
+          </div>
         </button>
 
         {/* Coins display */}
         <div className="flex items-center gap-2 mt-4">
-          <span className="font-pixel text-[8px] text-gray-400">YOU HAVE</span>
-          <span className="font-pixel text-[10px] text-amber-400">{coins}</span>
+          <span className="font-press-start-crisp text-[8px] text-gray-300">YOU HAVE</span>
+          <img
+            src="/sprites/items/coin/coin_01.png"
+            alt=""
+            className="w-3 h-3"
+            style={{ imageRendering: "pixelated" }}
+          />
+          <span className="font-press-start-crisp text-[8px] text-amber-300">{coins}</span>
         </div>
       </div>
     </div>
@@ -271,6 +329,46 @@ const BOUNCE_STYLE = `
   50% { transform: translateY(-6px); }
 }
 `;
+
+function StoneCardBorder({
+  edge = 46,
+  spread = 16,
+  spreadTop = 20,
+}: {
+  edge?: number;
+  spread?: number;
+  spreadTop?: number;
+}) {
+  const edgePx = `${edge}px`;
+  const spreadPx = `${spread}px`;
+  const spreadTopPx = `${spreadTop}px`;
+  const tileSize = `${edgePx} ${edgePx}`;
+  const borderBg = (image: string, repeat: "no-repeat" | "repeat-x" | "repeat-y") => ({
+    backgroundImage: `url('/sprites/ui/overlay/${image}')`,
+    backgroundRepeat: repeat,
+    backgroundSize: tileSize,
+    imageRendering: "pixelated" as const,
+  });
+
+  return (
+    <div
+      className="absolute pointer-events-none z-20"
+      style={{ top: `-${spreadTopPx}`, right: `-${spreadPx}`, bottom: `-${spreadPx}`, left: `-${spreadPx}` }}
+      aria-hidden="true"
+    >
+      <div className="absolute top-0 left-0" style={{ width: edgePx, height: edgePx, ...borderBg("overlay_tl_01.png", "no-repeat") }} />
+      <div className="absolute top-0" style={{ left: edgePx, right: edgePx, height: edgePx, ...borderBg("overlay_tm_01.png", "repeat-x") }} />
+      <div className="absolute top-0 right-0" style={{ width: edgePx, height: edgePx, ...borderBg("overlay_tr_01.png", "no-repeat") }} />
+
+      <div className="absolute left-0" style={{ top: edgePx, bottom: edgePx, width: edgePx, ...borderBg("overlay_ml_01.png", "repeat-y") }} />
+      <div className="absolute right-0" style={{ top: edgePx, bottom: edgePx, width: edgePx, ...borderBg("overlay_mr_01.png", "repeat-y") }} />
+
+      <div className="absolute bottom-0 left-0" style={{ width: edgePx, height: edgePx, ...borderBg("overlay_dl_01.png", "no-repeat") }} />
+      <div className="absolute bottom-0" style={{ left: edgePx, right: edgePx, height: edgePx, ...borderBg("overlay_dm_01.png", "repeat-x") }} />
+      <div className="absolute bottom-0 right-0" style={{ width: edgePx, height: edgePx, ...borderBg("overlay_dr_01.png", "no-repeat") }} />
+    </div>
+  );
+}
 
 function UpgradeCard({
   upgrade,
@@ -302,16 +400,20 @@ function UpgradeCard({
         <div className={`absolute inset-0 rounded-lg ${styles.outerGlow} blur-sm`} />
         <div
           onClick={interactive ? onSelect : undefined}
-          className={`relative w-[240px] h-[300px] rounded-lg border-2 ${styles.border} ${styles.glow} bg-[#0f1225]/95 flex flex-col items-center justify-center px-5 transition-transform duration-150 ${
+          className={`relative w-[240px] h-[300px] rounded-lg ${styles.glow} flex flex-col items-center justify-center px-10 py-8 transition-transform duration-150 ${
             interactive ? "cursor-pointer hover:scale-[1.06]" : ""
           } ${isSpinning ? "opacity-60" : ""}`}
+          style={{ background: styles.cardBg }}
         >
-        {/* Rarity badge — centered top */}
-        <div className={`absolute top-3 left-1/2 -translate-x-1/2 ${styles.badge} rounded-md px-5 py-0.5`}>
-          <span className={`font-pixel text-[11px] ${styles.badgeText} tracking-wide leading-tight`}>
-            {rarity === "Common" ? "common" : rarity.toUpperCase()}
-          </span>
-        </div>
+        <StoneCardBorder />
+
+        {/* Rarity badge PNG — centered top */}
+        <img
+          src={styles.badgeImage}
+          alt={rarity}
+          className="absolute top-0 left-1/2 z-30 -translate-x-1/2 -translate-y-1/2 w-[120px] h-auto"
+          style={{ imageRendering: "pixelated" }}
+        />
 
         {/* Icon with bounce */}
         <div

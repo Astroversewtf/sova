@@ -8,7 +8,6 @@ function manhattan(a: TilePos, b: TilePos): number {
 
 export class EnemyAI {
   private scene: GameScene;
-  private golemTurnCounter = new Map<string, number>();
   private bossHitsReceived = new Map<string, number>();
   private readonly ROCK_DEAGGRO_BUFFER = 2;
   private readonly GHOST_AGGRO_RANGE = 6;
@@ -24,7 +23,6 @@ export class EnemyAI {
   }
 
   reset() {
-    this.golemTurnCounter.clear();
     this.bossHitsReceived.clear();
   }
 
@@ -101,6 +99,22 @@ export class EnemyAI {
       winners.push(bucket[0]);
     }
 
+    // Give blocked enemies (bucket losers + swap-blocked) an alternate step
+    const wonSet = new Set(winners.map((w) => w.enemy));
+    const claimed = new Set(winners.map((w) => this.posKey(w.target)));
+    // Stationary and attacking enemies claim their current tile
+    for (const e of alive) {
+      if (!wonSet.has(e)) claimed.add(this.posKey(e.pos));
+    }
+    const blocked = moveIntents.filter((m) => !wonSet.has(m.enemy));
+    for (const { enemy } of blocked) {
+      const alt = this.findAlternateStep(enemy, playerPos, claimed);
+      if (alt) {
+        claimed.add(this.posKey(alt));
+        winners.push({ enemy, target: alt });
+      }
+    }
+
     if (winners.length === 0) {
       onComplete();
       return;
@@ -130,7 +144,9 @@ export class EnemyAI {
 
       case EnemyType.GOLEM:
         if (d <= enemy.detectionRange) enemy.active = true;
-        if (!this.shouldGolemMove(enemy)) return null;
+        if (enemy.active && d >= enemy.detectionRange + this.ROCK_DEAGGRO_BUFFER) {
+          enemy.active = false;
+        }
         if (enemy.active) return this.findNextStepBFS(enemy, playerPos);
         return this.randomStep(enemy.pos);
 
@@ -277,6 +293,28 @@ export class EnemyAI {
     return { x: nx, y: ny };
   }
 
+  /** Alternate step for blocked enemies — pick closest free tile toward player */
+  private findAlternateStep(enemy: Enemy, playerPos: TilePos, claimed: Set<string>): TilePos | null {
+    const currentDist = manhattan(enemy.pos, playerPos);
+    let best: TilePos | null = null;
+    let bestDist = currentDist;
+
+    for (const d of this.DIRS) {
+      const pos = { x: enemy.pos.x + d.x, y: enemy.pos.y + d.y };
+      if (pos.x === playerPos.x && pos.y === playerPos.y) continue;
+      if (claimed.has(this.posKey(pos))) continue;
+      if (!this.isWalkableForEnemy(enemy, pos, false)) continue;
+
+      const dist = manhattan(pos, playerPos);
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = pos;
+      }
+    }
+
+    return best;
+  }
+
   /** Random step for patrolling basics */
   private randomStep(from: TilePos): TilePos | null {
     const dirs: TilePos[] = this.DIRS.map((d) => ({ x: from.x + d.x, y: from.y + d.y }));
@@ -289,12 +327,6 @@ export class EnemyAI {
       if (this.isWalkableForEnemy(null, d, false)) return d;
     }
     return null;
-  }
-
-  private shouldGolemMove(enemy: Enemy): boolean {
-    const next = (this.golemTurnCounter.get(enemy.id) ?? 0) + 1;
-    this.golemTurnCounter.set(enemy.id, next);
-    return next % 2 === 0;
   }
 
   private isWalkableForEnemy(enemy: Enemy | null, pos: TilePos, isGoal: boolean): boolean {

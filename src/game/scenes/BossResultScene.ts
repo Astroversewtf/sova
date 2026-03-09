@@ -7,11 +7,25 @@ interface BossResultData {
 }
 
 export class BossResultScene extends Phaser.Scene {
+  private setCanvasCursor(mode: "default" | "hand") {
+    const canvas = this.game.canvas as HTMLCanvasElement | null;
+    if (!canvas) return;
+    const cursor = mode === "hand"
+      ? "url('/sprites/ui/cursor/cursor_hand_01.png') 6 0, url('/sprites/ui/cursor/cursor_arrow_01.png') 0 0, pointer"
+      : "url('/sprites/ui/cursor/cursor_arrow_01.png') 0 0, url('/sprites/ui/cursor/cursor_hand_01.png') 6 0, auto";
+    canvas.style.setProperty("cursor", cursor, "important");
+  }
+
   constructor() {
     super({ key: "BossResultScene" });
   }
 
   create(data: BossResultData) {
+    this.input.setDefaultCursor(
+      "url('/sprites/ui/cursor/cursor_arrow_01.png') 0 0, url('/sprites/ui/cursor/cursor_hand_01.png') 6 0, auto",
+    );
+    this.setCanvasCursor("default");
+
     const { floor, onContinue } = data;
 
     // Dim overlay
@@ -101,7 +115,7 @@ export class BossResultScene extends Phaser.Scene {
     const btnBg = this.add
       .rectangle(GAME_WIDTH / 2, GAME_HEIGHT - 90, 140, 36, 0x16a34a, 0.9)
       .setStrokeStyle(1, 0x22c55e)
-      .setInteractive({ useHandCursor: true });
+      .setInteractive();
 
     this.add
       .text(GAME_WIDTH / 2, GAME_HEIGHT - 90, "CONTINUE", {
@@ -111,11 +125,20 @@ export class BossResultScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    btnBg.on("pointerover", () => btnBg.setFillStyle(0x22c55e, 1));
-    btnBg.on("pointerout", () => btnBg.setFillStyle(0x16a34a, 0.9));
+    btnBg.on("pointerover", () => {
+      btnBg.setFillStyle(0x22c55e, 1);
+      this.setCanvasCursor("hand");
+    });
+    btnBg.on("pointerout", () => {
+      btnBg.setFillStyle(0x16a34a, 0.9);
+      this.setCanvasCursor("default");
+    });
     btnBg.on("pointerdown", () => {
+      this.setCanvasCursor("default");
       this.scene.stop();
       onContinue();
     });
+
+    this.events.once("shutdown", () => this.setCanvasCursor("default"));
   }
 }

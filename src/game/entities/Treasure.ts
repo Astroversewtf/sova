@@ -86,7 +86,7 @@ export class Treasure {
     // Floating text
     const label = this.type === TreasureType.ENERGY ? `+${this.value}`
       : this.type === TreasureType.COIN ? "+1" : this.type === TreasureType.ORB ? "+5" : "+20";
-    const color = this.type === TreasureType.ENERGY ? "#b8e550"
+    const color = this.type === TreasureType.ENERGY ? "#6fb6ff"
       : this.type === TreasureType.COIN ? "#fbbf24" : this.type === TreasureType.ORB ? "#a78bfa" : "#fbbf24";
     const text = this.scene.add
       .text(this.sprite.x, this.sprite.y - 8, label, {

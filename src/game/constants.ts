@@ -88,11 +88,11 @@ export function getEnemyHP(type: EnemyType): number {
 export function getEnemyDMG(type: EnemyType): number {
   switch (type) {
     case EnemyType.ROCK:
-      return 2;
+      return 1;
     case EnemyType.GOLEM:
-      return 2;
+      return 1;
     case EnemyType.GHOST:
-      return 3;
+      return 2;
     case EnemyType.BOSS:
       return 7;
   }
@@ -245,10 +245,10 @@ export interface TierData {
 
 const TIERS: TierData[] = [
   { tier: 1, name: "Tutorial", hpMult: 1.00, dmgMult: 1.00, lootMult: 1.00 },
-  { tier: 2, name: "Warmup",   hpMult: 1.20, dmgMult: 1.15, lootMult: 1.30 },
-  { tier: 3, name: "Shift",    hpMult: 1.30, dmgMult: 1.25, lootMult: 1.40 },
-  { tier: 4, name: "Danger",   hpMult: 1.40, dmgMult: 1.35, lootMult: 1.50 },
-  { tier: 5, name: "Pro",      hpMult: 1.50, dmgMult: 1.45, lootMult: 1.60 },
+  { tier: 2, name: "Warmup",   hpMult: 1.20, dmgMult: 1.15, lootMult: 1.50 },
+  { tier: 3, name: "Shift",    hpMult: 1.30, dmgMult: 1.25, lootMult: 1.70 },
+  { tier: 4, name: "Danger",   hpMult: 1.40, dmgMult: 1.55, lootMult: 1.90 },
+  { tier: 5, name: "Pro",      hpMult: 1.50, dmgMult: 1.75, lootMult: 2.10 },
 ];
 
 export function getTier(floor: number): TierData {

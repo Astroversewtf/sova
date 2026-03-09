@@ -24,15 +24,24 @@ export class TreasureManager {
   }
 
   private collectTreasure(t: Treasure) {
+    if (t.type === "energy") {
+      const startX = t.sprite.x;
+      const startY = t.sprite.y;
+      t.collected = true;
+      t.destroy();
+      this.scene.animateEnergyPickupToHud(startX, startY, () => {
+        this.scene.energyManager.heal(t.value);
+        emitSfxEvent("collect-energy");
+      });
+      this.scene.events.emit("treasure:collected", t);
+      return;
+    }
+
     t.collect();
 
     const { popupManager } = this.scene;
 
-    if (t.type === "energy") {
-      this.scene.energyManager.heal(t.value);
-      popupManager.showEnergyBonus(t.pos.x, t.pos.y, t.value);
-      emitSfxEvent("collect-energy");
-    } else if (t.type === "coin") {
+    if (t.type === "coin") {
       useGameStore.getState().addTreasure("coin", t.value);
       popupManager.showCoinPickup(t.pos.x, t.pos.y, t.value);
       emitSfxEvent("collect-coin");

@@ -5,7 +5,11 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "SOVA",
   description: "A web3 dungeon maze crawler game by Astroverse on Avalanche",
-  icons: { icon: "/favicon.ico", apple: "/icon.png" },
+  icons: {
+    icon: "/favicon-rock-512.png",
+    apple: "/favicon-rock-512.png",
+    shortcut: "/favicon-rock-512.png",
+  },
 };
 
 export const viewport: Viewport = {

@@ -1,6 +1,6 @@
 import { TurnPhase, TreasureType, CellType, type TilePos } from "../types";
 import type { GameScene } from "../scenes/GameScene";
-import { TREASURE_VALUES, getTier } from "../constants";
+import { TREASURE_VALUES, getTier, TILE_SIZE, TILE_FULL_H } from "../constants";
 import { Treasure } from "../entities/Treasure";
 import { useGameStore } from "@/stores/gameStore";
 import { emitSfxEvent } from "@/lib/audioEvents";
@@ -132,15 +132,16 @@ export class TurnManager {
     // Check trap
     this.checkTrap(target);
 
-    if (this.scene.energyManager.isDead()) {
-      this.scene.endRun("energy");
-      return;
-    }
-
-    // Check stairs
+    // Check stairs BEFORE death — reaching stairs with 1 energy completes the floor
+    // (the +10 energy bonus on floor complete keeps the player alive)
     if (this.scene.isOnStairs(target)) {
       emitSfxEvent("stairs-enter");
       this.scene.completeFloor();
+      return;
+    }
+
+    if (this.scene.energyManager.isDead()) {
+      this.scene.endRun("energy");
       return;
     }
 
@@ -222,8 +223,17 @@ export class TurnManager {
 
     const id = `chest-loot-${Date.now()}`;
     const tier = getTier(this.scene.currentFloor);
+    const keys = useGameStore.getState().keysUsed;
     const baseValue = TREASURE_VALUES[type];
-    const finalValue = type === TreasureType.ORB ? baseValue : Math.floor(baseValue * tier.lootMult);
+    let finalValue: number;
+    if (type === TreasureType.ENERGY) {
+      finalValue = Math.floor(baseValue * tier.lootMult); // Energy NOT multiplied by keys
+    } else if (type === TreasureType.ORB) {
+      finalValue = baseValue * keys; // Linear key multiplier
+    } else {
+      // COIN
+      finalValue = Math.floor(baseValue * tier.lootMult * keys); // Linear key multiplier
+    }
     const t = new Treasure(
       this.scene, pos, type, finalValue, id,
     );
@@ -237,9 +247,13 @@ export class TurnManager {
 
     const heal = fountain.use();
     if (heal > 0) {
-      this.scene.energyManager.heal(heal);
-      this.scene.player.flashHeal();
-      this.scene.popupManager.showEnergyBonus(pos.x, pos.y, heal);
+      const worldX = pos.x * TILE_SIZE + TILE_SIZE / 2;
+      const worldY = pos.y * TILE_FULL_H + TILE_SIZE / 2;
+      this.scene.animateEnergyPickupToHud(worldX, worldY, () => {
+        this.scene.energyManager.heal(heal);
+        this.scene.player.flashHeal();
+        emitSfxEvent("collect-energy");
+      });
     }
   }
 

@@ -28,6 +28,8 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { emitSfxEvent } from "@/lib/audioEvents";
 
 export class GameScene extends Phaser.Scene {
+  private static readonly MOVE_ARROW_BASE_SCALE = 0.75;
+  private static readonly MOVE_ARROW_HOVER_SCALE = 0.70;
   private static readonly INPUT_ACTIONS = ["up", "down", "left", "right", "pass", "mute"] as const;
   private static readonly DEFAULT_KEY_MAP = {
     up: ["UP", "W"],
@@ -107,6 +109,7 @@ export class GameScene extends Phaser.Scene {
       mute: [],
     };
   private chatFocused = false;
+  private skipRequested = false;
   private heldInputDir: { dx: number; dy: number } | null = null;
   private heldInputStartedAt = 0;
   private heldInputLastRepeatAt = 0;
@@ -120,6 +123,9 @@ export class GameScene extends Phaser.Scene {
   create() {
     this.cameras.main.setBackgroundColor(0x676767);
     this.runEnding = false;
+    this.input.setDefaultCursor(
+      "url('/sprites/ui/cursor/cursor_arrow_01.png') 0 0, url('/sprites/ui/cursor/cursor_hand_01.png') 6 0, auto",
+    );
 
     // Camera — keep player locked to center while moving
     this.cameras.main.setZoom(CAMERA_ZOOM);
@@ -148,16 +154,16 @@ export class GameScene extends Phaser.Scene {
     // Chat focus bridge
     const onChatFocus = () => { this.chatFocused = true; };
     const onChatBlur = () => { this.chatFocused = false; };
-    const onSkipTurn = () => { this.executeSkip(); };
+    const onSkipTurnRequest = () => { this.skipRequested = true; };
     const onControlsUpdated = () => { this.rebuildInputKeys(); };
     window.addEventListener("sova:chat-focus", onChatFocus);
     window.addEventListener("sova:chat-blur", onChatBlur);
-    window.addEventListener("sova:skip-turn", onSkipTurn);
+    window.addEventListener("sova:request-skip-turn", onSkipTurnRequest);
     window.addEventListener("sova:controls-updated", onControlsUpdated);
     this.events.on("shutdown", () => {
       window.removeEventListener("sova:chat-focus", onChatFocus);
       window.removeEventListener("sova:chat-blur", onChatBlur);
-      window.removeEventListener("sova:skip-turn", onSkipTurn);
+      window.removeEventListener("sova:request-skip-turn", onSkipTurnRequest);
       window.removeEventListener("sova:controls-updated", onControlsUpdated);
     });
 
@@ -177,6 +183,7 @@ export class GameScene extends Phaser.Scene {
     }
     this.isProcessingAction = false;
     this.pendingMove = null;
+    this.skipRequested = false;
     this.heldInputDir = null;
     this.heldInputStartedAt = 0;
     this.heldInputLastRepeatAt = 0;
@@ -572,7 +579,9 @@ export class GameScene extends Phaser.Scene {
       useSettingsStore.getState().toggleMuteAll();
     }
 
-    if (this.anyJustDown(this.inputKeys.pass)) {
+    const skipJustPressed = this.skipRequested || this.anyJustDown(this.inputKeys.pass);
+    if (skipJustPressed) {
+      this.skipRequested = false;
       this.executeSkip();
       return;
     }
@@ -659,7 +668,8 @@ export class GameScene extends Phaser.Scene {
         const code = this.toPhaserKeyCode(binding);
         if (code === null || uniqueCodes.has(code)) continue;
         uniqueCodes.add(code);
-        keys.push(keyboard.addKey(code));
+        keyboard.removeCapture(code);
+        keys.push(keyboard.addKey(code, false));
       }
 
       if (keys.length === 0) {
@@ -667,7 +677,8 @@ export class GameScene extends Phaser.Scene {
           const code = this.toPhaserKeyCode(fallback);
           if (code === null || uniqueCodes.has(code)) continue;
           uniqueCodes.add(code);
-          keys.push(keyboard.addKey(code));
+          keyboard.removeCapture(code);
+          keys.push(keyboard.addKey(code, false));
         }
       }
 
@@ -829,6 +840,62 @@ export class GameScene extends Phaser.Scene {
     return null;
   }
 
+  /**
+   * Animate a picked energy icon flying into the HUD bar.
+   * Heal is applied only when the icon reaches the bar.
+   */
+  animateEnergyPickupToHud(startWorldX: number, startWorldY: number, onArrive: () => void) {
+    const cam = this.cameras.main;
+    const zoom = cam.zoom || 1;
+
+    // Convert world -> screen (inside game canvas)
+    const startX = (startWorldX - cam.scrollX) * zoom + cam.x;
+    const startY = (startWorldY - cam.scrollY) * zoom + cam.y;
+
+    // Match GameHUD energy bar geometry
+    const barW = Phaser.Math.Clamp(this.scale.width * 0.4, 320, 420);
+    const barH = barW / 5;
+    const barX = this.scale.width / 2 - barW / 2;
+    const barY = 12; // top-3 in HUD
+    const targetX = barX + barW * 0.23; // same as GameHUD energy number anchor
+    const targetY = barY + barH * 0.5;
+
+    const texture = this.textures.exists("energy-item-1") ? "energy-item-1" : "energy-icon";
+    const flying = this.add.image(startX, startY, texture);
+    flying.setScrollFactor(0);
+    flying.setDepth(3200);
+    flying.setDisplaySize(24, 24);
+    flying.setAlpha(1);
+
+    const midX = (startX + targetX) / 2;
+    const midY = Math.min(startY, targetY) - 36;
+
+    this.tweens.add({
+      targets: flying,
+      x: midX,
+      y: midY,
+      scaleX: 1.06,
+      scaleY: 1.06,
+      duration: 170,
+      ease: "Sine.easeOut",
+      onComplete: () => {
+        this.tweens.add({
+          targets: flying,
+          x: targetX,
+          y: targetY,
+          scaleX: 0.86,
+          scaleY: 0.86,
+          duration: 240,
+          ease: "Cubic.easeIn",
+          onComplete: () => {
+            flying.destroy();
+            onArrive();
+          },
+        });
+      },
+    });
+  }
+
   removeEnemy(_enemy: Enemy) {
     // Mark as dead — AI skips dead enemies
   }
@@ -858,7 +925,7 @@ export class GameScene extends Phaser.Scene {
       c.setVisible(this.fogOfWar.isVisible(c.pos) || this.fogOfWar.isExplored(c.pos));
     }
     for (const tr of this.traps) {
-      tr.setVisible(false);
+      tr.setVisible(this.fogOfWar.isVisible(tr.pos) || this.fogOfWar.isExplored(tr.pos));
     }
     if (this.fountain) {
       this.fountain.setVisible(
@@ -889,7 +956,7 @@ export class GameScene extends Phaser.Scene {
     // Keep controls above floor/fog tiles but always below world entities.
     // Entity depths start at 300 (treasure/chest/fountain), enemy is 400, player is 500.
     const depth = 120;
-    const scale = 0.75;
+    const scale = GameScene.MOVE_ARROW_BASE_SCALE;
 
     const upKey = this.textures.exists("move-mark-up") ? "move-mark-up" : "arrow-up";
     const downKey = this.textures.exists("move-mark-down") ? "move-mark-down" : "arrow-down";
@@ -913,7 +980,16 @@ export class GameScene extends Phaser.Scene {
   }
 
   private bindMoveArrowInteraction(arrow: Phaser.GameObjects.Image, dx: number, dy: number) {
-    arrow.setInteractive({ useHandCursor: true });
+    arrow.setInteractive();
+    arrow.on("pointerover", () => {
+      if (!arrow.visible || this.chatFocused) return;
+      arrow.setScale(GameScene.MOVE_ARROW_HOVER_SCALE);
+      this.setGameCursorHand();
+    });
+    arrow.on("pointerout", () => {
+      arrow.setScale(GameScene.MOVE_ARROW_BASE_SCALE);
+      this.setGameCursorDefault();
+    });
     arrow.on("pointerdown", () => {
       if (!arrow.visible || this.chatFocused) return;
       this.submitDirectionalInput(dx, dy);
@@ -922,6 +998,11 @@ export class GameScene extends Phaser.Scene {
 
   hideMoveArrows() {
     if (!this.moveArrows) return;
+    this.setGameCursorDefault();
+    this.moveArrows.up.setScale(GameScene.MOVE_ARROW_BASE_SCALE);
+    this.moveArrows.down.setScale(GameScene.MOVE_ARROW_BASE_SCALE);
+    this.moveArrows.left.setScale(GameScene.MOVE_ARROW_BASE_SCALE);
+    this.moveArrows.right.setScale(GameScene.MOVE_ARROW_BASE_SCALE);
     this.setMoveArrowVisual(this.moveArrows.up, "normal");
     this.setMoveArrowVisual(this.moveArrows.down, "normal");
     this.setMoveArrowVisual(this.moveArrows.left, "normal");
@@ -1031,6 +1112,26 @@ export class GameScene extends Phaser.Scene {
     return map.cells[pos.y][pos.x] !== CellType.VOID;
   }
 
+  private setGameCursorHand() {
+    const canvas = this.game.canvas as HTMLCanvasElement | null;
+    if (!canvas) return;
+    canvas.style.setProperty(
+      "cursor",
+      "url('/sprites/ui/cursor/cursor_hand_01.png') 6 0, url('/sprites/ui/cursor/cursor_arrow_01.png') 0 0, pointer",
+      "important",
+    );
+  }
+
+  private setGameCursorDefault() {
+    const canvas = this.game.canvas as HTMLCanvasElement | null;
+    if (!canvas) return;
+    canvas.style.setProperty(
+      "cursor",
+      "url('/sprites/ui/cursor/cursor_arrow_01.png') 0 0, url('/sprites/ui/cursor/cursor_hand_01.png') 6 0, auto",
+      "important",
+    );
+  }
+
   completeFloor() {
     const bossKilled = this.floorMap.bossSpawn &&
       this.enemies.some((e) => e.type === "boss" && !e.isAlive());
@@ -1057,10 +1158,21 @@ export class GameScene extends Phaser.Scene {
   private showUpgradeScreen() {
     this.scene.pause();
 
-    // Apply +10 energy bonus
+    // Apply +10 energy bonus (always, regardless of upgrade limit)
     const store = useGameStore.getState();
     const energyBonus = 10;
     store.setEnergy(Math.min(store.energy + energyBonus, store.maxEnergy));
+
+    // Skip upgrade screen after 3 upgrades — go straight to next floor
+    if (store.upgradesGiven >= 3) {
+      this.scene.resume();
+      this.buildFloor(this.currentFloor + 1);
+      this.vfxManager.playPixelatedFadeFromBlack(1000);
+      return;
+    }
+
+    // Track upgrade given
+    useGameStore.setState({ upgradesGiven: store.upgradesGiven + 1 });
 
     // Show React upgrade overlay
     store.showUpgradeScreen(this.currentFloor);
@@ -1083,6 +1195,7 @@ export class GameScene extends Phaser.Scene {
     // Multiple systems can hit endRun in the same turn; run this sequence once.
     if (this.runEnding) return;
     this.runEnding = true;
+    useGameStore.getState().setRunEndActive(true);
     emitSfxEvent("boss-intro-stop");
 
     const stats = useGameStore.getState().getStats();

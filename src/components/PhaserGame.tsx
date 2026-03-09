@@ -40,7 +40,11 @@ export function PhaserGame() {
       game.events.once("ready", () => {
         const canvas = game.canvas;
         if (canvas) {
-          canvas.style.cursor = "url('/sprites/ui/cursor/cursor_arrow_01.png') 0 0, auto";
+          canvas.style.setProperty(
+            "cursor",
+            "url('/sprites/ui/cursor/cursor_arrow_01.png') 0 0, url('/sprites/ui/cursor/cursor_hand_01.png') 6 0, auto",
+            "important",
+          );
         }
       });
 

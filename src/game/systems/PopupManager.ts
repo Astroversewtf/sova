@@ -73,12 +73,12 @@ export class PopupManager {
     });
   }
 
-  /** Energy pickup (+5 yellow) */
+  /** Energy pickup (+X blue) */
   showEnergyBonus(tileX: number, tileY: number, value: number) {
     const worldX = tileX * TILE_SIZE + TILE_SIZE / 2;
     const worldY = tileY * TILE_FULL_H - 6;
 
-    const popup = this.createPopupText(worldX, worldY, `+${value}`, "#f59e0b");
+    const popup = this.createPopupText(worldX, worldY, `+${value}`, "#6fb6ff");
 
     this.scene.tweens.add({
       targets: popup,
@@ -90,7 +90,7 @@ export class PopupManager {
       onComplete: () => this.destroyPopup(popup),
     });
 
-    this.playPickupParticles(tileX, tileY, 0xf59e0b);
+    this.playPickupParticles(tileX, tileY, 0x6fb6ff);
   }
 
   /** Coin pickup (+1 gold) */

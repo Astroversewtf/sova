@@ -49,9 +49,11 @@ export class Trap {
     this.sprite.setOrigin(0.5, 0.5);
   }
 
-  /** Base 6 damage at floor 3, +1 per floor after. Reduced by thick skin. */
   getBaseDamage(): number {
-    return 6 + Math.max(0, this.floor - 3);
+    if (this.floor <= 3) return 4;
+    if (this.floor <= 5) return 5;
+    if (this.floor <= 7) return 6;
+    return 7;
   }
 
   /** Trigger the trap. Always active — deals damage every step. */

@@ -885,9 +885,10 @@ function placeChests(
 }
 
 function getTrapCount(floor: number): number {
-  if (floor < 3) return 0; // No traps before floor 3
-  if (floor <= 5) return randInt(2, 3);
-  return randInt(3, 5);
+  if (floor <= 3) return randInt(2, 3);
+  if (floor <= 5) return randInt(6, 7);
+  if (floor <= 7) return randInt(6, 7);
+  return randInt(7, 10);
 }
 
 export function isCorridorTile(cells: CellType[][], x: number, y: number, w: number, h: number): boolean {

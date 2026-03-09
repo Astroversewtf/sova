@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { GAME_WIDTH, GAME_HEIGHT } from "../constants";
+import { emitSfxEvent, emitHeartbeatVolume } from "@/lib/audioEvents";
 
 /**
  * VFXManager — MoG-style desaturation when energy is low.
@@ -69,8 +70,10 @@ export class VFXManager {
       // Heartbeat hook
       if (!this.heartbeatActive) {
         this.heartbeatActive = true;
-        // TODO: play sfx_heartbeat loop, volume = 0.2 + 0.8 * t
+        emitSfxEvent("heartbeat-start");
       }
+      // Update volume based on intensity (louder as energy drops)
+      emitHeartbeatVolume(0.2 + 0.8 * t);
     } else {
       if (this.desatAmount !== 0) {
         this.desatAmount = 0;
@@ -78,7 +81,7 @@ export class VFXManager {
       }
       if (this.heartbeatActive) {
         this.heartbeatActive = false;
-        // TODO: stop sfx_heartbeat loop
+        emitSfxEvent("heartbeat-stop");
       }
     }
   }
@@ -432,6 +435,10 @@ export class VFXManager {
   }
 
   destroy() {
+    if (this.heartbeatActive) {
+      this.heartbeatActive = false;
+      emitSfxEvent("heartbeat-stop");
+    }
     if (this.hitStopTimeoutId !== null) {
       clearTimeout(this.hitStopTimeoutId);
       this.hitStopTimeoutId = null;

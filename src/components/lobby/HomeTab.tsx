@@ -5,7 +5,7 @@ import { useWalletStore } from "@/stores/walletStore";
 import { usePlayerStore } from "@/stores/playerStore";
 import { useGameStore } from "@/stores/gameStore";
 
-const MAX_KEYS = 5;
+const MAX_KEYS = 15;
 
 export function HomeTab() {
   const setView = useWalletStore((s) => s.setView);
@@ -15,6 +15,11 @@ export function HomeTab() {
   const walletAddress = usePlayerStore((s) => s.walletAddress);
   const [starting, setStarting] = useState(false);
   const canPlay = keys >= keysToUse && !starting;
+  const effectiveMaxKeys = Math.min(MAX_KEYS, Math.max(1, keys));
+
+  function setClampedKeys(next: number) {
+    setKeysToUse(Math.max(1, Math.min(MAX_KEYS, next)));
+  }
 
   const handlePlay = async () => {
     if (!canPlay || !walletAddress) return;
@@ -42,52 +47,85 @@ export function HomeTab() {
   };
 
   return (
-    <div className="flex items-center justify-center h-full p-6">
-      <div className="flex flex-col items-center gap-6">
-        {/* Key selector */}
-        <div className="flex flex-col items-center gap-2">
-          <span className="font-pixel text-[10px] text-gray-400 uppercase text-outline">
-            Keys to wager
-          </span>
-          <div className="flex items-center gap-2">
-            {Array.from({ length: MAX_KEYS }, (_, i) => i + 1).map((n) => (
+    <div className="h-full p-6 flex flex-col">
+      <div className="flex-1 flex items-center justify-center">
+        <div className="w-full max-w-[760px] flex flex-col items-center gap-6">
+          <div className="w-full max-w-[620px] rounded-md border border-[#2e3f52] bg-[#111a26] p-4">
+            <div className="font-pixel text-sm text-white text-outline text-center uppercase">
+              KEYS TO PLAY
+            </div>
+
+            <div className="mt-4 flex items-center justify-center gap-3">
+              {[5, 10].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setClampedKeys(keysToUse + n)}
+                  className="h-14 min-w-[110px] rounded-xl border border-[#3f566f] bg-[#253548] px-4 font-press-start text-lg text-[#6fb6ff] text-outline hover:bg-[#2f435b] transition-colors"
+                >
+                  +{n}
+                </button>
+              ))}
               <button
-                key={n}
-                onClick={() => setKeysToUse(n)}
-                disabled={keys < n}
-                className={`font-pixel text-[12px] w-9 h-9 rounded transition-all ${
-                  keysToUse === n
-                    ? "bg-cyan-500 text-white shadow-[0_2px_0_#0e7490]"
-                    : keys < n
-                      ? "bg-black/30 text-gray-600 cursor-not-allowed border border-white/5"
-                      : "bg-black/30 text-gray-300 hover:bg-white/10 border border-white/10 cursor-pointer"
-                }`}
+                type="button"
+                onClick={() => setClampedKeys(effectiveMaxKeys)}
+                className="h-14 min-w-[110px] rounded-xl border border-[#3f566f] bg-[#253548] px-4 font-press-start text-lg text-[#6fb6ff] text-outline hover:bg-[#2f435b] transition-colors"
               >
-                {n}
+                MAX
               </button>
-            ))}
+            </div>
+
+            <div className="mt-3 flex items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => setClampedKeys(keysToUse - 1)}
+                className="h-20 w-20 rounded-2xl border border-[#3f566f] bg-[#233245] font-press-start text-3xl leading-none text-[#6fb6ff] text-outline hover:bg-[#2c4058] transition-colors"
+              >
+                -
+              </button>
+
+              <div className="h-20 min-w-[320px] rounded-2xl border border-[#2d4f74] bg-[#0c1d2f] px-6 flex items-center justify-center gap-4">
+                <img
+                  src="/sprites/items/key/key_02.png"
+                  alt=""
+                  className="w-8 h-8"
+                  style={{ imageRendering: "pixelated" }}
+                />
+                <span className="font-press-start text-3xl text-white text-outline">{keysToUse}</span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setClampedKeys(keysToUse + 1)}
+                className="h-20 w-20 rounded-2xl border border-[#3f566f] bg-[#233245] font-press-start text-3xl leading-none text-[#6fb6ff] text-outline hover:bg-[#2c4058] transition-colors"
+              >
+                +
+              </button>
+            </div>
+
+            {keys < keysToUse && (
+              <p className="mt-3 text-center font-pixel text-[10px] text-[#9fb0c3] text-outline">
+                NOT ENOUGH KEYS
+              </p>
+            )}
           </div>
         </div>
+      </div>
 
-        <div className="flex items-center gap-4">
-          {/* Guide button */}
-          <button className="bg-amber-400 hover:bg-amber-300 text-white font-pixel text-xl px-12 py-6 rounded-lg border-2 border-amber-500/50 shadow-[0_4px_0_#b45309] hover:shadow-[0_2px_0_#b45309] hover:translate-y-[2px] active:shadow-none active:translate-y-[4px] transition-all text-outline">
-            GUIDE
-          </button>
-
-          {/* Play button */}
-          <button
-            onClick={handlePlay}
-            disabled={!canPlay}
-            className={`font-pixel text-xl px-16 py-6 rounded-lg border-2 transition-all text-outline ${
-              canPlay
-                ? "bg-[#b8e550] hover:bg-[#c5ed65] text-white border-[#a0cc40]/50 shadow-[0_4px_0_#7a9e30] hover:shadow-[0_2px_0_#7a9e30] hover:translate-y-[2px] active:shadow-none active:translate-y-[4px] animate-play-pulse cursor-pointer"
-                : "bg-gray-600 text-gray-400 border-gray-500/50 shadow-[0_4px_0_#374151] cursor-not-allowed"
-            }`}
-          >
-            {canPlay ? "PLAY" : "NO KEYS"}
-          </button>
-        </div>
+      <div className="pb-2 flex justify-center">
+        <button
+          onClick={handlePlay}
+          disabled={!canPlay}
+          className={`relative w-[min(250px,36vw)] ${canPlay ? "cursor-pointer" : "cursor-not-allowed"}`}
+          aria-label={canPlay ? "Play" : "No keys"}
+        >
+          <img
+            src="/sprites/ui/buttons/buttons_play_01.png"
+            alt=""
+            className="w-full h-auto"
+            style={{ imageRendering: "pixelated" }}
+          />
+        </button>
       </div>
     </div>
   );
