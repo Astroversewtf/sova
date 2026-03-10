@@ -60,12 +60,11 @@ export function GameOverOverlay() {
     requestAnimationFrame(() => setVisible(true));
   }, [lootPhase, data]);
 
-  if (!mounted || !data || lootPhase !== "summary") return null;
-
   useEffect(() => {
     if (!data) setRunSubmitted(false);
   }, [data]);
 
+  if (!mounted || !data || lootPhase !== "summary") return null;
 
   const { stats, floor } = data;
 
