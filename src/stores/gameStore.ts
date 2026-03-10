@@ -117,7 +117,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       runEndActive: false,
     }),
 
-  endRun: () => set({ isRunning: false, gameOverData: null, runEndActive: false }),
+  endRun: () => set({ isRunning: false, gameOverData: null, lootPhase: null, runEndActive: false }),
 
   nextFloor: () => set((s) => ({ floor: s.floor + 1 })),
 
