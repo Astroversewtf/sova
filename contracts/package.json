@@ -1,0 +1,14 @@
+{
+  "name": "sova-contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "compile": "hardhat compile",
+    "deploy:fuji": "hardhat run scripts/deploy.ts --network fuji"
+  },
+  "devDependencies": {
+    "hardhat": "^2.24.0",
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0"
+  }
+}
