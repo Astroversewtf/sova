@@ -16,10 +16,41 @@ export function GameOverOverlay() {
   const walletAddress = usePlayerStore((s) => s.walletAddress);
   const [visible, setVisible] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [runSubmitted, setRunSubmitted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if(!data || !walletAddress || runSubmitted) return;
+    setRunSubmitted(true);
+
+    fetch("/api/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        address: walletAddress,
+        stats: data.stats,
+        floor: data.floor,
+        keysUsed
+      })
+    })
+    .then((res) => (res.ok ? res.json() : null))
+    .then((result) => {
+      if(result) {
+        usePlayerStore.setState({
+          coins: result.coins,
+          gems: result.gems,
+          goldenTickets: result.goldenTickets,
+          bestScore: result.bestScore,
+          weeklyScore: result.weeklyScore
+        });
+      }
+    })
+    .catch((err) => console.error("Failed to submit run", err));
+  }, [data, walletAddress, keysUsed]);
+
 
   useEffect(() => {
     if (lootPhase !== "summary" || !data) {
@@ -31,46 +62,21 @@ export function GameOverOverlay() {
 
   if (!mounted || !data || lootPhase !== "summary") return null;
 
+  useEffect(() => {
+    if (!data) setRunSubmitted(false);
+  }, [data]);
+
+
   const { stats, floor } = data;
 
-  const submitRun = async () => {
-    if (!walletAddress) return;
-    try {
-      const res = await fetch("/api/run", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          address: walletAddress,
-          stats: data.stats,
-          floor: data.floor,
-          keysUsed,
-        }),
-      });
-      if (res.ok) {
-        const result = await res.json();
-        usePlayerStore.setState({
-          coins: result.coins,
-          gems: result.gems,
-          goldenTickets: result.goldenTickets,
-          bestScore: result.bestScore,
-          weeklyScore: result.weeklyScore,
-        });
-      }
-    } catch (err) {
-      console.error("Failed to submit run", err);
-    }
-  };
-
-  const handlePlayAgain = async () => {
-    await submitRun();
+  const handlePlayAgain = () => {
     useGameStore.getState().endRun();
     window.dispatchEvent(
       new CustomEvent("sova:run-end-action", { detail: "play-again" }),
     );
   };
 
-  const handleLobby = async () => {
-    await submitRun();
+  const handleLobby = () => {
     useGameStore.getState().endRun();
     window.dispatchEvent(
       new CustomEvent("sova:run-end-action", { detail: "lobby" }),
