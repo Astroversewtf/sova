@@ -1,10 +1,6 @@
 import Phaser from "phaser";
 import { TILE_SIZE, C } from "../constants";
 
-/**
- * Generates procedural pixel-art textures matching Maze of Gains style.
- * Two-color flat checkerboard floors, dark stone walls, chibi entities.
- */
 export class BootScene extends Phaser.Scene {
   constructor() {
     super({ key: "BootScene" });

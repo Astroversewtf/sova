@@ -156,7 +156,6 @@ export const ENEMY_MOVE_MS = 80;
 export const CAMERA_ZOOM = 2.0;
 export const CAMERA_LERP = 1;
 
-// ── Colors (Maze of Gains teal dungeon palette) ──
 export const C = {
   // Dungeon background — matches wall top so void blends with walls
   VOID_BG: 0x1a3832,

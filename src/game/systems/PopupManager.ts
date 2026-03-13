@@ -1,13 +1,6 @@
 import Phaser from "phaser";
 import { TILE_SIZE, TILE_FULL_H } from "../constants";
 
-/**
- * MoG-style popup text with dual-outline for maximum legibility:
- *   Layer 1: white stroke (thick)  — outer glow
- *   Layer 2: black stroke (thin)   — inner outline, tinted with effect color
- *
- * Both layers sit in a container at depth 2000.
- */
 export class PopupManager {
   private scene: Phaser.Scene;
 

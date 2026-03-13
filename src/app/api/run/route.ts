@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
 
     const user = await getUser(addr);
     if(!user) {
-        return NextResponse.json({ error: "user not found" }, { status: 404 });
+        return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     await saveRun(addr, stats);

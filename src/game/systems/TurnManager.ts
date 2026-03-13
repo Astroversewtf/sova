@@ -86,7 +86,6 @@ export class TurnManager {
     // Post-move logic handled by onPlayerMoveComplete() via GridEngine event
   }
 
-  /** Spend a turn without moving (MoG-style skip/pass action) */
   handleSkip() {
     if (this.phase !== TurnPhase.PLAYER_INPUT || this.inputLocked) return;
     this.inputLocked = true;
@@ -157,7 +156,6 @@ export class TurnManager {
         this.scene.endRun("energy");
         return;
       }
-      // End turn immediately after enemy resolution (MoG-like pacing).
       this.endTurn();
     });
   }

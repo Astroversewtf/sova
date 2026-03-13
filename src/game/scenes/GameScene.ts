@@ -90,7 +90,6 @@ export class GameScene extends Phaser.Scene {
   private moveArrowPulseTweens = new WeakMap<Phaser.GameObjects.Image, Phaser.Tweens.Tween>();
   private moveArrowPulseState = new WeakMap<Phaser.GameObjects.Image, "normal" | "blocked" | "stairs">();
 
-  // Movement queue (MoG-style pendingMove)
   private pendingMove: { dx: number; dy: number } | null = null;
   isProcessingAction = false;
   private actionTimeout: ReturnType<typeof setTimeout> | null = null;

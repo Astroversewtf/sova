@@ -6,7 +6,7 @@ import { avalancheFuji } from "viem/chains";
 const CHAIN_ID = Number(process.env.NEXT_PUBLIC_CHAIN_ID)
 const WALLET_ADDRESS = process.env.NEXT_PUBLIC_WALLET_ADDRESS as `0x${string}`
 const USDT_ADDRESS = process.env.NEXT_PUBLIC_USDT_ADDRESS as `0x${string}`
-const KEY_SHOP_ADDRESS = "0xf423783d4B3b0288502Fa7c3a3C174a8cb4F4F7D" as `0x${string}`
+const KEY_SHOP_ADDRESS = process.env.NEXT_PUBLIC_KEY_SHOP_ADDRESS as `0x${string}`
 
 const keyShopAbi = [
     {
