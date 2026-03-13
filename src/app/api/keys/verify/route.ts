@@ -5,7 +5,7 @@ import { updateUser, getUser } from "@/lib/firestore";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
-const KEY_SHOP_ADDRESS = process.env.KEY_SHOP_ADDRESS as `0x${string}`;
+const KEY_SHOP_ADDRESS = process.env.NEXT_PUBLIC_KEY_SHOP_ADDRESS as `0x${string}`;
 
 const keysPurchasedEvent = parseAbiItem(
   "event KeysPurchased(address indexed buyer, uint256 quantity, uint256 totalPaid)"
