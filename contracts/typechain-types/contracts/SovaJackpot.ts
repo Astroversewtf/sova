@@ -27,10 +27,8 @@ export interface SovaJackpotInterface extends Interface {
   getFunction(
     nameOrSignature:
       | "acceptOwnership"
-      | "getPlayerRequests"
       | "getResult"
       | "owner"
-      | "playerRequests"
       | "rawFulfillRandomWords"
       | "requestSeed"
       | "requests"
@@ -47,9 +45,11 @@ export interface SovaJackpotInterface extends Interface {
 
   getEvent(
     nameOrSignatureOrTopic:
+      | "CallbackGasLimitUpdated"
       | "CoordinatorSet"
       | "OwnershipTransferRequested"
       | "OwnershipTransferred"
+      | "RequestConfirmationsUpdated"
       | "SeedFulfilled"
       | "SeedRequested"
   ): EventFragment;
@@ -59,18 +59,10 @@ export interface SovaJackpotInterface extends Interface {
     values?: undefined
   ): string;
   encodeFunctionData(
-    functionFragment: "getPlayerRequests",
-    values: [AddressLike]
-  ): string;
-  encodeFunctionData(
     functionFragment: "getResult",
     values: [BigNumberish]
   ): string;
   encodeFunctionData(functionFragment: "owner", values?: undefined): string;
-  encodeFunctionData(
-    functionFragment: "playerRequests",
-    values: [AddressLike, BigNumberish]
-  ): string;
   encodeFunctionData(
     functionFragment: "rawFulfillRandomWords",
     values: [BigNumberish, BigNumberish[]]
@@ -121,16 +113,8 @@ export interface SovaJackpotInterface extends Interface {
     functionFragment: "acceptOwnership",
     data: BytesLike
   ): Result;
-  decodeFunctionResult(
-    functionFragment: "getPlayerRequests",
-    data: BytesLike
-  ): Result;
   decodeFunctionResult(functionFragment: "getResult", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "owner", data: BytesLike): Result;
-  decodeFunctionResult(
-    functionFragment: "playerRequests",
-    data: BytesLike
-  ): Result;
   decodeFunctionResult(
     functionFragment: "rawFulfillRandomWords",
     data: BytesLike
@@ -175,6 +159,18 @@ export interface SovaJackpotInterface extends Interface {
   ): Result;
 }
 
+export namespace CallbackGasLimitUpdatedEvent {
+  export type InputTuple = [newLimit: BigNumberish];
+  export type OutputTuple = [newLimit: bigint];
+  export interface OutputObject {
+    newLimit: bigint;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
+}
+
 export namespace CoordinatorSetEvent {
   export type InputTuple = [vrfCoordinator: AddressLike];
   export type OutputTuple = [vrfCoordinator: string];
@@ -206,6 +202,18 @@ export namespace OwnershipTransferredEvent {
   export interface OutputObject {
     from: string;
     to: string;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
+}
+
+export namespace RequestConfirmationsUpdatedEvent {
+  export type InputTuple = [newConfirmations: BigNumberish];
+  export type OutputTuple = [newConfirmations: bigint];
+  export interface OutputObject {
+    newConfirmations: bigint;
   }
   export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
   export type Filter = TypedDeferredTopicFilter<Event>;
@@ -289,12 +297,6 @@ export interface SovaJackpot extends BaseContract {
 
   acceptOwnership: TypedContractMethod<[], [void], "nonpayable">;
 
-  getPlayerRequests: TypedContractMethod<
-    [player: AddressLike],
-    [bigint[]],
-    "view"
-  >;
-
   getResult: TypedContractMethod<
     [requestId: BigNumberish],
     [
@@ -309,12 +311,6 @@ export interface SovaJackpot extends BaseContract {
   >;
 
   owner: TypedContractMethod<[], [string], "view">;
-
-  playerRequests: TypedContractMethod<
-    [arg0: AddressLike, arg1: BigNumberish],
-    [bigint],
-    "view"
-  >;
 
   rawFulfillRandomWords: TypedContractMethod<
     [requestId: BigNumberish, randomWords: BigNumberish[]],
@@ -383,9 +379,6 @@ export interface SovaJackpot extends BaseContract {
     nameOrSignature: "acceptOwnership"
   ): TypedContractMethod<[], [void], "nonpayable">;
   getFunction(
-    nameOrSignature: "getPlayerRequests"
-  ): TypedContractMethod<[player: AddressLike], [bigint[]], "view">;
-  getFunction(
     nameOrSignature: "getResult"
   ): TypedContractMethod<
     [requestId: BigNumberish],
@@ -402,13 +395,6 @@ export interface SovaJackpot extends BaseContract {
   getFunction(
     nameOrSignature: "owner"
   ): TypedContractMethod<[], [string], "view">;
-  getFunction(
-    nameOrSignature: "playerRequests"
-  ): TypedContractMethod<
-    [arg0: AddressLike, arg1: BigNumberish],
-    [bigint],
-    "view"
-  >;
   getFunction(
     nameOrSignature: "rawFulfillRandomWords"
   ): TypedContractMethod<
@@ -462,6 +448,13 @@ export interface SovaJackpot extends BaseContract {
   ): TypedContractMethod<[to: AddressLike], [void], "nonpayable">;
 
   getEvent(
+    key: "CallbackGasLimitUpdated"
+  ): TypedContractEvent<
+    CallbackGasLimitUpdatedEvent.InputTuple,
+    CallbackGasLimitUpdatedEvent.OutputTuple,
+    CallbackGasLimitUpdatedEvent.OutputObject
+  >;
+  getEvent(
     key: "CoordinatorSet"
   ): TypedContractEvent<
     CoordinatorSetEvent.InputTuple,
@@ -483,6 +476,13 @@ export interface SovaJackpot extends BaseContract {
     OwnershipTransferredEvent.OutputObject
   >;
   getEvent(
+    key: "RequestConfirmationsUpdated"
+  ): TypedContractEvent<
+    RequestConfirmationsUpdatedEvent.InputTuple,
+    RequestConfirmationsUpdatedEvent.OutputTuple,
+    RequestConfirmationsUpdatedEvent.OutputObject
+  >;
+  getEvent(
     key: "SeedFulfilled"
   ): TypedContractEvent<
     SeedFulfilledEvent.InputTuple,
@@ -498,6 +498,17 @@ export interface SovaJackpot extends BaseContract {
   >;
 
   filters: {
+    "CallbackGasLimitUpdated(uint32)": TypedContractEvent<
+      CallbackGasLimitUpdatedEvent.InputTuple,
+      CallbackGasLimitUpdatedEvent.OutputTuple,
+      CallbackGasLimitUpdatedEvent.OutputObject
+    >;
+    CallbackGasLimitUpdated: TypedContractEvent<
+      CallbackGasLimitUpdatedEvent.InputTuple,
+      CallbackGasLimitUpdatedEvent.OutputTuple,
+      CallbackGasLimitUpdatedEvent.OutputObject
+    >;
+
     "CoordinatorSet(address)": TypedContractEvent<
       CoordinatorSetEvent.InputTuple,
       CoordinatorSetEvent.OutputTuple,
@@ -529,6 +540,17 @@ export interface SovaJackpot extends BaseContract {
       OwnershipTransferredEvent.InputTuple,
       OwnershipTransferredEvent.OutputTuple,
       OwnershipTransferredEvent.OutputObject
+    >;
+
+    "RequestConfirmationsUpdated(uint16)": TypedContractEvent<
+      RequestConfirmationsUpdatedEvent.InputTuple,
+      RequestConfirmationsUpdatedEvent.OutputTuple,
+      RequestConfirmationsUpdatedEvent.OutputObject
+    >;
+    RequestConfirmationsUpdated: TypedContractEvent<
+      RequestConfirmationsUpdatedEvent.InputTuple,
+      RequestConfirmationsUpdatedEvent.OutputTuple,
+      RequestConfirmationsUpdatedEvent.OutputObject
     >;
 
     "SeedFulfilled(uint256,address,uint256)": TypedContractEvent<

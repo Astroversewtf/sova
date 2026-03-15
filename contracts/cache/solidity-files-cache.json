@@ -37,8 +37,8 @@
       ]
     },
     "/home/rodri/Documents/Internship/sova/contracts/contracts/SovaJackpot.sol": {
-      "lastModificationDate": 1773510446913,
-      "contentHash": "52c9288632d170a2908b0e0d39a97b44",
+      "lastModificationDate": 1773533715513,
+      "contentHash": "276bb094678724efa8015cceec82bb8a",
       "sourceName": "contracts/SovaJackpot.sol",
       "solcConfig": {
         "version": "0.8.19",

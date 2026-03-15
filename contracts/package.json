@@ -12,6 +12,7 @@
     "hardhat": "^2.24.0"
   },
   "dependencies": {
-    "@chainlink/contracts": "^1.4.0"
+    "@chainlink/contracts": "^1.4.0",
+    "dotenv": "^17.3.1"
   }
 }

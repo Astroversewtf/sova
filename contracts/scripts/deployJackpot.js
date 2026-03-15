@@ -3,7 +3,7 @@ const { ethers } = pkg;
 
 async function main() {
   const vrfCoordinator = process.env.VRF_COORDINATOR;
-  const keyHash = process.env.WALLET_ADDRESS;
+  const keyHash = process.env.VRF_KEY_HASH;
 
   const subscriptionId = process.env.VRF_SUBSCRIPTION_ID;
   if (!subscriptionId) {

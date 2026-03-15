@@ -18,10 +18,11 @@ contract SovaJackpot is VRFConsumerBaseV2Plus {
     }
 
     mapping(uint256 => SeedRequest) public requests;
-    mapping(address => uint256[]) public playerRequests;
 
     event SeedRequested(uint256 indexed requestId, address indexed player);
     event SeedFulfilled(uint256 indexed requestId, address indexed player, uint256 seed);
+    event CallbackGasLimitUpdated(uint32 newLimit);
+    event RequestConfirmationsUpdated(uint16 newConfirmations);
 
     constructor(
         address vrfCoordinator,
@@ -53,8 +54,6 @@ contract SovaJackpot is VRFConsumerBaseV2Plus {
             timestamp: 0
         });
 
-        playerRequests[player].push(requestId);
-
         emit SeedRequested(requestId, player);
     }
 
@@ -79,15 +78,14 @@ contract SovaJackpot is VRFConsumerBaseV2Plus {
         return (req.player, req.fulfilled, req.seed, req.timestamp);
     }
 
-    function getPlayerRequests(address player) external view returns (uint256[] memory) {
-        return playerRequests[player];
-    }
-
     function setCallbackGasLimit(uint32 _gasLimit) external onlyOwner {
         s_callbackGasLimit = _gasLimit;
+        emit CallbackGasLimitUpdated(_gasLimit);
     }
 
     function setRequestConfirmations(uint16 _confirmations) external onlyOwner {
+        require(_confirmations >= 1 && _confirmations <= 200, "Invalid confirmations");
         s_requestConfirmations = _confirmations;
+        emit RequestConfirmationsUpdated(_confirmations);
     }
 }
