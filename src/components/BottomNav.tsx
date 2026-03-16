@@ -37,7 +37,7 @@ function NavButton({
       onClick={onClick}
       title={label}
       aria-label={label}
-      className="w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center"
+      className="w-9 h-9 sm:w-12 sm:h-12 md:w-14 md:h-14 flex items-center justify-center"
     >
       <img
         src={icon}
@@ -54,10 +54,8 @@ export function BottomNav() {
 
   function handlePlayClick() {
     if (keyPickerOpen) {
-      // Key picker is open — trigger actual game start
       window.dispatchEvent(new Event("sova:request-play"));
     } else {
-      // Open key picker, switch to home tab
       setActiveTab("home");
       setKeyPickerOpen(true);
     }
@@ -77,8 +75,8 @@ export function BottomNav() {
   }
 
   return (
-    <div className="pointer-events-none absolute bottom-3 left-0 right-0 z-30 flex items-center justify-center">
-      <div className="pointer-events-auto flex items-center gap-3">
+    <div className="pointer-events-none absolute bottom-2 sm:bottom-3 left-0 right-0 z-30 flex items-center justify-center px-2">
+      <div className="pointer-events-auto flex items-center gap-1 sm:gap-2 md:gap-3">
         {leftItems.map((item) => {
           const isTab = item.id !== "guide";
           const active = isTab ? activeTab === item.id && !keyPickerOpen : false;
@@ -93,12 +91,12 @@ export function BottomNav() {
           );
         })}
 
-        <div className="w-4" />
+        <div className="w-1 sm:w-2 md:w-4" />
 
         <button
           type="button"
           onClick={handlePlayClick}
-          className={`relative w-[min(220px,30vw)] h-[min(55px,7.5vw)] flex items-center justify-center ${keyPickerOpen ? "animate-play-pulse" : ""}`}
+          className={`relative w-[clamp(100px,26vw,220px)] h-[clamp(30px,7vw,55px)] flex items-center justify-center ${keyPickerOpen ? "animate-play-pulse" : ""}`}
           aria-label="Play"
         >
           <img
@@ -112,7 +110,7 @@ export function BottomNav() {
           />
         </button>
 
-        <div className="w-4" />
+        <div className="w-1 sm:w-2 md:w-4" />
 
         {rightItems.map((item) => {
           const isTab = item.id !== "guide";

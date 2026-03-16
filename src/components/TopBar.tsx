@@ -57,7 +57,7 @@ function PrizeCard({
   countdown?: string;
 }) {
   return (
-    <div className="relative w-[clamp(248px,24vw,318px)] aspect-[8/5]">
+    <div className="relative flex-1 min-w-0 aspect-[8/5]">
       <div
         className="absolute inset-0 z-0 flex items-center justify-center"
         aria-hidden="true"
@@ -76,13 +76,13 @@ function PrizeCard({
         style={{ imageRendering: "pixelated" }}
       />
       <div className="absolute inset-0 z-20 flex items-center justify-center">
-        <span className="font-press-start text-[clamp(12px,1.2vw,18px)] text-white text-outline-5 leading-none text-center px-3">
+        <span className="font-press-start text-[clamp(6px,1.8vw,14px)] text-white text-outline-5 leading-none text-center px-1">
           {value}
         </span>
       </div>
       {countdown && (
         <div className="absolute left-1/2 -translate-x-1/2 -bottom-1">
-          <span className="font-press-start text-[9px] sm:text-xs text-white text-outline whitespace-nowrap leading-none">
+          <span className="font-press-start text-[clamp(5px,1.4vw,9px)] text-white text-outline whitespace-nowrap leading-none">
             {countdown}
           </span>
         </div>
@@ -91,116 +91,75 @@ function PrizeCard({
   );
 }
 
+function ResourceBox({
+  icon,
+  value,
+  color,
+  iconClass,
+  onClick,
+}: {
+  icon: string;
+  value: string | number;
+  color: string;
+  iconClass?: string;
+  onClick?: () => void;
+}) {
+  const content = (
+    <OverlayFrame
+      className="relative w-10 h-10 sm:w-14 sm:h-14"
+      contentClassName="!p-0 flex items-center justify-center"
+      namePrefix="square"
+      basePath="/sprites/ui/square_tileset"
+      edge={16}
+      innerEdge={16}
+    >
+      <img
+        src={icon}
+        alt=""
+        className={`absolute left-1/2 top-0 z-20 -translate-x-1/2 -translate-y-[50%] ${iconClass ?? "w-7 h-7 sm:w-10 sm:h-10"}`}
+        style={{ imageRendering: "pixelated" }}
+      />
+      <span
+        className="relative z-10 font-press-start-crisp text-[8px] sm:text-[11px] leading-none mt-1"
+        style={{
+          color,
+          textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000",
+        }}
+      >
+        {value}
+      </span>
+    </OverlayFrame>
+  );
+
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className="bg-transparent">
+        {content}
+      </button>
+    );
+  }
+  return content;
+}
+
 export function TopBar() {
   const { coins, gems, keys } = usePlayerStore();
   const openSettings = useSettingsStore((s) => s.open);
   const setActiveTab = useLobbyStore((s) => s.setActiveTab);
   const countdown = useCountdownToFriday();
-  const rowAnchorY = "66%";
 
   return (
-    <div className="relative shrink-0 h-[clamp(138px,18vh,186px)] px-[1.8%]">
-      <div
-        className="absolute z-30 w-[92px] flex justify-center -translate-y-1/2"
-        style={{ top: rowAnchorY, left: "2.2%" }}
-      >
-        <button
-          type="button"
-          onClick={openSettings}
-          className="relative w-12 h-12 flex items-center justify-center"
-          aria-label="Open settings"
-        >
-          <img
-            src="/sprites/ui/onboarding/buttons_menu_01.png"
-            alt=""
-            className="absolute inset-0 w-full h-full"
-            style={{ imageRendering: "pixelated" }}
-          />
-        </button>
-      </div>
+    <div className="shrink-0 px-2 sm:px-[2%] py-2 sm:py-3">
+      {/* Mobile: 2 rows, Desktop: 1 row */}
 
-      <div
-        className="absolute z-30 -translate-y-1/2 flex items-center gap-2"
-        style={{ top: rowAnchorY, right: "2%" }}
-      >
-        <OverlayFrame
-          className="relative w-[56px] h-[56px]"
-          contentClassName="!p-0 flex items-center justify-center"
-          namePrefix="square"
-          basePath="/sprites/ui/square_tileset"
-          edge={16}
-          innerEdge={16}
-        >
-          <img
-            src="/sprites/items/coin/coin_01.png"
-            alt="Coins"
-            className="absolute left-1/2 top-0 z-20 w-10 h-10 -translate-x-1/2 -translate-y-[50%]"
-            style={{ imageRendering: "pixelated" }}
-          />
-          <span
-            className="relative z-10 font-press-start-crisp text-[11px] text-amber-300 leading-none mt-[6px]"
-            style={{ textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000" }}
-          >
-            {coins.toLocaleString()}
-          </span>
-        </OverlayFrame>
+      {/* Row 1: PFP + Prize cards (mobile full width) + Resources on desktop */}
+      <div className="flex items-center gap-1.5 sm:gap-3">
+        {/* PFP */}
+        <div className="shrink-0 w-9 h-9 sm:w-14 sm:h-14 rounded-full bg-white/10 border-2 border-white/20 flex items-center justify-center overflow-hidden">
+          <span className="font-pixel text-[6px] sm:text-[8px] text-white/40">PFP</span>
+        </div>
 
-        <OverlayFrame
-          className="relative w-[56px] h-[56px]"
-          contentClassName="!p-0 flex items-center justify-center"
-          namePrefix="square"
-          basePath="/sprites/ui/square_tileset"
-          edge={16}
-          innerEdge={16}
-        >
-          <img
-            src="/sprites/items/orb/item_orb_01.png"
-            alt="Orbs"
-            className="absolute left-1/2 top-0 z-20 w-10 h-10 -translate-x-1/2 -translate-y-[50%]"
-            style={{ imageRendering: "pixelated" }}
-          />
-          <span
-            className="relative z-10 font-press-start-crisp text-[11px] text-teal-300 leading-none mt-[6px]"
-            style={{ textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000" }}
-          >
-            {gems}
-          </span>
-        </OverlayFrame>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab("shop")}
-          className="relative w-[56px] h-[56px] bg-transparent flex items-center justify-center"
-        >
-          <OverlayFrame
-            className="relative w-full h-full"
-            contentClassName="!p-0 flex items-center justify-center"
-            namePrefix="square"
-            basePath="/sprites/ui/square_tileset"
-            edge={16}
-            innerEdge={16}
-          >
-            <img
-              src="/sprites/items/key/key_02.png"
-              alt="Keys"
-              className="absolute left-1/2 top-0 z-20 w-8 h-8 -translate-x-1/2 -translate-y-[60%]"
-              style={{ imageRendering: "pixelated" }}
-            />
-            <span
-              className="relative z-10 font-press-start-crisp text-[11px] text-yellow-200 leading-none mt-[6px]"
-              style={{ textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000" }}
-            >
-              {keys}
-            </span>
-          </OverlayFrame>
-        </button>
-      </div>
-
-      <div
-        className="absolute left-1/2 z-20 -translate-y-1/2 -translate-x-[120%]"
-        style={{ top: rowAnchorY }}
-      >
-        <div className="relative">
+        {/* Prize cards — fill remaining space */}
+        <div className="flex items-center gap-0.5 sm:gap-1 flex-1 min-w-0 max-w-[440px]">
           <PrizeCard
             frame="/sprites/ui/hud/prizes/weekly_prize_01.png"
             label="Weekly Pool"
@@ -208,15 +167,34 @@ export function TopBar() {
             glowColor="#2f74ff"
             countdown={countdown}
           />
-          <div className="absolute top-0 left-full ml-[-6%]">
-            <PrizeCard
-              frame="/sprites/ui/hud/prizes/jackpot_prize_01.png"
-              label="Jackpot"
-              value="14,313 USD"
-              glowColor="#d3a13a"
-            />
-          </div>
+          <PrizeCard
+            frame="/sprites/ui/hud/prizes/jackpot_prize_01.png"
+            label="Jackpot"
+            value="14,313 USD"
+            glowColor="#d3a13a"
+          />
         </div>
+
+        {/* Desktop only: spacer + resources inline */}
+        <div className="hidden md:flex flex-1 min-w-0" />
+        <div className="hidden md:flex items-center gap-2">
+          <ResourceBox icon="/sprites/items/coin/coin_01.png" value={coins.toLocaleString()} color="#fcd34d" />
+          <ResourceBox icon="/sprites/items/orb/item_orb_01.png" value={gems} color="#5eead4" />
+          <ResourceBox icon="/sprites/items/key/key_02.png" value={keys} color="#fef08a" iconClass="w-6 h-6 sm:w-8 sm:h-8" onClick={() => setActiveTab("shop")} />
+          <button type="button" onClick={openSettings} className="w-10 h-10 flex items-center justify-center" aria-label="Settings">
+            <img src="/sprites/ui/onboarding/buttons_menu_01.png" alt="" className="w-full h-full" style={{ imageRendering: "pixelated" }} />
+          </button>
+        </div>
+      </div>
+
+      {/* Row 2: Resources (mobile only) */}
+      <div className="flex md:hidden items-center justify-end gap-1 mt-1.5">
+        <ResourceBox icon="/sprites/items/coin/coin_01.png" value={coins.toLocaleString()} color="#fcd34d" />
+        <ResourceBox icon="/sprites/items/orb/item_orb_01.png" value={gems} color="#5eead4" />
+        <ResourceBox icon="/sprites/items/key/key_02.png" value={keys} color="#fef08a" iconClass="w-6 h-6" onClick={() => setActiveTab("shop")} />
+        <button type="button" onClick={openSettings} className="w-7 h-7 flex items-center justify-center" aria-label="Settings">
+          <img src="/sprites/ui/onboarding/buttons_menu_01.png" alt="" className="w-full h-full" style={{ imageRendering: "pixelated" }} />
+        </button>
       </div>
     </div>
   );
