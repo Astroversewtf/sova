@@ -1,6 +1,8 @@
 import { keccak256, encodePacked } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { getUser } from "@/lib/firestore";
+import { db } from "@/lib/firebase";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 
 const SIGNER_KEY = process.env.DEPLOYER_PRIVATE_KEY as `0x${string}`;
 const account = privateKeyToAccount(SIGNER_KEY);
@@ -18,6 +20,13 @@ export async function POST(req: Request) {
   }
 
   const address = player.toLowerCase();
+
+  const claimRef = doc(db, "poolClaims", `${address}_${week}`);
+  const claimDoc = await getDoc(claimRef);
+  if (claimDoc.exists()) {
+    return Response.json({ error: "Already claimed this week" }, { status: 409 });
+  }
+
   const user = await getUser(address);
 
   if (!user) {
@@ -25,6 +34,13 @@ export async function POST(req: Request) {
   }
 
   const amount = await calculateReward(address, week);
+
+  await setDoc(claimRef, {
+    address,
+    week,
+    amount: amount.toString(),
+    claimedAt: new Date().toISOString(),
+  });
 
   const hash = keccak256(
     encodePacked(
