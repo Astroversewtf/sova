@@ -45,7 +45,7 @@ export class Fountain {
       .text(this.sprite.x, this.pos.y * TILE_FULL_H, `+${heal}`, {
         fontFamily: '"8bit Wonder"',
         fontSize: "9px",
-        color: "#4ade80",
+        color: "#6fb6ff",
         stroke: "#000000",
         strokeThickness: 2,
       })

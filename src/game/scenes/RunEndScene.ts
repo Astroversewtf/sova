@@ -29,12 +29,10 @@ export class RunEndScene extends Phaser.Scene {
     // Hide gameplay HUD and hand off to React overlays.
     useGameStore.setState({ isRunning: false });
 
-    this.time.delayedCall(40, () => {
-      useGameStore.getState().startLootReveal({
-        stats: this.stats,
-        floor: this.floor,
-      });
-      this.scene.stop();
+    useGameStore.getState().startLootReveal({
+      stats: this.stats,
+      floor: this.floor,
     });
+    this.scene.stop();
   }
 }

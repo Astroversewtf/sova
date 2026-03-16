@@ -4,6 +4,7 @@ import { usePlayerStore } from "@/stores/playerStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useLobbyStore } from "@/stores/lobbyStore";
 import { useEffect, useState } from "react";
+import { OverlayFrame } from "@/components/OverlayFrame";
 
 function useCountdownToFriday() {
   const [text, setText] = useState("");
@@ -122,71 +123,76 @@ export function TopBar() {
         className="absolute z-30 -translate-y-1/2 flex items-center gap-2"
         style={{ top: rowAnchorY, right: "2%" }}
       >
-        <div className="relative h-[52px] min-w-[52px] px-3 bg-transparent flex items-center justify-center gap-2">
-          <img
-            src="/sprites/ui/settings/buttons_overlay_empty_02.png"
-            alt=""
-            className="absolute inset-0 w-full h-full pointer-events-none"
-            style={{ imageRendering: "pixelated" }}
-          />
+        <OverlayFrame
+          className="relative w-[56px] h-[56px]"
+          contentClassName="!p-0 flex items-center justify-center"
+          namePrefix="square"
+          basePath="/sprites/ui/square_tileset"
+          edge={16}
+          innerEdge={16}
+        >
           <img
             src="/sprites/items/coin/coin_01.png"
             alt="Coins"
-            className="absolute left-1/2 top-0 w-10 h-10 -translate-x-1/2 -translate-y-[50%]"
+            className="absolute left-1/2 top-0 z-20 w-10 h-10 -translate-x-1/2 -translate-y-[50%]"
             style={{ imageRendering: "pixelated" }}
           />
           <span
-            className="relative font-press-start-crisp text-[11px] text-amber-300 leading-none"
+            className="relative z-10 font-press-start-crisp text-[11px] text-amber-300 leading-none mt-[6px]"
             style={{ textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000" }}
           >
             {coins.toLocaleString()}
           </span>
-        </div>
+        </OverlayFrame>
 
-        <div className="relative w-[52px] h-[52px] bg-transparent flex items-center justify-center">
-          <img
-            src="/sprites/ui/settings/buttons_overlay_empty_02.png"
-            alt=""
-            className="absolute inset-0 w-full h-full pointer-events-none"
-            style={{ imageRendering: "pixelated" }}
-          />
+        <OverlayFrame
+          className="relative w-[56px] h-[56px]"
+          contentClassName="!p-0 flex items-center justify-center"
+          namePrefix="square"
+          basePath="/sprites/ui/square_tileset"
+          edge={16}
+          innerEdge={16}
+        >
           <img
             src="/sprites/items/orb/item_orb_01.png"
             alt="Orbs"
-            className="absolute left-1/2 top-0 w-10 h-10 -translate-x-1/2 -translate-y-[50%]"
+            className="absolute left-1/2 top-0 z-20 w-10 h-10 -translate-x-1/2 -translate-y-[50%]"
             style={{ imageRendering: "pixelated" }}
           />
           <span
-            className="font-press-start-crisp text-[11px] text-teal-300 leading-none mt-[2px]"
+            className="relative z-10 font-press-start-crisp text-[11px] text-teal-300 leading-none mt-[6px]"
             style={{ textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000" }}
           >
             {gems}
           </span>
-        </div>
+        </OverlayFrame>
 
         <button
           type="button"
           onClick={() => setActiveTab("shop")}
-          className="relative w-[52px] h-[52px] bg-transparent flex items-center justify-center"
+          className="relative w-[56px] h-[56px] bg-transparent flex items-center justify-center"
         >
-          <img
-            src="/sprites/ui/settings/buttons_overlay_empty_02.png"
-            alt=""
-            className="absolute inset-0 w-full h-full pointer-events-none"
-            style={{ imageRendering: "pixelated" }}
-          />
-          <img
-            src="/sprites/items/key/key_02.png"
-            alt="Keys"
-            className="absolute left-1/2 top-0 w-8 h-8 -translate-x-1/2 -translate-y-[60%]"
-            style={{ imageRendering: "pixelated" }}
-          />
-          <span
-            className="font-press-start-crisp text-[11px] text-yellow-200 leading-none mt-[2px]"
-            style={{ textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000" }}
+          <OverlayFrame
+            className="relative w-full h-full"
+            contentClassName="!p-0 flex items-center justify-center"
+            namePrefix="square"
+            basePath="/sprites/ui/square_tileset"
+            edge={16}
+            innerEdge={16}
           >
-            {keys}
-          </span>
+            <img
+              src="/sprites/items/key/key_02.png"
+              alt="Keys"
+              className="absolute left-1/2 top-0 z-20 w-8 h-8 -translate-x-1/2 -translate-y-[60%]"
+              style={{ imageRendering: "pixelated" }}
+            />
+            <span
+              className="relative z-10 font-press-start-crisp text-[11px] text-yellow-200 leading-none mt-[6px]"
+              style={{ textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000" }}
+            >
+              {keys}
+            </span>
+          </OverlayFrame>
         </button>
       </div>
 

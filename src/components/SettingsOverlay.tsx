@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useLogout, usePrivy } from "@privy-io/react-auth";
 import { OverlayFrame } from "@/components/OverlayFrame";
 import { useWalletStore } from "@/stores/walletStore";
 import { useGameStore } from "@/stores/gameStore";
@@ -60,8 +59,6 @@ export function SettingsOverlay() {
   const gameOverData = useGameStore((s) => s.gameOverData);
   const lootPhase = useGameStore((s) => s.lootPhase);
   const runEndActive = useGameStore((s) => s.runEndActive);
-  const { logout } = useLogout();
-  const { user } = usePrivy();
   const [bindingCapture, setBindingCapture] = useState<{
     action: ControlAction;
     slot: number;
@@ -110,12 +107,8 @@ export function SettingsOverlay() {
 
   async function handleSignOut() {
     close();
-    try {
-      await logout();
-    } finally {
-      walletDisconnect();
-      close();
-    }
+    walletDisconnect();
+    close();
   }
 
   const shortWallet = walletAddress
@@ -123,19 +116,15 @@ export function SettingsOverlay() {
     : "0x------";
   const profileName = walletAddress ? `PLAYER ${walletAddress.slice(2, 6).toUpperCase()}` : "SOVA PLAYER";
   const defaultAvatar = "/images/FUD.png";
-  const googleAvatar = ((user as any)?.google?.picture
-    ?? (user as any)?.google?.profilePictureUrl
-    ?? (user as any)?.google?.avatarUrl
-    ?? null) as string | null;
   const walletAvatar = walletAddress
     ? `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(walletAddress)}`
     : null;
-  const profileAvatar = googleAvatar || walletAvatar || defaultAvatar;
+  const profileAvatar = walletAvatar || defaultAvatar;
 
   return (
     <>
       {view === "game" && upgradeScreenFloor === null && !endRunOverlayVisible && (
-        <div className="fixed bottom-4 right-8 z-[90] pointer-events-auto">
+        <div className="fixed bottom-8 right-8 z-[90] pointer-events-auto">
           <button
             type="button"
             onClick={open}

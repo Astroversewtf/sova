@@ -1,5 +1,4 @@
-import { usePrivy, useSendTransaction, useWallets } from "@privy-io/react-auth";
-import { useParams } from "next/navigation";
+import { useSendTransaction } from "@privy-io/react-auth";
 import { Address, encodeFunctionData, erc20Abi, parseEther, parseUnits } from "viem";
 
 const CHAIN_ID = Number(process.env.NEXT_PUBLIC_CHAIN_ID)
@@ -18,7 +17,12 @@ const keyShopAbi = [
 ] as const;
 
 export function usePrivyTransaction() {
-    const { sendTransaction } = useSendTransaction();
+    const sendTransaction = useSendTransaction().sendTransaction as ((args: {
+        to: `0x${string}`;
+        data?: `0x${string}`;
+        value?: bigint;
+        chainId?: number;
+    }) => Promise<any>);
 
     async function sendTransactionBuyUSDT(amount: string) {
         const data = encodeFunctionData({

@@ -12,7 +12,7 @@ export function ShopTab() {
   const [quantity, setQuantity] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const { sendTransactionBuyKeys } = usePrivyTransaction();
-  const { wallets } = useWallets();
+  const wallets = (useWallets().wallets as Array<{ address?: string }>) ?? [];
   const playerStore = usePlayerStore();
   const totalPrice = (ENTRY_KEY_PRICE * quantity).toFixed(4);
 

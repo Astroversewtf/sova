@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createJSONStorage, persist, type StateStorage } from "zustand/middleware";
 
 export type ControlAction =
   | "moveUp"
@@ -64,6 +64,29 @@ function sanitizeBindings(raw: unknown): ControlBindings {
   return out as ControlBindings;
 }
 
+const memoryStorage = new Map<string, string>();
+const safeStorage: StateStorage = {
+  getItem: (name) => memoryStorage.get(name) ?? null,
+  setItem: (name, value) => {
+    memoryStorage.set(name, value);
+  },
+  removeItem: (name) => {
+    memoryStorage.delete(name);
+  },
+};
+
+function getSettingsStorage(): StateStorage {
+  if (typeof window === "undefined") return safeStorage;
+  try {
+    const testKey = "__sova_settings_probe__";
+    window.localStorage.setItem(testKey, "1");
+    window.localStorage.removeItem(testKey);
+    return window.localStorage;
+  } catch {
+    return safeStorage;
+  }
+}
+
 export const useSettingsStore = create<SettingsState>()(
   persist(
     (set) => ({
@@ -108,6 +131,7 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: "sova-settings-v1",
+      storage: createJSONStorage(getSettingsStorage),
       merge: (persistedState, currentState) => {
         const raw = (persistedState ?? {}) as Partial<SettingsState>;
         return {

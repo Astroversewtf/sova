@@ -458,10 +458,14 @@ export function AudioController() {
 
     const onUiClick = (event: PointerEvent) => {
       if (!unlockedRef.current) return;
-      const target = event.target as Element | null;
-      if (!target) return;
+      const target = event.target;
+      if (!(target instanceof Element)) return;
       if (!target.closest("button, [role='button'], a, input[type='button'], input[type='submit']")) return;
-      playOneShot("click-button");
+      try {
+        playOneShot("click-button");
+      } catch {
+        // Never allow UI click SFX failures to break app interaction.
+      }
     };
 
     const onHeartbeatVolume = (event: Event) => {

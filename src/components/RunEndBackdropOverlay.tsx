@@ -27,10 +27,10 @@ export function RunEndBackdropOverlay() {
 
   return createPortal(
     <div
-      className={`fixed inset-0 z-[60] pointer-events-none transition-opacity duration-[1200ms] ${
+      className={`fixed inset-0 z-[60] pointer-events-none transition-opacity duration-[180ms] ${
         visible ? "opacity-100" : "opacity-0"
       }`}
-      style={{ background: "rgba(0,0,0,0.94)" }}
+      style={{ background: "rgba(0,0,0,0.98)" }}
     />,
     document.body,
   );

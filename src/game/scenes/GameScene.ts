@@ -1215,39 +1215,37 @@ export class GameScene extends Phaser.Scene {
     const floor = this.currentFloor;
     const cam = this.cameras.main;
 
-    // 1. Camera shake
-    cam.shake(200, 0.008);
+    // Keep death feedback but shorten handoff to GAME OVER.
+    cam.shake(120, 0.006);
 
-    // 2. Slow motion
-    this.time.timeScale = 0.35;
-    this.tweens.timeScale = 0.35;
-    this.anims.globalTimeScale = 0.35;
+    // Quick dramatic slow-down
+    this.time.timeScale = 0.7;
+    this.tweens.timeScale = 0.7;
+    this.anims.globalTimeScale = 0.7;
 
-    // 3. Camera zoom in (keep SOVA signature)
+    // Fast zoom-in punch
     const baseZoom = cam.zoom;
     this.tweens.add({
       targets: cam,
-      zoom: baseZoom * 1.3,
-      duration: 400,
+      zoom: baseZoom * 1.2,
+      duration: 220,
       ease: "Quad.easeOut",
     });
 
-    // 4. Death desaturation
+    // Death desaturation
     this.vfxManager.applyDeathDesaturation();
 
-    // 5. Player death animation (purple burst + soul rise)
+    // Player death animation (purple burst + soul rise)
     this.player.playDeath();
 
-    // Slower transition feel: longer fade to black, same flow.
-    this.time.delayedCall(400, () => {
-      this.vfxManager.playPixelatedFadeToBlack(1800, () => {
-        this.time.delayedCall(200, () => {
-          // Reset time scale before transitioning
-          this.time.timeScale = 1;
-          this.tweens.timeScale = 1;
-          this.anims.globalTimeScale = 1;
-          this.scene.start("RunEndScene", { stats, floor });
-        });
+    // Quick cut to black + immediate React run-end sequence.
+    this.time.delayedCall(110, () => {
+      this.vfxManager.playPixelatedFadeToBlack(320, () => {
+        // Reset time scale before transitioning
+        this.time.timeScale = 1;
+        this.tweens.timeScale = 1;
+        this.anims.globalTimeScale = 1;
+        this.scene.start("RunEndScene", { stats, floor });
       });
     });
   }

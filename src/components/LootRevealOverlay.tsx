@@ -1,163 +1,319 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useGameStore } from "@/stores/gameStore";
+import { usePlayerStore } from "@/stores/playerStore";
 
-type RevealPhase = "coins" | "orbs";
+type RevealStage = "intro" | "closed" | "opening" | "reveal" | "summary";
 
-function useCountUp(target: number, durationMs: number, active: boolean) {
-  const [value, setValue] = useState(0);
-  const [done, setDone] = useState(false);
+type RewardItem = {
+  key: "coin" | "orb" | "ticket";
+  label: string;
+  icon: string;
+  amount: number;
+  accent: string;
+  cardGlow: string;
+};
 
-  useEffect(() => {
-    if (!active) {
-      setValue(0);
-      setDone(false);
-      return;
-    }
-
-    let raf = 0;
-    const start = performance.now();
-    setDone(false);
-
-    const tick = (now: number) => {
-      const progress = Math.min((now - start) / durationMs, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setValue(Math.floor(target * eased));
-
-      if (progress >= 1) {
-        setValue(target);
-        setDone(true);
-        return;
-      }
-      raf = requestAnimationFrame(tick);
-    };
-
-    raf = requestAnimationFrame(tick);
-    return () => {
-      if (raf) cancelAnimationFrame(raf);
-    };
-  }, [target, durationMs, active]);
-
-  return { value, done };
-}
+const OUTLINE =
+  "-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 -2px 0 #000, 0 2px 0 #000, -2px 0 0 #000, 2px 0 0 #000";
 
 export function LootRevealOverlay() {
   const lootPhase = useGameStore((s) => s.lootPhase);
   const data = useGameStore((s) => s.gameOverData);
-  const advance = useGameStore((s) => s.advanceLootPhase);
+  const keysUsed = useGameStore((s) => s.keysUsed);
+  const walletAddress = usePlayerStore((s) => s.walletAddress);
   const [mounted, setMounted] = useState(false);
-  const [introVisible, setIntroVisible] = useState(false);
   const [animIn, setAnimIn] = useState(false);
+  const [stage, setStage] = useState<RevealStage>("intro");
+  const [revealedCount, setRevealedCount] = useState(0);
+  const openingTimerRef = useRef<number | null>(null);
+  const finishingRef = useRef(false);
 
-  const isRevealPhase = lootPhase === "coins" || lootPhase === "orbs";
+  const isActive = lootPhase === "coins" && !!data;
 
-  useEffect(() => setMounted(true), []);
+  const rewards = useMemo<RewardItem[]>(() => {
+    if (!data) return [];
+    const list: RewardItem[] = [
+      {
+        key: "coin" as const,
+        label: "COINS",
+        icon: "/sprites/items/coin/coin_01.png",
+        amount: data.stats.coinsCollected,
+        accent: "#ffdf75",
+        cardGlow: "0 0 24px rgba(255,223,117,0.35)",
+      },
+      {
+        key: "orb" as const,
+        label: "ORBS",
+        icon: "/sprites/items/orb/item_orb_01.png",
+        amount: data.stats.orbsCollected,
+        accent: "#7fd2ff",
+        cardGlow: "0 0 24px rgba(127,210,255,0.35)",
+      },
+      {
+        key: "ticket" as const,
+        label: "TICKETS",
+        icon: "/sprites/items/golden_ticket/golden_ticket_big_01.png",
+        amount: data.stats.goldenTicketsCollected,
+        accent: "#ffb974",
+        cardGlow: "0 0 24px rgba(255,185,116,0.35)",
+      },
+    ].filter((item) => item.amount > 0);
+
+    return list.length > 0
+      ? list
+      : [
+          {
+            key: "coin" as const,
+            label: "COINS",
+            icon: "/sprites/items/coin/coin_01.png",
+            amount: 0,
+            accent: "#ffdf75",
+            cardGlow: "0 0 24px rgba(255,223,117,0.2)",
+          },
+        ];
+  }, [data]);
+
+  const currentIndex = Math.min(Math.max(revealedCount - 1, 0), rewards.length - 1);
+  const currentReward = rewards[currentIndex];
+
+  const goToLobby = useCallback(async () => {
+    if (finishingRef.current) return;
+    finishingRef.current = true;
+
+    if (walletAddress && data) {
+      try {
+        const res = await fetch("/api/run", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            address: walletAddress,
+            stats: data.stats,
+            floor: data.floor,
+            keysUsed,
+          }),
+        });
+        if (res.ok) {
+          const result = await res.json();
+          usePlayerStore.setState({
+            coins: result.coins,
+            gems: result.gems,
+            goldenTickets: result.goldenTickets,
+            bestScore: result.bestScore,
+            weeklyScore: result.weeklyScore,
+          });
+        }
+      } catch (err) {
+        console.error("Failed to submit run", err);
+      }
+    }
+
+    useGameStore.getState().endRun();
+    window.dispatchEvent(
+      new CustomEvent("sova:run-end-action", { detail: "lobby" }),
+    );
+  }, [data, keysUsed, walletAddress]);
 
   useEffect(() => {
-    if (!isRevealPhase || !data) {
-      setIntroVisible(false);
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (openingTimerRef.current !== null) {
+      window.clearTimeout(openingTimerRef.current);
+      openingTimerRef.current = null;
+    }
+
+    if (!isActive) {
       setAnimIn(false);
+      setStage("intro");
+      setRevealedCount(0);
       return;
     }
 
+    setStage("intro");
+    setRevealedCount(0);
     setAnimIn(false);
-    if (lootPhase === "coins") setIntroVisible(true);
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => setAnimIn(true));
-    });
-  }, [isRevealPhase, lootPhase, data]);
+    requestAnimationFrame(() => setAnimIn(true));
+  }, [isActive]);
 
   useEffect(() => {
-    if (!isRevealPhase || lootPhase !== "coins" || !introVisible) return;
-    const id = window.setTimeout(() => setIntroVisible(false), 1700);
-    return () => window.clearTimeout(id);
-  }, [isRevealPhase, lootPhase, introVisible]);
+    return () => {
+      if (openingTimerRef.current !== null) {
+        window.clearTimeout(openingTimerRef.current);
+      }
+    };
+  }, []);
 
-  const handleSkip = useCallback(() => {
-    if (!isRevealPhase) return;
-    if (introVisible) {
-      setIntroVisible(false);
+  const handleAdvance = useCallback(() => {
+    if (!isActive) return;
+
+    if (stage === "intro") {
+      setStage("closed");
       return;
     }
-    advance();
-  }, [advance, introVisible, isRevealPhase]);
+
+    if (stage === "closed") {
+      setStage("opening");
+      openingTimerRef.current = window.setTimeout(() => {
+        setStage("reveal");
+        setRevealedCount(1);
+      }, 480);
+      return;
+    }
+
+    if (stage === "opening") return;
+
+    if (stage === "reveal") {
+      if (revealedCount < rewards.length) {
+        setRevealedCount((n) => n + 1);
+        return;
+      }
+      setStage("summary");
+      return;
+    }
+
+    if (stage === "summary") {
+      setAnimIn(false);
+      window.setTimeout(() => {
+        void goToLobby();
+      }, 120);
+    }
+  }, [goToLobby, isActive, revealedCount, rewards.length, stage]);
 
   useEffect(() => {
-    if (!isRevealPhase) return;
+    if (!isActive) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Enter" || e.key === " ") {
+      if (e.key === " " || e.key === "Enter") {
         e.preventDefault();
-        handleSkip();
+        handleAdvance();
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isRevealPhase, handleSkip]);
+  }, [handleAdvance, isActive]);
 
-  const hasActiveReveal = mounted && !!data && isRevealPhase;
-  const phase: RevealPhase = lootPhase === "orbs" ? "orbs" : "coins";
-  const target = data
-    ? (phase === "coins" ? data.stats.coinsCollected : data.stats.orbsCollected)
-    : 0;
-  const duration = phase === "coins"
-    ? Math.min(3600, Math.max(1800, target * 85))
-    : Math.min(3400, Math.max(1700, target * 105));
+  if (!mounted || !isActive) return null;
 
-  const { value, done } = useCountUp(target, duration, hasActiveReveal && animIn && !introVisible);
+  const isChestUp = stage === "summary";
+  const chestSrc =
+    stage === "closed" || stage === "opening"
+      ? "/images/run-end/chest-open.png"
+      : "/images/run-end/chest-closed.png";
+  const bottomHint =
+    stage === "intro"
+      ? "CLICK TO CONTINUE"
+      : stage === "closed"
+      ? "CLICK TO OPEN"
+      : stage === "opening"
+      ? "OPENING..."
+      : stage === "reveal"
+      ? revealedCount < rewards.length
+        ? "CLICK FOR NEXT REWARD"
+        : "CLICK TO SHOW ALL"
+      : "CLICK TO CONTINUE";
 
-  useEffect(() => {
-    if (!hasActiveReveal || introVisible || !done) return;
-    const id = window.setTimeout(() => advance(), 850);
-    return () => window.clearTimeout(id);
-  }, [advance, done, hasActiveReveal, introVisible]);
-
-  if (!hasActiveReveal) return null;
-
-  const title = phase === "coins" ? "COINS" : "ORBS";
-  const icon = phase === "coins"
-    ? "/sprites/items/coin/coin_01.png"
-    : "/sprites/items/orb/item_orb_01.png";
-
-  const overlay = (
+  return createPortal(
     <div
-      className={`fixed inset-0 z-[70] select-none cursor-pointer transition-opacity duration-500 ${
+      className={`fixed inset-0 z-[70] select-none cursor-pointer transition-opacity duration-200 ${
         animIn ? "opacity-100" : "opacity-0"
       }`}
-      style={{ background: "rgba(0,0,0,0.96)" }}
-      onClick={handleSkip}
+      style={{ background: "rgba(0,0,0,0.97)" }}
+      onClick={handleAdvance}
     >
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        {introVisible ? (
-          <h1 className="font-pixel text-[64px] sm:text-[92px] text-white leading-none tracking-wide">
+      <div className="absolute inset-0 flex flex-col items-center justify-center overflow-hidden">
+        {stage === "intro" && (
+          <h1
+            className="font-pixel text-[56px] sm:text-[92px] text-white leading-none tracking-wide"
+            style={{ textShadow: OUTLINE }}
+          >
             GAME OVER
           </h1>
-        ) : (
+        )}
+
+        {stage !== "intro" && (
           <>
-            <h1 className="font-pixel text-[42px] sm:text-[58px] text-white uppercase tracking-wide mb-8">
-              {title}
-            </h1>
             <img
-              src={icon}
+              src={chestSrc}
               alt=""
-              className="w-20 h-20 sm:w-24 sm:h-24 mb-6 object-contain"
+              className={`absolute z-10 transition-all duration-[450ms] ease-out object-contain ${
+                isChestUp
+                  ? "top-[15%] w-[180px] h-[180px] sm:w-[230px] sm:h-[230px]"
+                  : "top-[58%] -translate-y-1/2 w-[240px] h-[240px] sm:w-[320px] sm:h-[320px]"
+              } ${
+                stage === "opening" || stage === "reveal"
+                  ? "animate-run-end-chest-shake"
+                  : stage === "closed"
+                  ? "animate-run-end-chest-bounce"
+                  : ""
+              }`}
               style={{ imageRendering: "pixelated" }}
             />
-            <span className="font-press-start-crisp text-[60px] sm:text-[86px] text-white leading-none">
-              {value}
-            </span>
+
+            {stage === "reveal" && (
+              <div className="absolute z-20 left-1/2 top-[31%] -translate-x-1/2 flex items-center gap-3 sm:gap-4">
+                <img
+                  src={currentReward.icon}
+                  alt=""
+                  className="w-16 h-16 sm:w-20 sm:h-20 object-contain"
+                  style={{ imageRendering: "pixelated" }}
+                />
+                <div
+                  className="font-press-start-crisp text-[40px] sm:text-[52px] leading-none text-gray-300"
+                >
+                  {currentReward.amount}
+                </div>
+              </div>
+            )}
+
+            {stage === "summary" && (
+              <div className="absolute bottom-[20%] left-1/2 -translate-x-1/2 flex items-center justify-center gap-3 sm:gap-4">
+                {rewards.map((item) => (
+                  <RewardCard key={item.key} item={item} />
+                ))}
+              </div>
+            )}
           </>
         )}
       </div>
 
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2">
-        <span className="font-press-start-crisp text-[10px] text-white/70 tracking-wide animate-pulse">
-          CLICK TO SKIP
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-hint-blink">
+        <span className="font-press-start text-[10px] text-white/72 tracking-wide">
+          {bottomHint}
         </span>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+function RewardCard({ item, large = false }: { item: RewardItem; large?: boolean }) {
+  return (
+    <div
+      className={`rounded-[10px] border border-white/20 bg-[#16243c] flex items-center ${
+        large ? "w-[230px] h-[130px] sm:w-[280px] sm:h-[150px] px-5" : "w-[102px] h-[112px] sm:w-[114px] sm:h-[122px] px-3"
+      }`}
+      style={{ boxShadow: item.cardGlow }}
+    >
+      <div className="flex w-full flex-col items-center justify-center">
+        <img
+          src={item.icon}
+          alt=""
+          className={`${large ? "w-14 h-14 sm:w-16 sm:h-16 mb-3" : "w-8 h-8 sm:w-9 sm:h-9 mb-2"} object-contain`}
+          style={{ imageRendering: "pixelated" }}
+        />
+        <div className="font-pixel text-white text-[13px] sm:text-[14px] leading-none mb-1">
+          {item.label}
+        </div>
+        <div
+          className={`${large ? "font-pixel text-[42px] sm:text-[48px]" : "font-pixel text-[26px] sm:text-[29px]"} leading-none`}
+          style={{ color: item.accent, textShadow: OUTLINE }}
+        >
+          {item.amount}
+        </div>
       </div>
     </div>
   );
-
-  return createPortal(overlay, document.body);
 }
