@@ -6,17 +6,7 @@ import { avalancheFuji } from "viem/chains";
 const CHAIN_ID = Number(process.env.NEXT_PUBLIC_CHAIN_ID)
 const WALLET_ADDRESS = process.env.NEXT_PUBLIC_WALLET_ADDRESS as `0x${string}`
 const USDT_ADDRESS = process.env.NEXT_PUBLIC_USDT_ADDRESS as `0x${string}`
-const KEY_SHOP_ADDRESS = process.env.NEXT_PUBLIC_KEY_SHOP_ADDRESS as `0x${string}`
-
-const keyShopAbi = [
-    {
-        name: "buyKeys",
-        type: "function",
-        stateMutability: "payable",
-        inputs: [{ name: "quantity", type: "uint256" }],
-        outputs: [],
-    },
-] as const;
+const SPLITTER_ADDRESS = process.env.NEXT_PUBLIC_SPLITTER_ADDRESS as `0x${string}`
 
 const publicClient = createPublicClient({
     chain: avalancheFuji,
@@ -64,17 +54,11 @@ export function usePrivyTransaction() {
         })
     }
 
-    async function sendTransactionBuyKeys(quantity: number, totalAvax: string) {
+    async function sendTransactionBuyKeys(totalAvax: string) {
         const client = await getWalletClient();
-        const data = encodeFunctionData({
-            abi: keyShopAbi,
-            functionName: "buyKeys",
-            args: [BigInt(quantity)],
-        });
 
         const txHash = await client.sendTransaction({
-            to: KEY_SHOP_ADDRESS,
-            data,
+            to: SPLITTER_ADDRESS,
             value: parseEther(totalAvax),
             chainId: CHAIN_ID,
         });

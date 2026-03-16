@@ -7,9 +7,9 @@ contract SovaSplitter {
     address public weeklyPoolContract;
     address public teamWallet;
 
-    uint256 public jackpotShare;   // ex: 60
-    uint256 public weeklyShare;    // ex: 30
-    uint256 public teamShare;      // ex: 10
+    uint256 public jackpotShare;
+    uint256 public weeklyShare;
+    uint256 public teamShare;
 
     event Split(uint256 total, uint256 toJackpot, uint256 toWeekly, uint256 toTeam);
 

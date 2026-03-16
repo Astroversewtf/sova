@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createPublicClient, http, decodeEventLog, parseAbiItem } from "viem";
+import { createPublicClient, http, decodeEventLog, parseAbiItem, parseEther } from "viem";
 import { avalancheFuji } from "viem/chains";
 import { updateUser, getUser } from "@/lib/firestore";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
-const KEY_SHOP_ADDRESS = process.env.NEXT_PUBLIC_KEY_SHOP_ADDRESS as `0x${string}`;
+const SPLITTER_ADDRESS = process.env.SPLITTER_ADDRESS as `0x${string}`;
+const KEY_PRICE = parseEther("0.25");
 
-const keysPurchasedEvent = parseAbiItem(
-  "event KeysPurchased(address indexed buyer, uint256 quantity, uint256 totalPaid)"
+const splitEvent = parseAbiItem(
+  "event Split(uint256 total, uint256 toJackpot, uint256 toWeekly, uint256 toTeam)"
 );
 
 const client = createPublicClient({
@@ -38,38 +39,43 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "transaction failed" }, { status: 400 });
     }
 
-    if (receipt.to?.toLowerCase() !== KEY_SHOP_ADDRESS.toLowerCase()) {
-      return NextResponse.json({ error: "transaction not to KeyShop contract" }, { status: 400 });
+    if (receipt.to?.toLowerCase() !== SPLITTER_ADDRESS.toLowerCase()) {
+      return NextResponse.json({ error: "transaction not to SovaSplitter contract" }, { status: 400 });
     }
 
     const log = receipt.logs.find((l) => {
       try {
         const decoded = decodeEventLog({
-          abi: [keysPurchasedEvent],
+          abi: [splitEvent],
           data: l.data,
           topics: l.topics,
         });
-        return decoded.eventName === "KeysPurchased";
+        return decoded.eventName === "Split";
       } catch {
         return false;
       }
     });
 
     if (!log) {
-      return NextResponse.json({ error: "KeysPurchased event not found" }, { status: 400 });
+      return NextResponse.json({ error: "Split event not found" }, { status: 400 });
     }
 
     const decoded = decodeEventLog({
-      abi: [keysPurchasedEvent],
+      abi: [splitEvent],
       data: log.data,
       topics: log.topics,
     });
 
-    const buyer = (decoded.args as { buyer: string }).buyer.toLowerCase();
-    const quantity = Number((decoded.args as { quantity: bigint }).quantity);
+    const total = (decoded.args as { total: bigint }).total;
+    const quantity = Number(total / KEY_PRICE);
 
-    if (buyer !== normalizedAddress) {
-      return NextResponse.json({ error: "buyer does not match address" }, { status: 403 });
+    if (quantity <= 0) {
+      return NextResponse.json({ error: "invalid payment amount" }, { status: 400 });
+    }
+
+    const sender = receipt.from.toLowerCase();
+    if (sender !== normalizedAddress) {
+      return NextResponse.json({ error: "sender does not match address" }, { status: 403 });
     }
 
     await setDoc(txRef, { address: normalizedAddress, quantity, processedAt: new Date().toISOString() });

@@ -19,7 +19,7 @@ export function ShopTab() {
   const handleBuy = async () => {
     setIsLoading(true);
     try {
-      const txHash = await sendTransactionBuyKeys(quantity, totalPrice);
+      const txHash = await sendTransactionBuyKeys(totalPrice);
       console.log("Transaction success", txHash);
 
       const res = await fetch("/api/keys/verify", {
