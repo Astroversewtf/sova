@@ -3,7 +3,7 @@ import { CellType, FogState, type TilePos } from "../types";
 import { TILE_SIZE, GAME_WIDTH, GAME_HEIGHT, CAMERA_ZOOM } from "../constants";
 
 /**
- * Fog of War — MoG-style tile-per-tile black rectangles with raycasting.
+ * Fog of War —  tile-per-tile black rectangles with raycasting.
  *
  *  State 0 (UNEXPLORED) = solid black (α 1.0)
  *  State 1 (EXPLORED)   = dark overlay (α 0.7)

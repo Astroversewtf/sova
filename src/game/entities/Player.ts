@@ -178,7 +178,6 @@ export class Player {
     });
   }
 
-  /** MoG-style death: white flash → particle burst → soul rises + fades */
   playDeath(onComplete?: () => void) {
     emitSfxEvent("death");
     this.hitFlashTimer?.remove(false);
@@ -194,7 +193,6 @@ export class Player {
     // 1. Flash white
     this.sprite.setTintFill(0xffffff);
 
-    // 2. Purple particle burst (14 particles, MoG player death style)
     const purples = [0x9b59b6, 0x8e44ad, 0xbb6bd9, 0x7d3c98];
     for (let i = 0; i < 14; i++) {
       const size = 4 + 5 * Math.random();

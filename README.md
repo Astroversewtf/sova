@@ -219,13 +219,39 @@ GameScene (main loop)
 - Configured for Avalanche Fuji testnet (chain ID 43113)
 - Beta-gated access via Firestore codes
 
+### Smart Contracts
+
+#### SovaKeyShop (`contracts/contracts/SovaKeyShop.sol`)
+
+On-chain contract deployed to Avalanche Fuji for purchasing game keys with AVAX.
+
+**Functions:**
+- `buyKeys(uint256 quantity)` — Purchase keys by sending the exact AVAX amount (`quantity * keyPrice`). Emits a `KeysPurchased` event.
+- `setKeyPrice(uint256 _newPrice)` — Owner-only: update the per-key price.
+- `withdraw()` — Owner-only: withdraw accumulated AVAX from the contract.
+
+**Events:**
+- `KeysPurchased(address indexed buyer, uint256 quantity, uint256 totalPaid)`
+- `KeyPriceUpdated(uint256 oldPrice, uint256 newPrice)`
+
+**Verification flow:**
+1. Client calls `buyKeys()` on the contract via viem wallet client
+2. Client waits for transaction confirmation (`waitForTransactionReceipt`)
+3. Client sends the tx hash to `POST /api/keys/verify`
+4. Server fetches the transaction receipt, decodes the `KeysPurchased` event, validates the buyer address and contract target
+5. Server checks `processedTx` Firestore collection for replay protection
+6. Server credits keys to the user in Firestore
+
+**Contract tooling:** Hardhat 3 in an isolated `contracts/` subdirectory (separate `package.json` and `tsconfig.json` to avoid conflicts with the Next.js project).
+
 ### Transactions
 
-- **AVAX transfers**: Direct native token transfers for shop purchases
+- **Key purchases**: Encoded `buyKeys()` calls to the SovaKeyShop contract with AVAX payment
+- **AVAX transfers**: Direct native token transfers for other shop purchases
 - **ERC20 transfers**: Encoded `transfer()` calls for USDT payments
-- Transaction hooks via `@privy-io/react-auth` SDK
+- Transaction encoding via viem (`createWalletClient`, `encodeFunctionData`)
 
 ### Shop
 
 Items purchasable with AVAX (testnet):
-- Keys: 0.25 AVAX each
+- Keys: 0.25 AVAX each (price set via smart contract)

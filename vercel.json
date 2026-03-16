@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/claim/advance-week",
+      "schedule": "0 16 * * 5"
+    }
+  ]
+}

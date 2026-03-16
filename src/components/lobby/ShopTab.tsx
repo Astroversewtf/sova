@@ -19,14 +19,13 @@ export function ShopTab() {
   const handleBuy = async () => {
     setIsLoading(true);
     try {
-      const receipt = await sendTransactionBuyKeys(quantity, totalPrice);
-      console.log("Transaction success", receipt);
+      const txHash = await sendTransactionBuyKeys(totalPrice);
+      console.log("Transaction success", txHash);
 
-      const address = wallets[0]?.address;
       const res = await fetch("/api/keys/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ txHash: receipt.hash, address }),
+        body: JSON.stringify({ txHash, address: wallets[0]?.address }),
       });
 
       if (!res.ok) {

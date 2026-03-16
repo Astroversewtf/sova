@@ -278,7 +278,6 @@ export class Enemy {
     for (const h of this.hearts) h.setVisible(v);
   }
 
-  /** MoG-style death: white flash → particle burst → soul rises + fades */
   die() {
     emitSfxEvent("death");
     this.clearHitFlash();

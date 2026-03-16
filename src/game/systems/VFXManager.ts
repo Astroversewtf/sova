@@ -3,7 +3,7 @@ import { GAME_WIDTH, GAME_HEIGHT } from "../constants";
 import { emitSfxEvent, emitHeartbeatVolume } from "@/lib/audioEvents";
 
 /**
- * VFXManager — MoG-style desaturation when energy is low.
+ * VFXManager — desaturation when energy is low.
  *
  * Uses camera postFX ColorMatrix to desaturate the screen when energy < 20.
  * Also exposes a heartbeat hook (sound not yet connected).
