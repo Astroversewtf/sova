@@ -2,6 +2,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export { SovaJackpotPrize__factory } from "./SovaJackpotPrize__factory";
-export { SovaKeyShop__factory } from "./SovaKeyShop__factory";
+export * as chainlink from "./@chainlink";
+export * as contracts from "./contracts";
 export { SovaSplitter__factory } from "./SovaSplitter__factory";
 export { SovaWeeklyPool__factory } from "./SovaWeeklyPool__factory";

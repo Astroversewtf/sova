@@ -1,5 +1,5 @@
-require("@nomicfoundation/hardhat-toolbox");
 require("dotenv").config();
+require("@nomicfoundation/hardhat-toolbox");
 
 const config = {
   solidity: "0.8.19",
