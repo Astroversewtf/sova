@@ -1,20 +1,15 @@
 import { keccak256, encodePacked } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { getUser } from "@/lib/firestore";
+import { getUser, updateUser } from "@/lib/firestore";
 
 const SIGNER_KEY = process.env.DEPLOYER_PRIVATE_KEY as `0x${string}`;
 const account = privateKeyToAccount(SIGNER_KEY);
 
-// TODO finish reward logic
-async function calculateReward(player: string, week: number): Promise<bigint> {
-  return BigInt(0);
-}
-
 export async function POST(req: Request) {
-  const { player, week } = await req.json();
+  const { player, requestId } = await req.json();
 
-  if (!player || week == null) {
-    return Response.json({ error: "Missing player or week" }, { status: 400 });
+  if (!player || requestId == null) {
+    return Response.json({ error: "Missing player or requestId" }, { status: 400 });
   }
 
   const address = player.toLowerCase();
@@ -24,12 +19,16 @@ export async function POST(req: Request) {
     return Response.json({ error: "User not found" }, { status: 404 });
   }
 
-  const amount = await calculateReward(address, week);
+  if ((user.goldenTickets ?? 0) < 1) {
+    return Response.json({ error: "No golden ticket available" }, { status: 403 });
+  }
+
+  await updateUser(address, { goldenTickets: user.goldenTickets - 1 });
 
   const hash = keccak256(
     encodePacked(
-      ["address", "uint256", "uint256"],
-      [player as `0x${string}`, BigInt(week), amount]
+      ["address", "uint256"],
+      [player as `0x${string}`, BigInt(requestId)]
     )
   );
 
@@ -37,5 +36,5 @@ export async function POST(req: Request) {
     message: { raw: hash },
   });
 
-  return Response.json({ amount: amount.toString(), signature });
+  return Response.json({ signature });
 }

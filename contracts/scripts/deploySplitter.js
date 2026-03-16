@@ -15,8 +15,8 @@ async function main() {
     jackpot,
     weeklyPool,
     teamWallet,
-    60, // jackpot %
-    30, // weekly pool %
+    30, // jackpot %
+    60, // weekly pool %
     10  // team %
   );
   await contract.waitForDeployment();

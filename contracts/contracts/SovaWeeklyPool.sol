@@ -2,11 +2,9 @@
 pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 contract SovaWeeklyPool {
     using ECDSA for bytes32;
-    using MessageHashUtils for bytes32;
 
     address public owner;
     address public signer;

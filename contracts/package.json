@@ -8,7 +8,11 @@
     "deploy:fuji": "hardhat run scripts/deploy.ts --network fuji"
   },
   "devDependencies": {
-    "hardhat": "^2.24.0",
-    "@nomicfoundation/hardhat-toolbox": "^5.0.0"
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "hardhat": "^2.24.0"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^4.9.6",
+    "dotenv": "^17.3.1"
   }
 }

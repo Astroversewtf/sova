@@ -5,7 +5,7 @@ import { updateUser, getUser } from "@/lib/firestore";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
-const SPLITTER_ADDRESS = process.env.SPLITTER_ADDRESS as `0x${string}`;
+const SPLITTER_ADDRESS = process.env.NEXT_PUBLIC_SPLITTER_ADDRESS as `0x${string}`;
 const KEY_PRICE = parseEther("0.25");
 
 const splitEvent = parseAbiItem(
