@@ -652,7 +652,7 @@ export function generateFloor(floor: number, hasKilledBossThisRun = false): Floo
   for (const c of chestSpawns) occupied.add(`${c.x},${c.y}`);
 
   // 12. Traps
-  const trapSpawns = placeTraps(cells, occupied, rooms, w, h, floor);
+  const trapSpawns = placeTraps(cells, occupied, chestSpawns, rooms, w, h, floor);
   for (const tr of trapSpawns) occupied.add(`${tr.pos.x},${tr.pos.y}`);
 
   // 13. Fountain
@@ -683,6 +683,12 @@ export function generateFloor(floor: number, hasKilledBossThisRun = false): Floo
     wallPropSpawns,
     bossSpawn,
     statuePos,
+    rooms: rooms.map((room) => ({
+      x: room.x,
+      y: room.y,
+      w: room.w,
+      h: room.h,
+    })),
   };
 }
 
@@ -773,21 +779,21 @@ function placeEnemies(
     remaining--;
   }
 
-  const placedTotal = chosenPositions.length;
-  const rockCount = Math.round(placedTotal * cfg.rockPct);
-  const golemCount = Math.round(placedTotal * cfg.golemPct);
-  const ghostCount = Math.max(0, placedTotal - rockCount - golemCount);
+  const pickType = (): EnemyType => {
+    const weights = cfg.weights;
+    if (weights.length === 0) return EnemyType.ROCK;
+    const totalWeight = weights.reduce((sum, w) => sum + w.weight, 0);
+    let roll = Math.random() * totalWeight;
+    for (const w of weights) {
+      roll -= w.weight;
+      if (roll <= 0) return w.type;
+    }
+    return weights[weights.length - 1].type;
+  };
 
-  const types: EnemyType[] = [
-    ...Array(rockCount).fill(EnemyType.ROCK),
-    ...Array(golemCount).fill(EnemyType.GOLEM),
-    ...Array(ghostCount).fill(EnemyType.GHOST),
-  ];
-  shuffle(types);
-
-  const enemies: EnemySpawnData[] = chosenPositions.map((pos, i) => ({
+  const enemies: EnemySpawnData[] = chosenPositions.map((pos) => ({
     pos,
-    type: types[i] ?? EnemyType.ROCK,
+    type: pickType(),
   }));
 
   // Boss is extra on boss floors and does not consume normal enemy slots.
@@ -917,27 +923,48 @@ export function isRoomEdge(cells: CellType[][], x: number, y: number, w: number,
 function placeTraps(
   cells: CellType[][],
   occupied: Set<string>,
+  chestSpawns: TilePos[],
   rooms: Room[],
   w: number,
   h: number,
   floor: number,
 ): TrapSpawnData[] {
+  const chestKeys = new Set(chestSpawns.map((c) => `${c.x},${c.y}`));
+  const isAdjacentToCorridor = (x: number, y: number): boolean => {
+    for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+      const nx = x + dx;
+      const ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+      if (cells[ny][nx] !== CellType.FLOOR) continue;
+      if (isCorridorTile(cells, nx, ny, w, h)) return true;
+    }
+    return false;
+  };
+
   const count = getTrapCount(floor);
   const candidates: TilePos[] = [];
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       if (cells[y][x] !== CellType.FLOOR) continue;
-      if (occupied.has(`${x},${y}`)) continue;
-      if (isCorridorTile(cells, x, y, w, h) || isRoomEdge(cells, x, y, w, h)) {
-        candidates.push({ x, y });
-      }
+      const key = `${x},${y}`;
+      // Allow traps to share tile with breakables (chests), but keep all other occupancy blocked.
+      if (occupied.has(key) && !chestKeys.has(key)) continue;
+      // Never place on corridor/entry tiles to avoid blocking room access.
+      if (isCorridorTile(cells, x, y, w, h)) continue;
+      if (isAdjacentToCorridor(x, y)) continue;
+      if (!isRoomEdge(cells, x, y, w, h)) continue;
+      candidates.push({ x, y });
     }
   }
   shuffle(candidates);
 
   const traps: TrapSpawnData[] = [];
   for (let i = 0; i < count && i < candidates.length; i++) {
-    traps.push({ pos: candidates[i], type: TrapType.SPIKE });
+    traps.push({
+      pos: candidates[i],
+      type: TrapType.SPIKE,
+      hidden: Math.random() < 0.9,
+    });
   }
   return traps;
 }

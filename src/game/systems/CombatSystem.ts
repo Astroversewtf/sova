@@ -26,13 +26,14 @@ export class CombatSystem {
    */
   resolveBump(player: Player, enemy: Enemy): boolean {
     const store = useGameStore.getState();
-    const atk = store.atk;
+    const baseAtk = store.atk + store.getAttackBonus();
+    const critChance = store.getCritChance();
 
     // Enemy damage = base DMG × tier dmgMult
     const tier = getTier(this.scene.currentFloor);
     const baseDMG = getEnemyDMG(enemy.type);
     const damageTaken = enemy.type === EnemyType.BOSS
-      ? 7
+      ? (useGameStore.getState().tutorialMode ? 3 : 7)
       : Math.ceil(baseDMG * tier.dmgMult);
 
     // Player attacks enemy
@@ -40,21 +41,20 @@ export class CombatSystem {
       this.scene.enemyAI.registerBossHit(enemy);
     }
     emitSfxEvent("user-attack");
-    enemy.takeDamage(atk);
+    const atkRoll = this.resolveFractionalDamage(baseAtk);
+    const isCrit = critChance > 0 && Math.random() < critChance;
+    const finalAtk = Math.max(1, isCrit ? atkRoll * 2 : atkRoll);
+    enemy.takeDamage(finalAtk);
 
     // Enemy attacks player
-    this.scene.energyManager.takeDamage(damageTaken);
-    player.flashDamage();
-    this.scene.vfxManager.flashDamageOverlay();
-    emitSfxEvent("user-get-hit");
-
-    // Popup: damage dealt to enemy
-    this.scene.popupManager.showDamageNumber(enemy.pos.x, enemy.pos.y, atk);
-
-    // Popup: damage received by player
-    this.scene.popupManager.showPlayerDamageNumber(player.pos.x, player.pos.y, damageTaken);
-
-    this.scene.events.emit("combat:hit", { damage: damageTaken });
+    const damageApplied = this.scene.energyManager.takeDamage(damageTaken);
+    if (damageApplied > 0) {
+      player.flashDamage();
+      this.scene.vfxManager.flashDamageOverlay();
+      emitSfxEvent("user-get-hit");
+      this.scene.popupManager.showPlayerDamageNumber(player.pos.x, player.pos.y, damageApplied);
+      this.scene.events.emit("combat:hit", { damage: damageApplied });
+    }
 
     if (!enemy.isAlive()) {
       enemy.die();
@@ -71,11 +71,13 @@ export class CombatSystem {
         store.incrementKills();
       }
 
-      // Life Steal
-      const lifeStealStacks = store.getUpgradeStacks("life_steal");
-      if (lifeStealStacks > 0) {
-        this.scene.energyManager.heal(lifeStealStacks * 2);
-        this.scene.events.emit("energy:heal", lifeStealStacks * 2);
+      const regenChance = store.getRegenOnKillChance();
+      if (regenChance > 0 && Math.random() < regenChance) {
+        const recovered = store.consumeDamageTakenPool();
+        if (recovered > 0) {
+          this.scene.energyManager.heal(recovered);
+          this.scene.events.emit("energy:heal", recovered);
+        }
       }
 
       // Drop loot at enemy position
@@ -97,17 +99,16 @@ export class CombatSystem {
     const tier = getTier(this.scene.currentFloor);
     const baseDMG = getEnemyDMG(enemy.type);
     const damageTaken = enemy.type === EnemyType.BOSS
-      ? 7
+      ? (useGameStore.getState().tutorialMode ? 3 : 7)
       : Math.ceil(baseDMG * tier.dmgMult);
-    this.scene.energyManager.takeDamage(damageTaken);
-    player.flashDamage();
-    this.scene.vfxManager.flashDamageOverlay();
-    emitSfxEvent("user-get-hit");
-
-    // Popup: damage received by player
-    this.scene.popupManager.showPlayerDamageNumber(player.pos.x, player.pos.y, damageTaken);
-
-    this.scene.events.emit("combat:hit", { damage: damageTaken });
+    const damageApplied = this.scene.energyManager.takeDamage(damageTaken);
+    if (damageApplied > 0) {
+      player.flashDamage();
+      this.scene.vfxManager.flashDamageOverlay();
+      emitSfxEvent("user-get-hit");
+      this.scene.popupManager.showPlayerDamageNumber(player.pos.x, player.pos.y, damageApplied);
+      this.scene.events.emit("combat:hit", { damage: damageApplied });
+    }
   }
 
   /**
@@ -121,6 +122,14 @@ export class CombatSystem {
 
     // Boss — always drops something
     if (enemyType === EnemyType.BOSS) {
+      if (useGameStore.getState().tutorialMode) {
+        const id = `enemy-loot-${Date.now()}`;
+        const t = new Treasure(this.scene, pos, TreasureType.GOLDEN_TICKET, 1, id);
+        this.scene.treasures.push(t);
+        t.setVisible(this.scene.fogOfWar.isVisible(pos));
+        return;
+      }
+
       const floor = Math.max(7, this.scene.currentFloor);
       const goldenChance = Math.min(0.08 + (floor - 7) * 0.01, 0.12);
       const coinChance = 0.55;
@@ -142,10 +151,14 @@ export class CombatSystem {
     }
 
     // Normal enemies — per-type drop tables
-    const isGhost = enemyType === EnemyType.GHOST;
-    const energyChance = isGhost ? 0.45 : 0.50;
-    const coinsChance = isGhost ? 0.25 : 0.27;
-    const orbsChance = isGhost ? 0.15 : 0.08;
+    const isGhostLike =
+      enemyType === EnemyType.GHOST || enemyType === EnemyType.FLYING_ROCK;
+    const isTankLike =
+      enemyType === EnemyType.GOLEM || enemyType === EnemyType.ROCK2;
+    const isTree = enemyType === EnemyType.TREE;
+    const energyChance = isGhostLike ? 0.45 : 0.50;
+    const coinsChance = isGhostLike ? 0.25 : 0.27;
+    const orbsChance = isGhostLike ? 0.15 : 0.08;
     // Nada = 15% for all
 
     let type: TreasureType | null;
@@ -163,11 +176,11 @@ export class CombatSystem {
     if (type === TreasureType.ORB) {
       value = 1 * keys; // Linear key multiplier
     } else if (type === TreasureType.ENERGY) {
-      const base = enemyType === EnemyType.GOLEM ? 10 : isGhost ? 7 : 5;
+      const base = isTree ? 12 : isTankLike ? 10 : isGhostLike ? 7 : 5;
       value = Math.floor(base * tier.lootMult); // Energy NOT multiplied by keys
     } else {
       // COIN
-      const base = enemyType === EnemyType.GOLEM ? 30 : isGhost ? 25 : 15;
+      const base = isTree ? 40 : isTankLike ? 30 : isGhostLike ? 25 : 15;
       value = Math.floor(base * tier.lootMult * keys); // Linear key multiplier
     }
 
@@ -175,5 +188,12 @@ export class CombatSystem {
     const t = new Treasure(this.scene, pos, type, value, id);
     this.scene.treasures.push(t);
     t.setVisible(this.scene.fogOfWar.isVisible(pos));
+  }
+
+  private resolveFractionalDamage(amount: number): number {
+    if (amount <= 0) return 0;
+    const whole = Math.floor(amount);
+    const fractional = amount - whole;
+    return whole + (Math.random() < fractional ? 1 : 0);
   }
 }

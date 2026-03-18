@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useWalletStore } from "@/stores/walletStore";
+import { useGameStore } from "@/stores/gameStore";
 import { GameHUD } from "./GameHUD";
 import { UpgradeOverlay } from "./UpgradeOverlay";
 import { LootRevealOverlay } from "./LootRevealOverlay";
@@ -12,6 +13,7 @@ export function PhaserGame() {
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<Phaser.Game | null>(null);
   const setView = useWalletStore((s) => s.setView);
+  const endRun = useGameStore((s) => s.endRun);
 
   useEffect(() => {
     let cancelled = false;
@@ -50,6 +52,7 @@ export function PhaserGame() {
       });
 
       game.events.on("go-to-lobby", () => {
+        endRun();
         setView("lobby");
       });
 
@@ -88,7 +91,7 @@ export function PhaserGame() {
         containerRef.current.innerHTML = "";
       }
     };
-  }, [setView]);
+  }, [endRun, setView]);
 
   return (
     <div className="relative w-full h-full bg-black">

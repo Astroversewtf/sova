@@ -1,14 +1,70 @@
 import { create } from "zustand";
-import { TurnPhase, type UpgradeId, type RunStats } from "@/game/types";
-import { MAX_ENERGY_BASE } from "@/game/constants";
+import {
+  TurnPhase,
+  type ActiveBuffState,
+  type BuffId,
+  type EvolutionPath,
+  type EvolutionTier,
+  type RunStats,
+  type TreasureType,
+  type UpgradeId,
+} from "@/game/types";
+import { MAX_ENERGY_BASE, UPGRADE_BY_ID } from "@/game/constants";
 
 export interface GameOverData {
   stats: RunStats;
   floor: number;
 }
 
+type BuildTierValue = 0 | EvolutionTier;
+
+const ATTACK_BONUS_BY_TIER: Record<BuildTierValue, number> = {
+  0: 0,
+  1: 0.5,
+  2: 1,
+  3: 2,
+};
+
+const DEFENSE_REDUCTION_BY_TIER: Record<BuildTierValue, number> = {
+  0: 0,
+  1: 0.5,
+  2: 1,
+  3: 2,
+};
+
+const DEFENSE_DODGE_BY_TIER: Record<BuildTierValue, number> = {
+  0: 0,
+  1: 0,
+  2: 0,
+  3: 0.2,
+};
+
+const UTILITY_MAX_ENERGY_BY_TIER: Record<BuildTierValue, number> = {
+  0: 0,
+  1: 15,
+  2: 30,
+  3: 50,
+};
+
+const UTILITY_REGEN_CHANCE_BY_TIER: Record<BuildTierValue, number> = {
+  0: 0,
+  1: 0.05,
+  2: 0.1,
+  3: 0.2,
+};
+
+const FREE_MOVE_BUFFS: BuffId[] = ["buff_quick_burst", "buff_momentum_rush"];
+
+function getEvolutionId(path: EvolutionPath, tier: BuildTierValue): UpgradeId | null {
+  if (tier === 0) return null;
+  if (path === "attack") return `evo_rift_fang_t${tier}`;
+  if (path === "defense") return `evo_stone_veil_t${tier}`;
+  return `evo_volt_core_t${tier}`;
+}
+
 interface GameState {
   isRunning: boolean;
+  tutorialMode: boolean;
   floor: number;
   energy: number;
   maxEnergy: number;
@@ -18,39 +74,63 @@ interface GameState {
   orbsCollected: number;
   goldenTicketsCollected: number;
   turnPhase: TurnPhase;
-  upgrades: Record<string, number>;
-  recentUpgrades: UpgradeId[]; // active window: last 3 chosen upgrades
+
+  buildTiers: Record<EvolutionPath, BuildTierValue>;
+  activeBuffs: ActiveBuffState[];
+  upgradeHistory: UpgradeId[];
+  damageTakenPool: number;
+
   enemiesRemaining: number;
   enemiesKilled: number;
   bossesKilled: number;
   chestsOpened: number;
   trapsTriggered: number;
-  poisonTurns: number; // remaining turns of poison DoT
-  upgradeScreenFloor: number | null; // non-null = upgrade overlay visible
-  upgradesGiven: number; // legacy counter (upgrade screen no longer capped)
-  keysUsed: number; // keys wagered for this run (1-5)
-  rerollCount: number; // persists across floors within a run
-  gameOverData: GameOverData | null; // non-null = game over overlay visible
+  poisonTurns: number;
+  upgradeScreenFloor: number | null;
+  upgradesGiven: number;
+  keysUsed: number;
+  rerollCount: number;
+  gameOverData: GameOverData | null;
   lootPhase: "coins" | "orbs" | "summary" | null;
-  runEndActive: boolean; // true while RunEndScene chest sequence is active
+  runEndActive: boolean;
 
-  startRun: (keysUsed?: number) => void;
+  startRun: (keysUsed?: number, tutorialMode?: boolean) => void;
   endRun: () => void;
   nextFloor: () => void;
+  setFloor: (floor: number) => void;
   setEnergy: (e: number) => void;
   setMaxEnergy: (e: number) => void;
   setAtk: (a: number) => void;
   addTreasure: (type: "coin" | "orb" | "golden_ticket", value: number) => void;
   setTurnPhase: (phase: TurnPhase) => void;
   addUpgrade: (id: UpgradeId) => void;
-  getUpgradeStacks: (id: UpgradeId) => number;
+  advanceUpgradeRound: () => void;
+
+  getBuildTier: (path: EvolutionPath) => BuildTierValue;
+  getBuildUpgradeIds: () => UpgradeId[];
+  getActiveBuffIds: () => BuffId[];
+  hasActiveBuff: (id: BuffId) => boolean;
+
+  getAttackBonus: () => number;
+  getDamageReduction: () => number;
+  getCritChance: () => number;
+  getDodgeChance: () => number;
+  getRegenOnKillChance: () => number;
+  getLootMagnetRadius: () => number;
+  getLootMultiplier: (type: TreasureType) => number;
+  getExtraDropChance: () => number;
+  consumeFreeMove: () => boolean;
+
+  recordDamageTaken: (amount: number) => void;
+  consumeDamageTakenPool: () => number;
+
   incrementKills: () => void;
   incrementBossKills: () => void;
   setEnemiesRemaining: (n: number) => void;
   incrementChests: () => void;
   incrementTraps: () => void;
   setPoisonTurns: (n: number) => void;
-  tickPoison: () => number; // returns damage dealt this tick
+  tickPoison: () => number;
   getStats: () => RunStats;
   showUpgradeScreen: (floor: number) => void;
   hideUpgradeScreen: () => void;
@@ -64,8 +144,17 @@ interface GameState {
   getRerollCost: () => number;
 }
 
+function normalizeActiveBuffs(activeBuffs: ActiveBuffState[]): ActiveBuffState[] {
+  return activeBuffs.filter((buff) => {
+    const roundsOk = buff.remainingRounds === null || buff.remainingRounds > 0;
+    const chargesOk = buff.charges > 0;
+    return roundsOk && chargesOk;
+  });
+}
+
 export const useGameStore = create<GameState>((set, get) => ({
   isRunning: false,
+  tutorialMode: false,
   floor: 0,
   energy: MAX_ENERGY_BASE,
   maxEnergy: MAX_ENERGY_BASE,
@@ -75,8 +164,12 @@ export const useGameStore = create<GameState>((set, get) => ({
   orbsCollected: 0,
   goldenTicketsCollected: 0,
   turnPhase: TurnPhase.PLAYER_INPUT,
-  upgrades: {},
-  recentUpgrades: [],
+
+  buildTiers: { attack: 0, defense: 0, utility: 0 },
+  activeBuffs: [],
+  upgradeHistory: [],
+  damageTakenPool: 0,
+
   enemiesRemaining: 0,
   enemiesKilled: 0,
   bossesKilled: 0,
@@ -91,9 +184,10 @@ export const useGameStore = create<GameState>((set, get) => ({
   lootPhase: null,
   runEndActive: false,
 
-  startRun: (keysUsed = 1) =>
+  startRun: (keysUsed = 1, tutorialMode = false) =>
     set({
       isRunning: true,
+      tutorialMode,
       floor: 1,
       energy: MAX_ENERGY_BASE,
       maxEnergy: MAX_ENERGY_BASE,
@@ -103,8 +197,12 @@ export const useGameStore = create<GameState>((set, get) => ({
       orbsCollected: 0,
       goldenTicketsCollected: 0,
       turnPhase: TurnPhase.PLAYER_INPUT,
-      upgrades: {},
-      recentUpgrades: [],
+
+      buildTiers: { attack: 0, defense: 0, utility: 0 },
+      activeBuffs: [],
+      upgradeHistory: [],
+      damageTakenPool: 0,
+
       enemiesRemaining: 0,
       enemiesKilled: 0,
       bossesKilled: 0,
@@ -120,15 +218,18 @@ export const useGameStore = create<GameState>((set, get) => ({
       runEndActive: false,
     }),
 
-  endRun: () => set({
-    isRunning: false,
-    upgradeScreenFloor: null,
-    gameOverData: null,
-    lootPhase: null,
-    runEndActive: false,
-  }),
+  endRun: () =>
+    set({
+      isRunning: false,
+      tutorialMode: false,
+      upgradeScreenFloor: null,
+      gameOverData: null,
+      lootPhase: null,
+      runEndActive: false,
+    }),
 
   nextFloor: () => set((s) => ({ floor: s.floor + 1 })),
+  setFloor: (floor) => set({ floor: Math.max(1, floor) }),
 
   setEnergy: (e) =>
     set((s) => ({ energy: Math.min(s.maxEnergy, Math.max(0, e)) })),
@@ -149,14 +250,169 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   addUpgrade: (id) =>
     set((s) => {
-      // Upgrades last 3 rounds: keep only the 3 most recent picks.
-      const recent = [...s.recentUpgrades, id].slice(-3);
-      const upgrades: Record<string, number> = {};
-      for (const u of recent) upgrades[u] = (upgrades[u] ?? 0) + 1;
-      return { recentUpgrades: recent, upgrades };
+      const def = UPGRADE_BY_ID[id];
+      if (!def) return {};
+
+      const nextState: Partial<GameState> = {};
+      const history = [...s.upgradeHistory];
+
+      if (def.kind === "evolution" && def.path && def.tier) {
+        const lockedPath: EvolutionPath | null =
+          s.buildTiers.attack > 0
+            ? "attack"
+            : s.buildTiers.defense > 0
+              ? "defense"
+              : s.buildTiers.utility > 0
+                ? "utility"
+                : null;
+        if (lockedPath && def.path !== lockedPath) return {};
+
+        const currentTier = s.buildTiers[def.path];
+        if (def.tier !== (currentTier + 1)) return {};
+        if (def.tier <= currentTier) return {};
+
+        const nextBuildTiers = { ...s.buildTiers, [def.path]: def.tier };
+        nextState.buildTiers = nextBuildTiers;
+        history.push(id);
+
+        if (def.path === "utility") {
+          const prevBonus = UTILITY_MAX_ENERGY_BY_TIER[currentTier];
+          const nextBonus = UTILITY_MAX_ENERGY_BY_TIER[def.tier];
+          const delta = nextBonus - prevBonus;
+          if (delta > 0) {
+            const nextMaxEnergy = s.maxEnergy + delta;
+            nextState.maxEnergy = nextMaxEnergy;
+            nextState.energy = Math.min(nextMaxEnergy, s.energy + delta);
+          }
+        }
+      } else if (def.kind === "buff") {
+        // No buff stacks in a run.
+        if (s.upgradeHistory.includes(id)) return {};
+        history.push(id);
+
+        let nextEnergy = s.energy;
+        if (def.instantHeal) {
+          nextEnergy = Math.min(s.maxEnergy, nextEnergy + def.instantHeal);
+          nextState.energy = nextEnergy;
+        }
+
+        const activeBuffs = [...s.activeBuffs];
+        const hasDuration = def.durationRounds !== undefined;
+        const hasCharges = !!def.freeMoves;
+        const keepActive = hasDuration || hasCharges || def.id === "buff_golden_drift";
+
+        if (keepActive) {
+          activeBuffs.push({
+            id: def.id as BuffId,
+            remainingRounds: def.durationRounds ?? null,
+            charges: def.freeMoves ?? Number.POSITIVE_INFINITY,
+          });
+          nextState.activeBuffs = normalizeActiveBuffs(activeBuffs);
+        }
+      }
+
+      nextState.upgradeHistory = history;
+      return nextState;
     }),
 
-  getUpgradeStacks: (id) => get().upgrades[id] ?? 0,
+  advanceUpgradeRound: () =>
+    set((s) => {
+      if (s.activeBuffs.length === 0) return {};
+      const next = s.activeBuffs.map((buff) => {
+        if (buff.remainingRounds === null) return buff;
+        return { ...buff, remainingRounds: buff.remainingRounds - 1 };
+      });
+      return { activeBuffs: normalizeActiveBuffs(next) };
+    }),
+
+  getBuildTier: (path) => get().buildTiers[path],
+
+  getBuildUpgradeIds: () => {
+    const build = get().buildTiers;
+    const ids: UpgradeId[] = [];
+    const attackId = getEvolutionId("attack", build.attack);
+    const defenseId = getEvolutionId("defense", build.defense);
+    const utilityId = getEvolutionId("utility", build.utility);
+    if (attackId) ids.push(attackId);
+    if (defenseId) ids.push(defenseId);
+    if (utilityId) ids.push(utilityId);
+    return ids;
+  },
+
+  getActiveBuffIds: () => {
+    const ids: BuffId[] = [];
+    const seen = new Set<string>();
+    for (const buff of get().activeBuffs) {
+      if (seen.has(buff.id)) continue;
+      seen.add(buff.id);
+      ids.push(buff.id);
+    }
+    return ids;
+  },
+
+  hasActiveBuff: (id) => get().activeBuffs.some((buff) => buff.id === id),
+
+  getAttackBonus: () => {
+    const s = get();
+    const buildBonus = ATTACK_BONUS_BY_TIER[s.buildTiers.attack];
+    const execBonus = s.activeBuffs.some((buff) => buff.id === "buff_execution_swing") ? 1 : 0;
+    return buildBonus + execBonus;
+  },
+
+  getDamageReduction: () => DEFENSE_REDUCTION_BY_TIER[get().buildTiers.defense],
+
+  getCritChance: () => {
+    const s = get();
+    const base = s.buildTiers.attack >= 3 ? 0.2 : 0;
+    const buff = s.activeBuffs.some((b) => b.id === "buff_keen_edge") ? 0.1 : 0;
+    return Math.min(0.95, base + buff);
+  },
+
+  getDodgeChance: () => DEFENSE_DODGE_BY_TIER[get().buildTiers.defense],
+
+  getRegenOnKillChance: () => UTILITY_REGEN_CHANCE_BY_TIER[get().buildTiers.utility],
+
+  getLootMagnetRadius: () => (get().activeBuffs.some((buff) => buff.id === "buff_loot_magnet") ? 2 : 0),
+
+  getLootMultiplier: (type) => {
+    if (type !== "coin" && type !== "orb") return 1;
+    return get().activeBuffs.some((buff) => buff.id === "buff_treasure_window") ? 2 : 1;
+  },
+
+  getExtraDropChance: () => {
+    const state = get();
+    if (state.activeBuffs.some((buff) => buff.id === "buff_golden_drift")) return 0.2;
+    return 0;
+  },
+
+  consumeFreeMove: () => {
+    let consumed = false;
+    set((s) => {
+      const idx = s.activeBuffs.findIndex(
+        (buff) => FREE_MOVE_BUFFS.includes(buff.id) && Number.isFinite(buff.charges) && buff.charges > 0,
+      );
+      if (idx === -1) return {};
+
+      const next = [...s.activeBuffs];
+      const buff = { ...next[idx] };
+      buff.charges -= 1;
+      next[idx] = buff;
+      consumed = true;
+      return { activeBuffs: normalizeActiveBuffs(next) };
+    });
+    return consumed;
+  },
+
+  recordDamageTaken: (amount) => {
+    if (amount <= 0) return;
+    set((s) => ({ damageTakenPool: s.damageTakenPool + amount }));
+  },
+
+  consumeDamageTakenPool: () => {
+    const pool = get().damageTakenPool;
+    set({ damageTakenPool: 0 });
+    return pool;
+  },
 
   incrementKills: () =>
     set((s) => ({
@@ -212,10 +468,10 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   getRerollCost: () => {
     const n = get().rerollCount;
-    // Fibonacci starting at 10, 20: 10, 20, 30, 50, 80, 130, ...
     if (n === 0) return 10;
     if (n === 1) return 20;
-    let a = 10, b = 20;
+    let a = 10;
+    let b = 20;
     for (let i = 2; i <= n; i++) {
       const next = a + b;
       a = b;
@@ -236,7 +492,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       bossesKilled: s.bossesKilled,
       chestsOpened: s.chestsOpened,
       trapsTriggered: s.trapsTriggered,
-      upgradesTaken: Object.keys(s.upgrades) as UpgradeId[],
+      upgradesTaken: s.upgradeHistory,
     };
   },
 }));

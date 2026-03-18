@@ -21,6 +21,7 @@ import { SafeBoundary } from "@/components/SafeBoundary";
 import { useLobbyStore } from "@/stores/lobbyStore";
 import { usePlayerStore } from "@/stores/playerStore";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { useGameStore } from "@/stores/gameStore";
 import { useLogin, usePrivy } from "@privy-io/react-auth";
 // Lazy-load to avoid pulling @avalabs/avalanchejs into the main bundle
 // (it uses modern JS syntax that crashes older mobile Safari)
@@ -411,6 +412,18 @@ function LobbyView() {
 }
 
 function GameView() {
+  const tutorialMode = useGameStore((s) => s.tutorialMode);
+
+  if (tutorialMode) {
+    return (
+      <div className="h-dvh w-full overflow-hidden bg-black flex items-center justify-center">
+        <div className="relative w-full h-full max-w-[100vw]">
+          <PhaserGame />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-dvh flex overflow-hidden bg-black">
       {/* Chat sidebar (desktop: permanent, mobile: floating icon) */}

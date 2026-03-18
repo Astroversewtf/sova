@@ -20,9 +20,8 @@ export class EnergyManager {
   }
 
   spendMove(): boolean {
-    // Check Swift Feet
-    const swiftStacks = useGameStore.getState().getUpgradeStacks("swift_feet");
-    if (swiftStacks > 0 && Math.random() < swiftStacks * 0.1) {
+    const store = useGameStore.getState();
+    if (store.consumeFreeMove()) {
       this.scene.events.emit("energy:free-move");
       return false; // No energy spent
     }
@@ -32,18 +31,31 @@ export class EnergyManager {
     return true;
   }
 
-  takeDamage(amount: number) {
-    // Apply Thick Skin
-    const thickStacks = useGameStore.getState().getUpgradeStacks("thick_skin");
-    const reduced = Math.max(1, amount - thickStacks);
-    this.energy = Math.max(0, this.energy - reduced);
+  takeDamage(amount: number): number {
+    const store = useGameStore.getState();
+    const dodgeChance = store.getDodgeChance();
+    if (dodgeChance > 0 && Math.random() < dodgeChance) {
+      return 0;
+    }
+
+    const reduced = Math.max(0, amount - store.getDamageReduction());
+    const resolved = this.resolveFractionalDamage(reduced);
+    const finalDamage = Math.max(1, resolved);
+    this.energy = Math.max(0, this.energy - finalDamage);
+    store.recordDamageTaken(finalDamage);
     this.sync();
+    return finalDamage;
   }
 
   /** Apply already-final damage amount (no extra mitigation), then sync store. */
-  takeRawDamage(amount: number) {
-    this.energy = Math.max(0, this.energy - Math.max(0, amount));
+  takeRawDamage(amount: number): number {
+    const finalDamage = Math.max(0, Math.round(amount));
+    this.energy = Math.max(0, this.energy - finalDamage);
+    if (finalDamage > 0) {
+      useGameStore.getState().recordDamageTaken(finalDamage);
+    }
     this.sync();
+    return finalDamage;
   }
 
   heal(amount: number) {
@@ -69,5 +81,12 @@ export class EnergyManager {
     const store = useGameStore.getState();
     store.setEnergy(this.energy);
     store.setMaxEnergy(this.maxEnergy);
+  }
+
+  private resolveFractionalDamage(amount: number): number {
+    if (amount <= 0) return 0;
+    const whole = Math.floor(amount);
+    const fractional = amount - whole;
+    return whole + (Math.random() < fractional ? 1 : 0);
   }
 }

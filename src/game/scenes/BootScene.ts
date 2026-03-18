@@ -52,6 +52,24 @@ export class BootScene extends Phaser.Scene {
       }
     }
 
+    // Rock2 enemy sprite frames (32×32 PNGs)
+    for (const dir of dirs) {
+      for (let i = 1; i <= 4; i++) {
+        this.load.image(
+          `enemy-rock2-idle-${dir}-${i}`,
+          `sprites/enemies/rock2/idle/rock2_${dir}_idle_0${i}.png`,
+        );
+        this.load.image(
+          `enemy-rock2-walk-${dir}-${i}`,
+          `sprites/enemies/rock2/walk/rock2_${dir}_walk_0${i}.png`,
+        );
+        this.load.image(
+          `enemy-rock2-attack-${dir}-${i}`,
+          `sprites/enemies/rock2/attack/rock2_${dir}_attack_0${i}.png`,
+        );
+      }
+    }
+
     // Golem enemy sprite frames (32×32 PNGs) — slow tanky enemy
     for (const dir of dirs) {
       for (let i = 1; i <= 4; i++) {
@@ -82,6 +100,24 @@ export class BootScene extends Phaser.Scene {
       );
     }
 
+    // Tree enemy sprite frames (32×32 PNGs)
+    for (const dir of dirs) {
+      for (let i = 1; i <= 4; i++) {
+        this.load.image(
+          `enemy-tree-idle-${dir}-${i}`,
+          `sprites/enemies/tree/idle/tree_${dir}_idle_0${i}.png`,
+        );
+        this.load.image(
+          `enemy-tree-walk-${dir}-${i}`,
+          `sprites/enemies/tree/walk/tree_${dir}_walk_0${i}.png`,
+        );
+        this.load.image(
+          `enemy-tree-attack-${dir}-${i}`,
+          `sprites/enemies/tree/attack/tree_${dir}_attack_0${i}.png`,
+        );
+      }
+    }
+
     // Boss Sova frames (idle only, 64×64 PNGs)
     for (let i = 1; i <= 4; i++) {
       this.load.image(
@@ -92,6 +128,7 @@ export class BootScene extends Phaser.Scene {
 
     // HUD icons
     this.load.image("energy-icon", "sprites/energy-icon.png");
+    this.load.image("tutorial-astro", "images/tutorial-astro.png");
 
     // Movement arrows (pixel art PNGs)
     this.load.image("arrow-up", "sprites/ui/arrow-up.png");
@@ -246,6 +283,11 @@ export class BootScene extends Phaser.Scene {
     } else {
       this.genBlobEnemy(g, "enemy-rock-fb", C.ENEMY_ROCK, C.ENEMY_ROCK_DARK);
     }
+    if (this.textures.exists("enemy-rock2-idle-front-1")) {
+      this.createRock2Animations();
+    } else {
+      this.genBlobEnemy(g, "enemy-rock2-fb", C.ENEMY_ROCK2, C.ENEMY_ROCK2_DARK);
+    }
     if (this.textures.exists("enemy-golem-idle-front-1")) {
       this.createGolemAnimations();
     } else {
@@ -255,6 +297,12 @@ export class BootScene extends Phaser.Scene {
       this.createGhostAnimations();
     } else {
       this.genBlobEnemy(g, "enemy-ghost-fb", C.ENEMY_GHOST, C.ENEMY_GHOST_DARK);
+    }
+    this.ensureFlyingRockFallback(g);
+    if (this.textures.exists("enemy-tree-idle-front-1")) {
+      this.createTreeAnimations();
+    } else {
+      this.genGolemEnemy(g, "enemy-tree-fb", C.ENEMY_TREE, C.ENEMY_TREE_DARK);
     }
     if (this.textures.exists("enemy-sova-idle-1")) {
       this.createSovaAnimations();
@@ -459,6 +507,31 @@ export class BootScene extends Phaser.Scene {
     }
   }
 
+  private createRock2Animations() {
+    const dirs = ["front", "back", "side"] as const;
+
+    for (const dir of dirs) {
+      this.anims.create({
+        key: `enemy-rock2-idle-${dir}`,
+        frames: [1, 2, 3, 4].map((i) => ({ key: `enemy-rock2-idle-${dir}-${i}` })),
+        frameRate: 6,
+        repeat: -1,
+      });
+      this.anims.create({
+        key: `enemy-rock2-walk-${dir}`,
+        frames: [1, 2, 3, 4].map((i) => ({ key: `enemy-rock2-walk-${dir}-${i}` })),
+        frameRate: 8,
+        repeat: -1,
+      });
+      this.anims.create({
+        key: `enemy-rock2-attack-${dir}`,
+        frames: [1, 2, 3, 4].map((i) => ({ key: `enemy-rock2-attack-${dir}-${i}` })),
+        frameRate: 10,
+        repeat: 0,
+      });
+    }
+  }
+
   private createGolemAnimations() {
     const dirs = ["front", "back", "side"] as const;
 
@@ -484,6 +557,31 @@ export class BootScene extends Phaser.Scene {
     }
   }
 
+  private createTreeAnimations() {
+    const dirs = ["front", "back", "side"] as const;
+
+    for (const dir of dirs) {
+      this.anims.create({
+        key: `enemy-tree-idle-${dir}`,
+        frames: [1, 2, 3, 4].map((i) => ({ key: `enemy-tree-idle-${dir}-${i}` })),
+        frameRate: 5,
+        repeat: -1,
+      });
+      this.anims.create({
+        key: `enemy-tree-walk-${dir}`,
+        frames: [1, 2, 3, 4].map((i) => ({ key: `enemy-tree-walk-${dir}-${i}` })),
+        frameRate: 6,
+        repeat: -1,
+      });
+      this.anims.create({
+        key: `enemy-tree-attack-${dir}`,
+        frames: [1, 2, 3, 4].map((i) => ({ key: `enemy-tree-attack-${dir}-${i}` })),
+        frameRate: 8,
+        repeat: 0,
+      });
+    }
+  }
+
   private createGhostAnimations() {
     this.anims.create({
       key: "enemy-ghost-idle",
@@ -495,6 +593,40 @@ export class BootScene extends Phaser.Scene {
       this.anims.create({
         key: "enemy-ghost-attack-side",
         frames: [1, 2, 3, 4].map((i) => ({ key: `enemy-ghost-attack-side-${i}` })),
+        frameRate: 10,
+        repeat: 0,
+      });
+    }
+  }
+
+  private ensureFlyingRockFallback(g: Phaser.GameObjects.Graphics) {
+    if (!this.textures.exists("enemy-flying-rock-fb")) {
+      this.genFlyingRockFrame(g, "enemy-flying-rock-fb", 0, false);
+    }
+    for (let i = 1; i <= 4; i++) {
+      const idleKey = `enemy-flying-rock-idle-${i}`;
+      if (!this.textures.exists(idleKey)) {
+        this.genFlyingRockFrame(g, idleKey, i - 1, false);
+      }
+      const attackKey = `enemy-flying-rock-attack-side-${i}`;
+      if (!this.textures.exists(attackKey)) {
+        this.genFlyingRockFrame(g, attackKey, i - 1, true);
+      }
+    }
+
+    if (!this.anims.exists("enemy-flying-rock-idle")) {
+      this.anims.create({
+        key: "enemy-flying-rock-idle",
+        frames: [1, 2, 3, 4].map((i) => ({ key: `enemy-flying-rock-idle-${i}` })),
+        frameRate: 8,
+        repeat: -1,
+      });
+    }
+
+    if (!this.anims.exists("enemy-flying-rock-attack-side")) {
+      this.anims.create({
+        key: "enemy-flying-rock-attack-side",
+        frames: [1, 2, 3, 4].map((i) => ({ key: `enemy-flying-rock-attack-side-${i}` })),
         frameRate: 10,
         repeat: 0,
       });
@@ -608,6 +740,47 @@ export class BootScene extends Phaser.Scene {
 
     g.fillStyle(darkColor);
     g.fillEllipse(s / 2, s / 2 + 6, 4, 3);
+
+    g.generateTexture(key, s, s);
+  }
+
+  private genFlyingRockFrame(
+    g: Phaser.GameObjects.Graphics,
+    key: string,
+    phase: number,
+    attacking: boolean,
+  ) {
+    const s = TILE_SIZE;
+    g.clear();
+
+    const bob = phase % 2 === 0 ? -1 : 1;
+    const wing = phase % 2 === 0 ? 0 : 1;
+    const glowAlpha = 0.2 + phase * 0.05;
+
+    g.fillStyle(C.ENEMY_FLYING_ROCK, glowAlpha);
+    g.fillCircle(s / 2, s / 2 + 1 + bob, 12);
+
+    g.fillStyle(C.ENEMY_FLYING_ROCK_DARK);
+    g.fillRoundedRect(8, 9 + bob, 16, 15, 4);
+    g.fillStyle(C.ENEMY_FLYING_ROCK);
+    g.fillRoundedRect(9, 8 + bob, 14, 13, 4);
+
+    g.fillStyle(0xffffff, 0.25);
+    g.fillRect(11, 10 + bob, 5, 3);
+
+    // Tiny wings to sell the "flying" read.
+    g.fillStyle(C.ENEMY_FLYING_ROCK_DARK, 0.9);
+    g.fillRect(5, 13 + bob - wing, 3, 5 + wing * 2);
+    g.fillRect(24, 13 + bob - wing, 3, 5 + wing * 2);
+
+    g.fillStyle(0xfff59d);
+    g.fillRect(12, 14 + bob, 2, 2);
+    g.fillRect(18, 14 + bob, 2, 2);
+
+    if (attacking) {
+      g.fillStyle(0xe11d48, 0.8);
+      g.fillTriangle(24, 15 + bob, 30, 14 + bob, 24, 18 + bob);
+    }
 
     g.generateTexture(key, s, s);
   }

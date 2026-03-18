@@ -3,46 +3,22 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useGameStore } from "@/stores/gameStore";
 import { TurnPhase } from "@/game/types";
-import { OverlayFrame } from "@/components/OverlayFrame";
+import { UPGRADE_BY_ID } from "@/game/constants";
 
-/* ── Energy bar particles ── */
-function useStableRandom(count: number) {
-  return useMemo(() => {
-    const arr: { y: number; size: number; dur: number; delay: number; alpha: number }[] = [];
-    for (let i = 0; i < count; i++) {
-      arr.push({
-        y: Math.random() * 80 + 10,       // 10-90% height
-        size: Math.random() * 1.5 + 1.5,   // 1.5-3px
-        dur: Math.random() * 2 + 2,        // 2-4s
-        delay: Math.random() * 3,           // 0-3s stagger
-        alpha: Math.random() * 0.2 + 0.3,  // 0.3-0.5
-      });
-    }
-    return arr;
-  }, [count]);
-}
-
-function EnergyParticles({ pct, energy }: { pct: number; energy: number }) {
-  const count = energy > 75 ? 7 : energy > 50 ? 5 : energy > 25 ? 3 : 1;
-  const particles = useStableRandom(count);
-
+/* ── Energy bar shimmer ── */
+function EnergyShimmer({ pct }: { pct: number }) {
   if (pct <= 0) return null;
 
   return (
-    <div className="absolute inset-y-0 left-0 overflow-hidden" style={{ width: `${pct}%` }}>
-      {particles.map((p, i) => (
-        <div
-          key={i}
-          className="absolute rounded-full bg-white"
-          style={{
-            width: p.size,
-            height: p.size,
-            top: `${p.y}%`,
-            ["--p-alpha" as string]: p.alpha,
-            animation: `energy-particle-drift ${p.dur}s linear ${p.delay}s infinite`,
-          }}
-        />
-      ))}
+    <div className="absolute inset-y-0 left-0 overflow-hidden pointer-events-none" style={{ width: `${pct}%` }}>
+      <div
+        className="absolute inset-0"
+        style={{
+          background: "radial-gradient(ellipse 35% 120% at 50% 50%, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.2) 40%, transparent 70%)",
+          backgroundSize: "200% 100%",
+          animation: "energy-shimmer 3.5s linear infinite",
+        }}
+      />
     </div>
   );
 }
@@ -69,24 +45,6 @@ function mogShadow(outerColor = "#fff") {
 
 const MOG_SHADOW = mogShadow();
 
-const UPGRADE_ICON_BY_ID: Record<string, string> = {
-  sharp_blade: "/sprites/upgrades/sharp_blade_01.png",
-  vitality_surge: "/sprites/upgrades/vitality_surge_01.png",
-  life_steal: "/sprites/upgrades/lifes_steal_01.png",
-  thick_skin: "/sprites/upgrades/thick_skin_01.png",
-  swift_feet: "/sprites/upgrades/swift_feet_01.png",
-  second_wind: "/sprites/upgrades/second_wind_01.png",
-};
-
-const UPGRADE_ORDER = [
-  "sharp_blade",
-  "vitality_surge",
-  "life_steal",
-  "thick_skin",
-  "swift_feet",
-  "second_wind",
-];
-
 export function GameHUD() {
   const isRunning = useGameStore((s) => s.isRunning);
   const energy = useGameStore((s) => s.energy);
@@ -95,28 +53,35 @@ export function GameHUD() {
   const orbs = useGameStore((s) => s.orbsCollected);
   const floor = useGameStore((s) => s.floor);
   const turnPhase = useGameStore((s) => s.turnPhase);
-  const upgrades = useGameStore((s) => s.upgrades);
+  const buildTiers = useGameStore((s) => s.buildTiers);
+  const activeBuffs = useGameStore((s) => s.activeBuffs);
 
   const pct = maxEnergy > 0 ? (energy / maxEnergy) * 100 : 0;
   const canSkip = turnPhase === TurnPhase.PLAYER_INPUT;
-  const activeUpgradeEntries = UPGRADE_ORDER
-    .map((id) => [id, upgrades[id] ?? 0] as const)
-    .filter(([, stacks]) => stacks > 0);
-  const visibleUpgradeEntries = activeUpgradeEntries.slice(0, 4);
+  const buildUpgradeIds = useMemo(() => {
+    const ids: string[] = [];
+    if (buildTiers.attack > 0) ids.push(`evo_rift_fang_t${buildTiers.attack}`);
+    if (buildTiers.defense > 0) ids.push(`evo_stone_veil_t${buildTiers.defense}`);
+    if (buildTiers.utility > 0) ids.push(`evo_volt_core_t${buildTiers.utility}`);
+    return ids;
+  }, [buildTiers]);
+  const activeBuffIds = useMemo(() => {
+    const ids: string[] = [];
+    const seen = new Set<string>();
+    for (const buff of activeBuffs) {
+      if (seen.has(buff.id)) continue;
+      seen.add(buff.id);
+      ids.push(buff.id);
+    }
+    return ids;
+  }, [activeBuffs]);
+  const visibleUpgradeIds = useMemo(
+    () => [...buildUpgradeIds, ...activeBuffIds].slice(0, 4),
+    [buildUpgradeIds, activeBuffIds],
+  );
 
-  const [floorLabel, setFloorLabel] = useState<string | null>(null);
-  const prevFloor = useRef(floor);
   const prevEnergy = useRef(energy);
   const [energyPulse, setEnergyPulse] = useState(false);
-
-  useEffect(() => {
-    if (floor !== prevFloor.current) {
-      prevFloor.current = floor;
-      setFloorLabel(`FLOOR ${floor}`);
-      const timer = setTimeout(() => setFloorLabel(null), 1800);
-      return () => clearTimeout(timer);
-    }
-  }, [floor]);
 
   useEffect(() => {
     const before = prevEnergy.current;
@@ -135,6 +100,9 @@ export function GameHUD() {
     pct > 0
       ? "linear-gradient(to bottom, #b9e6ff, #6fb6ff, #2f80d4)"
       : "linear-gradient(to bottom, #334155, #1f2937, #111827)";
+  // Keep high values visually unchanged while giving low-energy values
+  // enough visible width inside the decorative frame.
+  const bluePct = pct <= 0 ? 0 : Math.min(100, pct + (1 - pct / 100) * 12);
 
   return (
     <div className="absolute inset-0 pointer-events-none z-10">
@@ -148,13 +116,13 @@ export function GameHUD() {
               <div className="absolute left-[30%] right-[13.5%] top-[28%] bottom-[28%] rounded-[2px] overflow-hidden bg-[#0d2138]">
                 <div
                   className="absolute inset-y-0 left-0 transition-all duration-200"
-                  style={{ width: `${pct}%`, background: barBg }}
+                  style={{ width: `${bluePct}%`, background: barBg }}
                 />
                 <div
                   className="absolute top-0 left-0 h-1/2 opacity-25 bg-white"
                   style={{ width: `${pct}%` }}
                 />
-                <EnergyParticles pct={pct} energy={energy} />
+                <EnergyShimmer pct={pct} />
               </div>
             </div>
 
@@ -180,9 +148,8 @@ export function GameHUD() {
           {/* Upgrades (left, anchored to energy bar) */}
           <div className="absolute top-1/2 right-full mr-[clamp(28px,3.2vw,56px)] -translate-y-1/2 flex items-center gap-2">
             {Array.from({ length: 4 }).map((_, idx) => {
-              const entry = visibleUpgradeEntries[idx];
-              const id = entry?.[0];
-              const stacks = entry?.[1] ?? 0;
+              const id = visibleUpgradeIds[idx];
+              const icon = id ? UPGRADE_BY_ID[id]?.icon : null;
               return (
                 <div
                   key={`upgrade-slot-${idx}`}
@@ -200,23 +167,13 @@ export function GameHUD() {
                     className="absolute inset-0 z-10 w-full h-full pointer-events-none"
                     style={{ imageRendering: "pixelated" }}
                   />
-                  {id && (
-                    <>
-                      <img
-                        src={UPGRADE_ICON_BY_ID[id]}
-                        alt=""
-                        className="relative z-20 w-10 h-10"
-                        style={{ imageRendering: "pixelated" }}
-                      />
-                      {stacks > 1 && (
-                        <span
-                          className="absolute z-20 -right-1 -bottom-1 font-pixel text-[7px] leading-none text-lime-300"
-                          style={{ textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000" }}
-                        >
-                          {stacks}
-                        </span>
-                      )}
-                    </>
+                  {icon && (
+                    <img
+                      src={icon}
+                      alt=""
+                      className="relative z-20 w-10 h-10"
+                      style={{ imageRendering: "pixelated" }}
+                    />
                   )}
                 </div>
               );
@@ -225,47 +182,29 @@ export function GameHUD() {
 
           {/* Loot (right, anchored to energy bar) */}
           <div className="absolute top-1/2 left-full ml-[clamp(28px,3.2vw,56px)] -translate-y-1/2 flex items-center gap-2">
-            <OverlayFrame
-              className="relative w-[86px] h-[42px]"
-              contentClassName="!p-0 flex items-center justify-start gap-1 pl-3"
-              namePrefix="square"
-              basePath="/sprites/ui/square_tileset"
-              edge={16}
-              innerEdge={16}
-            >
+            <div className="w-[86px] h-[42px] flex items-center justify-start gap-1 pl-3">
               <img
                 src="/sprites/items/coin/coin_01.png"
                 alt=""
-                className="relative z-10 w-8 h-8"
+                className="w-8 h-8"
                 style={{ imageRendering: "pixelated" }}
               />
-              <span
-                className="relative z-10 font-press-start-crisp text-[10px] text-amber-300 leading-none"
-              >
+              <span className="font-press-start-crisp text-[10px] text-gray-300 leading-none">
                 {coins}
               </span>
-            </OverlayFrame>
+            </div>
 
-            <OverlayFrame
-              className="relative w-[70px] h-[42px]"
-              contentClassName="!p-0 flex items-center justify-start gap-1 pl-3"
-              namePrefix="square"
-              basePath="/sprites/ui/square_tileset"
-              edge={16}
-              innerEdge={16}
-            >
+            <div className="w-[70px] h-[42px] flex items-center justify-start gap-1 pl-3">
               <img
                 src="/sprites/items/orb/item_orb_01.png"
                 alt=""
-                className="relative z-10 w-8 h-8"
+                className="w-8 h-8"
                 style={{ imageRendering: "pixelated" }}
               />
-              <span
-                className="relative z-10 font-press-start-crisp text-[10px] text-teal-300 leading-none"
-              >
+              <span className="font-press-start-crisp text-[10px] text-gray-300 leading-none">
                 {orbs}
               </span>
-            </OverlayFrame>
+            </div>
 
             <div className="relative w-[42px] h-[42px] bg-transparent flex items-center justify-center">
               <img
@@ -295,13 +234,13 @@ export function GameHUD() {
               <div className="absolute left-[30%] right-[13.5%] top-[28%] bottom-[28%] rounded-[2px] overflow-hidden bg-[#0d2138]">
                 <div
                   className="absolute inset-y-0 left-0 transition-all duration-200"
-                  style={{ width: `${pct}%`, background: barBg }}
+                  style={{ width: `${bluePct}%`, background: barBg }}
                 />
                 <div
                   className="absolute top-0 left-0 h-1/2 opacity-25 bg-white"
                   style={{ width: `${pct}%` }}
                 />
-                <EnergyParticles pct={pct} energy={energy} />
+                <EnergyShimmer pct={pct} />
               </div>
             </div>
 
@@ -327,9 +266,8 @@ export function GameHUD() {
           {/* Mobile upgrades (left, compact) */}
           <div className="flex items-center gap-1">
             {Array.from({ length: 4 }).map((_, idx) => {
-              const entry = visibleUpgradeEntries[idx];
-              const id = entry?.[0];
-              const stacks = entry?.[1] ?? 0;
+              const id = visibleUpgradeIds[idx];
+              const icon = id ? UPGRADE_BY_ID[id]?.icon : null;
               return (
                 <div
                   key={`mobile-upgrade-slot-${idx}`}
@@ -347,23 +285,13 @@ export function GameHUD() {
                     className="absolute inset-0 z-10 w-full h-full pointer-events-none"
                     style={{ imageRendering: "pixelated" }}
                   />
-                  {id && (
-                    <>
-                      <img
-                        src={UPGRADE_ICON_BY_ID[id]}
-                        alt=""
-                        className="relative z-20 w-8 h-8"
-                        style={{ imageRendering: "pixelated" }}
-                      />
-                      {stacks > 1 && (
-                        <span
-                          className="absolute z-20 -right-1 -bottom-1 font-pixel text-[6px] leading-none text-lime-300"
-                          style={{ textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000" }}
-                        >
-                          {stacks}
-                        </span>
-                      )}
-                    </>
+                  {icon && (
+                    <img
+                      src={icon}
+                      alt=""
+                      className="relative z-20 w-8 h-8"
+                      style={{ imageRendering: "pixelated" }}
+                    />
                   )}
                 </div>
               );
@@ -372,47 +300,29 @@ export function GameHUD() {
 
           {/* Mobile loot + floor (right, compact) */}
           <div className="flex items-center gap-1">
-            <OverlayFrame
-              className="relative w-[76px] h-[34px]"
-              contentClassName="!p-0 flex items-center justify-start gap-1 pl-2.5"
-              namePrefix="square"
-              basePath="/sprites/ui/square_tileset"
-              edge={16}
-              innerEdge={16}
-            >
+            <div className="w-[76px] h-[34px] flex items-center justify-start gap-1 pl-2.5">
               <img
                 src="/sprites/items/coin/coin_01.png"
                 alt=""
-                className="relative z-10 w-7 h-7"
+                className="w-7 h-7"
                 style={{ imageRendering: "pixelated" }}
               />
-              <span
-                className="relative z-10 font-press-start-crisp text-[9px] text-amber-300 leading-none"
-              >
+              <span className="font-press-start-crisp text-[9px] text-gray-300 leading-none">
                 {coins}
               </span>
-            </OverlayFrame>
+            </div>
 
-            <OverlayFrame
-              className="relative w-[62px] h-[34px]"
-              contentClassName="!p-0 flex items-center justify-start gap-1 pl-2.5"
-              namePrefix="square"
-              basePath="/sprites/ui/square_tileset"
-              edge={16}
-              innerEdge={16}
-            >
+            <div className="w-[62px] h-[34px] flex items-center justify-start gap-1 pl-2.5">
               <img
                 src="/sprites/items/orb/item_orb_01.png"
                 alt=""
-                className="relative z-10 w-7 h-7"
+                className="w-7 h-7"
                 style={{ imageRendering: "pixelated" }}
               />
-              <span
-                className="relative z-10 font-press-start-crisp text-[9px] text-teal-300 leading-none"
-              >
+              <span className="font-press-start-crisp text-[9px] text-gray-300 leading-none">
                 {orbs}
               </span>
-            </OverlayFrame>
+            </div>
 
             <div className="relative w-[34px] h-[34px] bg-transparent flex items-center justify-center">
               <img
@@ -428,17 +338,6 @@ export function GameHUD() {
           </div>
         </div>
       </div>
-
-      {floorLabel && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span
-            className="font-pixel text-lg text-white animate-floor-label"
-            style={{ textShadow: "0 0 8px rgba(0,0,0,0.8), 0 2px 4px rgba(0,0,0,0.6)" }}
-          >
-            {floorLabel}
-          </span>
-        </div>
-      )}
 
       <div className="hidden md:block absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-auto">
         <button

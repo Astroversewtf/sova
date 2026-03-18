@@ -1,6 +1,7 @@
 import { EnemyType, CellType, type TilePos } from "../types";
 import type { Enemy } from "../entities/Enemy";
 import type { GameScene } from "../scenes/GameScene";
+import { useGameStore } from "@/stores/gameStore";
 
 function manhattan(a: TilePos, b: TilePos): number {
   return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
@@ -9,6 +10,7 @@ function manhattan(a: TilePos, b: TilePos): number {
 export class EnemyAI {
   private scene: GameScene;
   private bossHitsReceived = new Map<string, number>();
+  private golemMustMoveNext = new Set<string>();
   private readonly ROCK_DEAGGRO_BUFFER = 2;
   private readonly GHOST_AGGRO_RANGE = 6;
   private readonly DIRS: TilePos[] = [
@@ -24,6 +26,7 @@ export class EnemyAI {
 
   reset() {
     this.bossHitsReceived.clear();
+    this.golemMustMoveNext.clear();
   }
 
   registerBossHit(enemy: Enemy) {
@@ -135,6 +138,7 @@ export class EnemyAI {
 
     switch (enemy.type) {
       case EnemyType.ROCK:
+      case EnemyType.ROCK2:
         if (d <= enemy.detectionRange) enemy.active = true;
         if (enemy.active && d >= enemy.detectionRange + this.ROCK_DEAGGRO_BUFFER) {
           enemy.active = false;
@@ -147,10 +151,42 @@ export class EnemyAI {
         if (enemy.active && d >= enemy.detectionRange + this.ROCK_DEAGGRO_BUFFER) {
           enemy.active = false;
         }
+        {
+          const desired = enemy.active
+            ? this.findNextStepBFS(enemy, playerPos)
+            : this.randomStep(enemy.pos);
+          if (!desired) return null;
+
+          // 20% chance to skip this turn. If skipped, next turn move is mandatory.
+          if (this.golemMustMoveNext.has(enemy.id)) {
+            this.golemMustMoveNext.delete(enemy.id);
+            return desired;
+          }
+          if (Math.random() < 0.2) {
+            this.golemMustMoveNext.add(enemy.id);
+            return null;
+          }
+          return desired;
+        }
+
+      case EnemyType.GHOST:
+        if (d <= Math.max(enemy.detectionRange, this.GHOST_AGGRO_RANGE)) {
+          enemy.active = true;
+        }
         if (enemy.active) return this.findNextStepBFS(enemy, playerPos);
         return this.randomStep(enemy.pos);
 
-      case EnemyType.GHOST:
+      case EnemyType.FLYING_ROCK:
+        // Uses rock-like aggro/deaggro flow, but ghost-like stats.
+        if (d <= enemy.detectionRange) enemy.active = true;
+        if (enemy.active && d >= enemy.detectionRange + this.ROCK_DEAGGRO_BUFFER) {
+          enemy.active = false;
+        }
+        if (enemy.active) return this.findNextStepBFS(enemy, playerPos);
+        return this.randomStep(enemy.pos);
+
+      case EnemyType.TREE:
+        // Late-game pressure enemy: sticky aggro once detected.
         if (d <= Math.max(enemy.detectionRange, this.GHOST_AGGRO_RANGE)) {
           enemy.active = true;
         }
@@ -161,16 +197,28 @@ export class EnemyAI {
         enemy.active = d <= enemy.detectionRange;
         if (!enemy.active) return null;
 
-        const hits = this.bossHitsReceived.get(enemy.id) ?? 0;
-        if (hits >= 2 && Math.random() >= 0.5) {
-          return null;
+        if (useGameStore.getState().tutorialMode) {
+          return this.findNextStepBFS(enemy, playerPos);
         }
 
-        const flee = this.findFleeStep(enemy, playerPos);
-        if (flee && hits >= 2) {
-          this.scene.popupManager.showBossTaunt(enemy.pos.x, enemy.pos.y, "CATCH ME");
+        const hits = this.bossHitsReceived.get(enemy.id) ?? 0;
+
+        // Far from player: roam randomly (can move toward or away, both valid).
+        if (d > 2) {
+          return this.randomStep(enemy.pos);
         }
-        return flee;
+
+        // Close to player: aggressive by default.
+        // After 2 hits, 50% chance to flee instead of chasing.
+        if (hits >= 2 && Math.random() < 0.5) {
+          const flee = this.findFleeStep(enemy, playerPos);
+          if (flee) {
+            this.scene.popupManager.showBossTaunt(enemy.pos.x, enemy.pos.y, "CATCH ME");
+            return flee;
+          }
+        }
+
+        return this.findNextStepBFS(enemy, playerPos);
     }
   }
 

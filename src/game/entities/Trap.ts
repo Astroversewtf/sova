@@ -11,12 +11,16 @@ export class Trap {
   private floor: number;
   private baseScale: number = 1;
   private animated = false;
+  private hidden = false;
+  private revealed = false;
 
-  constructor(scene: GameScene, pos: TilePos, id: string, floor: number) {
+  constructor(scene: GameScene, pos: TilePos, id: string, floor: number, hidden = false) {
     this.scene = scene;
     this.pos = { ...pos };
     this.id = id;
     this.floor = floor;
+    this.hidden = hidden;
+    this.revealed = !hidden;
 
     const px = pos.x * TILE_SIZE + TILE_SIZE / 2;
     const py = pos.y * TILE_FULL_H + TILE_SIZE / 2;
@@ -47,6 +51,9 @@ export class Trap {
 
     this.sprite.setDepth(150);
     this.sprite.setOrigin(0.5, 0.5);
+    if (this.hidden) {
+      this.sprite.setVisible(false);
+    }
   }
 
   getBaseDamage(): number {
@@ -57,9 +64,10 @@ export class Trap {
   }
 
   /** Trigger the trap. Always active — deals damage every step. */
-  trigger(thickSkinStacks: number): number {
+  trigger(): number {
     const base = this.getBaseDamage();
-    const dmg = Math.max(1, base - thickSkinStacks);
+    this.revealed = true;
+    this.sprite.setVisible(true);
 
     // Play jab animation (4 frames: retracted → full → retracting)
     if (this.animated) {
@@ -82,10 +90,15 @@ export class Trap {
       });
     }
 
-    // Damage popup via PopupManager
-    this.scene.popupManager.showPlayerDamageNumber(this.pos.x, this.pos.y, dmg);
+    return base;
+  }
 
-    return dmg;
+  isHidden(): boolean {
+    return this.hidden;
+  }
+
+  isRevealed(): boolean {
+    return this.revealed;
   }
 
   setVisible(v: boolean) {

@@ -30,8 +30,6 @@ export class HUDScene extends Phaser.Scene {
   private floorText!: Phaser.GameObjects.Text;
   private sepG!: Phaser.GameObjects.Graphics;
 
-  // Floor label
-  private floorLabel: Phaser.GameObjects.Text | null = null;
   private unsubscribeStore: (() => void) | null = null;
 
   // Layout constants
@@ -117,10 +115,6 @@ export class HUDScene extends Phaser.Scene {
     // ══════════════════════════════════════════
     // EVENTS
     // ══════════════════════════════════════════
-    this.game.events.on("sova:floor-start", (data: { floor: number; isBoss: boolean }) => {
-      this.showFloorLabel(data.floor, data.isBoss);
-    });
-
     // Initial draw + reactive updates (avoid polling every frame).
     this.applyHudState(useGameStore.getState());
     this.unsubscribeStore = useGameStore.subscribe((s, prev) => {
@@ -143,7 +137,6 @@ export class HUDScene extends Phaser.Scene {
     });
 
     this.events.on("shutdown", () => {
-      this.game.events.off("sova:floor-start");
       this.scale.off("resize");
       this.unsubscribeStore?.();
       this.unsubscribeStore = null;
@@ -252,36 +245,4 @@ export class HUDScene extends Phaser.Scene {
     this.energyFill.fillRoundedRect(barX + 2, barY + 1, Math.max(0, fillW - 4), barH / 2, 4);
   }
 
-  private showFloorLabel(floor: number, isBoss: boolean) {
-    this.floorLabel?.destroy();
-
-    const label = isBoss ? `BOSS FLOOR ${floor}` : `FLOOR ${floor}`;
-    const color = isBoss ? "#8b5cf6" : "#f9fafb";
-    const cx = this.scale.width / 2;
-    const cy = this.scale.height / 2 - 30;
-
-    this.floorLabel = this.add
-      .text(cx, cy, label, {
-        fontFamily: '"Press Start 2P", monospace',
-        fontSize: "16px",
-        color,
-        stroke: "#000000",
-        strokeThickness: 4,
-      })
-      .setOrigin(0.5)
-      .setDepth(2000)
-      .setAlpha(0);
-
-    this.tweens.add({
-      targets: this.floorLabel,
-      alpha: { from: 0, to: 1 },
-      duration: 300,
-      yoyo: true,
-      hold: 800,
-      onComplete: () => {
-        this.floorLabel?.destroy();
-        this.floorLabel = null;
-      },
-    });
-  }
 }

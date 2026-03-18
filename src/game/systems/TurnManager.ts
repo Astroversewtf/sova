@@ -94,6 +94,7 @@ export class TurnManager {
 
     // Hide arrows during the action
     this.scene.hideMoveArrows();
+    this.scene.events.emit("tutorial:pass-used");
 
     // Consume turn energy as if it were a normal move
     this.scene.energyManager.spendMove();
@@ -118,6 +119,7 @@ export class TurnManager {
     // Return to idle animation
     this.scene.player.stopWalk();
     emitSfxEvent("user-step");
+    this.scene.events.emit("tutorial:move-complete", target);
 
     // Spend energy
     this.scene.energyManager.spendMove();
@@ -134,6 +136,13 @@ export class TurnManager {
     // Check stairs BEFORE death — reaching stairs with 1 energy completes the floor
     // (the +10 energy bonus on floor complete keeps the player alive)
     if (this.scene.isOnStairs(target)) {
+      if (!this.scene.canUseStairs()) {
+        this.scene.onTutorialStairsBlocked();
+        this.advanceToEnemyPhase();
+        return;
+      }
+      // Stair entry is still a completed turn; tick timed buffs once.
+      useGameStore.getState().advanceUpgradeRound();
       emitSfxEvent("stairs-enter");
       this.scene.completeFloor();
       return;
@@ -164,6 +173,8 @@ export class TurnManager {
     this.phase = TurnPhase.CHECK_CONDITIONS;
 
     const store = useGameStore.getState();
+    // Timed buffs advance once per completed player turn.
+    store.advanceUpgradeRound();
 
     // Update fog
     const radius = this.scene.energyManager.getVisionRadius();
@@ -202,12 +213,16 @@ export class TurnManager {
     emitSfxEvent("breakbles");
     chest.open();
     useGameStore.getState().incrementChests();
+    this.scene.events.emit("tutorial:chest-opened", pos);
 
     const pos = chest.pos;
+    const tutorialMode = useGameStore.getState().tutorialMode;
     const roll = Math.random();
 
     let type: TreasureType | null;
-    if (roll < 0.50) {
+    if (tutorialMode) {
+      type = TreasureType.ENERGY;
+    } else if (roll < 0.50) {
       type = TreasureType.ENERGY;
     } else if (roll < 0.70) {
       type = TreasureType.COIN;
@@ -245,6 +260,7 @@ export class TurnManager {
 
     const heal = fountain.use();
     if (heal > 0) {
+      this.scene.events.emit("tutorial:fountain-used");
       const worldX = pos.x * TILE_SIZE + TILE_SIZE / 2;
       const worldY = pos.y * TILE_FULL_H + TILE_SIZE / 2;
       this.scene.animateEnergyPickupToHud(worldX, worldY, () => {
@@ -260,14 +276,17 @@ export class TurnManager {
     if (!trap) return;
 
     const store = useGameStore.getState();
-    const thickSkin = store.getUpgradeStacks("thick_skin");
-    const dmg = trap.trigger(thickSkin);
+    const baseDmg = trap.trigger();
+    const tutorialMode = useGameStore.getState().tutorialMode;
+    const appliedBase = tutorialMode ? 2 : baseDmg;
+    this.scene.events.emit("tutorial:trap-triggered");
+    const dmg = this.scene.energyManager.takeDamage(appliedBase);
 
     if (dmg > 0) {
       store.incrementTraps();
-      this.scene.energyManager.takeRawDamage(dmg);
       this.scene.player.flashDamage();
       this.scene.vfxManager.flashDamageOverlay();
+      this.scene.popupManager.showPlayerDamageNumber(this.scene.player.pos.x, this.scene.player.pos.y, dmg);
       emitSfxEvent("user-get-hit");
     }
   }

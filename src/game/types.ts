@@ -5,6 +5,13 @@ export interface TilePos {
   y: number;
 }
 
+export interface RoomBounds {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 export enum CellType {
   VOID = 0,
   FLOOR = 1,
@@ -25,6 +32,7 @@ export interface FloorMap {
   wallPropSpawns: WallPropSpawnData[];
   bossSpawn: TilePos | null;
   statuePos: TilePos | null;
+  rooms: RoomBounds[];
 }
 
 export interface EnemySpawnData {
@@ -46,8 +54,11 @@ export enum FogState {
 
 export enum EnemyType {
   ROCK = "rock",
+  ROCK2 = "rock2",
   GOLEM = "golem",
   GHOST = "ghost",
+  FLYING_ROCK = "flying_rock",
+  TREE = "tree",
   BOSS = "boss",
 }
 
@@ -65,6 +76,7 @@ export enum TrapType {
 export interface TrapSpawnData {
   pos: TilePos;
   type: TrapType;
+  hidden?: boolean;
 }
 
 export type PropType =
@@ -100,22 +112,60 @@ export interface WallPropSpawnData {
   type: WallPropType;
 }
 
-export type UpgradeId =
-  | "sharp_blade"
-  | "vitality_surge"
-  | "life_steal"
-  | "thick_skin"
-  | "swift_feet"
-  | "second_wind";
+export type EvolutionPath = "attack" | "defense" | "utility";
+export type EvolutionTier = 1 | 2 | 3;
+
+export type EvolutionId =
+  | "evo_rift_fang_t1"
+  | "evo_rift_fang_t2"
+  | "evo_rift_fang_t3"
+  | "evo_stone_veil_t1"
+  | "evo_stone_veil_t2"
+  | "evo_stone_veil_t3"
+  | "evo_volt_core_t1"
+  | "evo_volt_core_t2"
+  | "evo_volt_core_t3";
+
+export type BuffId =
+  | "buff_field_patch"
+  | "buff_loot_magnet"
+  | "buff_quick_burst"
+  | "buff_trap_echo"
+  | "buff_treasure_window"
+  | "buff_keen_edge"
+  | "buff_emergency_mend"
+  | "buff_momentum_rush"
+  | "buff_golden_drift"
+  | "buff_execution_swing";
+
+export type UpgradeId = EvolutionId | BuffId;
+
+export type UpgradeKind = "evolution" | "buff";
 
 export type UpgradeRarity = "common" | "rare" | "epic";
 
 export interface UpgradeDef {
   id: UpgradeId;
+  kind: UpgradeKind;
   name: string;
   description: string;
-  stackable: boolean;
   rarity: UpgradeRarity;
+  icon: string;
+  unlockFloor: number;
+  path?: EvolutionPath;
+  tier?: EvolutionTier;
+  durationRounds?: number | null;
+  freeMoves?: number;
+  instantHeal?: number;
+  extraDropChance?: number;
+  lootMultiplier?: number;
+  critChance?: number;
+}
+
+export interface ActiveBuffState {
+  id: BuffId;
+  remainingRounds: number | null;
+  charges: number;
 }
 
 export enum TurnPhase {

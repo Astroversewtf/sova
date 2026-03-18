@@ -74,7 +74,7 @@ function KeyPicker() {
         return;
       }
       usePlayerStore.setState({ keys: data.keysRemaining });
-      useGameStore.getState().startRun(data.keysUsed);
+      useGameStore.getState().startRun(data.keysUsed, false);
       setView("game");
     } catch (err) {
       console.error("Failed to start run", err);

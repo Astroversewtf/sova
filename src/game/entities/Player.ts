@@ -167,10 +167,10 @@ export class Player {
     });
   }
 
-  /** Flash green on heal */
+  /** Flash blue on heal */
   flashHeal() {
     if (!this.sprite.active) return;
-    this.sprite.setTintFill(0x4ade80);
+    this.sprite.setTintFill(0x6fb6ff);
     this.hitFlashTimer?.remove(false);
     this.hitFlashTimer = this.scene.time.delayedCall(120, () => {
       if (this.sprite.active) this.sprite.clearTint();

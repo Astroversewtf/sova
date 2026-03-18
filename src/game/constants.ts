@@ -1,4 +1,11 @@
-import { EnemyType, TreasureType, type UpgradeDef } from "./types";
+import {
+  EnemyType,
+  TreasureType,
+  type BuffId,
+  type EvolutionPath,
+  type UpgradeDef,
+  type UpgradeRarity,
+} from "./types";
 
 // ── Resolution & Tiles ──
 export const GAME_WIDTH = 1600;
@@ -43,9 +50,7 @@ export function getFloorSize(floor: number): { w: number; h: number } {
 export interface EnemySpawnConfig {
   min: number;
   max: number;
-  rockPct: number;
-  golemPct: number;
-  // ghostPct = 1 - rockPct - golemPct
+  weights: Array<{ type: EnemyType; weight: number }>;
 }
 
 export function getEnemySpawnConfig(floor: number): EnemySpawnConfig {
@@ -56,19 +61,58 @@ export function getEnemySpawnConfig(floor: number): EnemySpawnConfig {
   else if (floor <= 8)  { min = 14; max = 16; }
   else                  { min = 16; max = 20; }
 
-  let rockPct: number, golemPct: number;
+  let weights: Array<{ type: EnemyType; weight: number }>;
   if (floor <= 2) {
-    // 60% Rock, 40% Golem, 0% Ghost
-    rockPct = 0.6; golemPct = 0.4;
+    // Early floors: Rock + Rock2 only.
+    weights = [
+      { type: EnemyType.ROCK, weight: 0.7 },
+      { type: EnemyType.ROCK2, weight: 0.3 },
+    ];
+  } else if (floor <= 3) {
+    // Golem enters before Ghost.
+    weights = [
+      { type: EnemyType.ROCK, weight: 0.4 },
+      { type: EnemyType.ROCK2, weight: 0.35 },
+      { type: EnemyType.GOLEM, weight: 0.25 },
+    ];
   } else if (floor <= 4) {
-    // 40% Rock, 30% Golem, 30% Ghost
-    rockPct = 0.4; golemPct = 0.3;
+    weights = [
+      { type: EnemyType.ROCK, weight: 0.35 },
+      { type: EnemyType.ROCK2, weight: 0.3 },
+      { type: EnemyType.GOLEM, weight: 0.25 },
+      { type: EnemyType.GHOST, weight: 0.1 },
+    ];
+  } else if (floor <= 6) {
+    // Tree enters from F5.
+    weights = [
+      { type: EnemyType.ROCK, weight: 0.22 },
+      { type: EnemyType.ROCK2, weight: 0.22 },
+      { type: EnemyType.GOLEM, weight: 0.2 },
+      { type: EnemyType.GHOST, weight: 0.18 },
+      { type: EnemyType.FLYING_ROCK, weight: 0.1 },
+      { type: EnemyType.TREE, weight: 0.08 },
+    ];
+  } else if (floor <= 8) {
+    weights = [
+      { type: EnemyType.ROCK, weight: 0.16 },
+      { type: EnemyType.ROCK2, weight: 0.16 },
+      { type: EnemyType.GOLEM, weight: 0.18 },
+      { type: EnemyType.GHOST, weight: 0.2 },
+      { type: EnemyType.FLYING_ROCK, weight: 0.14 },
+      { type: EnemyType.TREE, weight: 0.16 },
+    ];
   } else {
-    // 30% Rock, 30% Golem, 40% Ghost
-    rockPct = 0.3; golemPct = 0.3;
+    weights = [
+      { type: EnemyType.ROCK, weight: 0.12 },
+      { type: EnemyType.ROCK2, weight: 0.12 },
+      { type: EnemyType.GOLEM, weight: 0.16 },
+      { type: EnemyType.GHOST, weight: 0.2 },
+      { type: EnemyType.FLYING_ROCK, weight: 0.18 },
+      { type: EnemyType.TREE, weight: 0.22 },
+    ];
   }
 
-  return { min, max, rockPct, golemPct };
+  return { min, max, weights };
 }
 
 // ── Enemy base stats (fixed — tier multiplier applied separately) ──
@@ -76,10 +120,16 @@ export function getEnemyHP(type: EnemyType): number {
   switch (type) {
     case EnemyType.ROCK:
       return 1;
+    case EnemyType.ROCK2:
+      return 1;
     case EnemyType.GOLEM:
       return 1;
     case EnemyType.GHOST:
       return 3;
+    case EnemyType.FLYING_ROCK:
+      return 3;
+    case EnemyType.TREE:
+      return 4;
     case EnemyType.BOSS:
       return 7;
   }
@@ -89,10 +139,16 @@ export function getEnemyDMG(type: EnemyType): number {
   switch (type) {
     case EnemyType.ROCK:
       return 1;
+    case EnemyType.ROCK2:
+      return 1;
     case EnemyType.GOLEM:
       return 1;
     case EnemyType.GHOST:
       return 2;
+    case EnemyType.FLYING_ROCK:
+      return 2;
+    case EnemyType.TREE:
+      return 3;
     case EnemyType.BOSS:
       return 7;
   }
@@ -102,10 +158,16 @@ export function getDetectionRange(type: EnemyType): number {
   switch (type) {
     case EnemyType.ROCK:
       return 5;
+    case EnemyType.ROCK2:
+      return 5;
     case EnemyType.GOLEM:
       return 5;
     case EnemyType.GHOST:
       return 4;
+    case EnemyType.FLYING_ROCK:
+      return 5;
+    case EnemyType.TREE:
+      return 5;
     case EnemyType.BOSS:
       return 5;
   }
@@ -180,10 +242,16 @@ export const C = {
   // Enemies
   ENEMY_ROCK: 0xf472b6,      // pink rock
   ENEMY_ROCK_DARK: 0xdb2777, // pink shadow
+  ENEMY_ROCK2: 0x8b7355,     // earth brown (rock2)
+  ENEMY_ROCK2_DARK: 0x6b5635,
   ENEMY_GOLEM: 0x8b7355,     // brown/earth golem
   ENEMY_GOLEM_DARK: 0x6b5635, // brown shadow
   ENEMY_GHOST: 0x9ca3af,     // grey ghost
   ENEMY_GHOST_DARK: 0x6b7280, // grey shadow
+  ENEMY_FLYING_ROCK: 0x7dd3fc, // icy cyan
+  ENEMY_FLYING_ROCK_DARK: 0x0f766e,
+  ENEMY_TREE: 0x65a30d,      // mossy green
+  ENEMY_TREE_DARK: 0x3f6212,
   ENEMY_BOSS: 0x8b5cf6,      // purple boss
   ENEMY_BOSS_DARK: 0x6d28d9, // boss shadow
 
@@ -258,48 +326,258 @@ export function getTier(floor: number): TierData {
   return TIERS[4];
 }
 
-// ── Upgrade definitions ──
-export const UPGRADES: UpgradeDef[] = [
+// ── Upgrade system: Build (Evolution) + Buffs ──
+export type FloorBand = "f1_2" | "f3_4" | "f5_6" | "f7_plus";
+
+export function getFloorBand(floor: number): FloorBand {
+  if (floor <= 2) return "f1_2";
+  if (floor <= 4) return "f3_4";
+  if (floor <= 6) return "f5_6";
+  return "f7_plus";
+}
+
+export const EVOLUTION_UPGRADES: UpgradeDef[] = [
   {
-    id: "sharp_blade",
-    name: "Sharp Blade",
-    description: "+1 ATK per stack",
-    stackable: true,
-    rarity: "common",
-  },
-  {
-    id: "vitality_surge",
-    name: "Vitality Surge",
-    description: "+10 Max Energy per stack",
-    stackable: true,
-    rarity: "common",
-  },
-  {
-    id: "life_steal",
-    name: "Life Steal",
-    description: "+2 Energy per kill per stack",
-    stackable: true,
-    rarity: "rare",
-  },
-  {
-    id: "thick_skin",
-    name: "Thick Skin",
-    description: "-1 damage taken (min 1) per stack",
-    stackable: true,
-    rarity: "rare",
-  },
-  {
-    id: "swift_feet",
-    name: "Swift Feet",
-    description: "10% chance free move per stack",
-    stackable: true,
-    rarity: "rare",
-  },
-  {
-    id: "second_wind",
-    name: "Second Wind",
-    description: "Recover 15 Energy now",
-    stackable: false,
+    id: "evo_rift_fang_t1",
+    kind: "evolution",
+    path: "attack",
+    tier: 1,
+    name: "Rift Fang",
+    description: "+0.5 DMG",
     rarity: "epic",
+    icon: "/sprites/upgrades/build/evo_rift_fang_t1.png",
+    unlockFloor: 1,
+  },
+  {
+    id: "evo_rift_fang_t2",
+    kind: "evolution",
+    path: "attack",
+    tier: 2,
+    name: "Rift Fang",
+    description: "+0.5 DMG",
+    rarity: "epic",
+    icon: "/sprites/upgrades/build/evo_rift_fang_t2.png",
+    unlockFloor: 1,
+  },
+  {
+    id: "evo_rift_fang_t3",
+    kind: "evolution",
+    path: "attack",
+    tier: 3,
+    name: "Rift Fang",
+    description: "+1 DMG +20% Crit",
+    rarity: "epic",
+    icon: "/sprites/upgrades/build/evo_rift_fang_t3.png",
+    unlockFloor: 1,
+  },
+  {
+    id: "evo_stone_veil_t1",
+    kind: "evolution",
+    path: "defense",
+    tier: 1,
+    name: "Stone Veil",
+    description: "-0.5 DMG received",
+    rarity: "epic",
+    icon: "/sprites/upgrades/build/evo_stone_veil_t1.png",
+    unlockFloor: 1,
+  },
+  {
+    id: "evo_stone_veil_t2",
+    kind: "evolution",
+    path: "defense",
+    tier: 2,
+    name: "Stone Veil",
+    description: "-0.5 DMG received",
+    rarity: "epic",
+    icon: "/sprites/upgrades/build/evo_stone_veil_t2.png",
+    unlockFloor: 1,
+  },
+  {
+    id: "evo_stone_veil_t3",
+    kind: "evolution",
+    path: "defense",
+    tier: 3,
+    name: "Stone Veil",
+    description: "-1 DMG received +20% Dodge",
+    rarity: "epic",
+    icon: "/sprites/upgrades/build/evo_stone_veil_t3.png",
+    unlockFloor: 1,
+  },
+  {
+    id: "evo_volt_core_t1",
+    kind: "evolution",
+    path: "utility",
+    tier: 1,
+    name: "Volt Core",
+    description: "+15 Max Energy +5% Regen",
+    rarity: "epic",
+    icon: "/sprites/upgrades/build/evo_volt_core_t1.png",
+    unlockFloor: 1,
+  },
+  {
+    id: "evo_volt_core_t2",
+    kind: "evolution",
+    path: "utility",
+    tier: 2,
+    name: "Volt Core",
+    description: "+15 Max Energy +5% Regen",
+    rarity: "epic",
+    icon: "/sprites/upgrades/build/evo_volt_core_t2.png",
+    unlockFloor: 1,
+  },
+  {
+    id: "evo_volt_core_t3",
+    kind: "evolution",
+    path: "utility",
+    tier: 3,
+    name: "Volt Core",
+    description: "+20 Max Energy +10% Regen",
+    rarity: "epic",
+    icon: "/sprites/upgrades/build/evo_volt_core_t3.png",
+    unlockFloor: 1,
   },
 ];
+
+export const BUFF_UPGRADES: UpgradeDef[] = [
+  {
+    id: "buff_field_patch",
+    kind: "buff",
+    name: "Field Patch",
+    description: "Heal 15 now",
+    rarity: "common",
+    icon: "/sprites/upgrades/buff/buff_field_patch.png",
+    unlockFloor: 1,
+    instantHeal: 15,
+  },
+  {
+    id: "buff_loot_magnet",
+    kind: "buff",
+    name: "Loot Magnet",
+    description: "Auto-collect +2 tiles (3 rounds)",
+    rarity: "common",
+    icon: "/sprites/upgrades/buff/buff_loot_magnet.png",
+    unlockFloor: 1,
+    durationRounds: 3,
+  },
+  {
+    id: "buff_quick_burst",
+    kind: "buff",
+    name: "Quick Burst",
+    description: "10 free moves",
+    rarity: "common",
+    icon: "/sprites/upgrades/buff/buff_quick_burst.png",
+    unlockFloor: 1,
+    freeMoves: 10,
+  },
+  {
+    id: "buff_trap_echo",
+    kind: "buff",
+    name: "Trap Echo",
+    description: "Reveal traps (3 rounds)",
+    rarity: "rare",
+    icon: "/sprites/upgrades/buff/buff_trap_echo.png",
+    unlockFloor: 3,
+    durationRounds: 3,
+  },
+  {
+    id: "buff_treasure_window",
+    kind: "buff",
+    name: "Treasure Window",
+    description: "x2 Coins/Orbs (3 rounds)",
+    rarity: "rare",
+    icon: "/sprites/upgrades/buff/buff_treasure_window.png",
+    unlockFloor: 5,
+    durationRounds: 3,
+    lootMultiplier: 2,
+  },
+  {
+    id: "buff_keen_edge",
+    kind: "buff",
+    name: "Keen Edge",
+    description: "+10% Crit (3 rounds)",
+    rarity: "rare",
+    icon: "/sprites/upgrades/buff/buff_keen_edge.png",
+    unlockFloor: 3,
+    durationRounds: 3,
+    critChance: 0.1,
+  },
+  {
+    id: "buff_emergency_mend",
+    kind: "buff",
+    name: "Emergency Mend",
+    description: "Heal 25 now",
+    rarity: "rare",
+    icon: "/sprites/upgrades/buff/buff_emergency_mend.png",
+    unlockFloor: 3,
+    instantHeal: 25,
+  },
+  {
+    id: "buff_momentum_rush",
+    kind: "buff",
+    name: "Momentum Rush",
+    description: "20 free moves",
+    rarity: "epic",
+    icon: "/sprites/upgrades/buff/buff_momentum_rush.png",
+    unlockFloor: 5,
+    freeMoves: 20,
+  },
+  {
+    id: "buff_golden_drift",
+    kind: "buff",
+    name: "Golden Drift",
+    description: "+20% extra drop",
+    rarity: "epic",
+    icon: "/sprites/upgrades/buff/buff_golden_drift.png",
+    unlockFloor: 7,
+    durationRounds: null,
+    extraDropChance: 0.2,
+  },
+  {
+    id: "buff_execution_swing",
+    kind: "buff",
+    name: "Execution Swing",
+    description: "+1 DMG (1 round)",
+    rarity: "epic",
+    icon: "/sprites/upgrades/buff/buff_execution_swing.png",
+    unlockFloor: 7,
+    durationRounds: 1,
+  },
+];
+
+export const UPGRADE_BY_ID: Record<string, UpgradeDef> = Object.fromEntries(
+  [...EVOLUTION_UPGRADES, ...BUFF_UPGRADES].map((u) => [u.id, u]),
+);
+
+export const UPGRADES: UpgradeDef[] = [...EVOLUTION_UPGRADES, ...BUFF_UPGRADES];
+
+export function getUpgradeRarityChances(floor: number): Record<UpgradeRarity, number> {
+  if (floor <= 2) return { common: 0.85, rare: 0.15, epic: 0 };
+  if (floor <= 4) return { common: 0.7, rare: 0.27, epic: 0.03 };
+  if (floor <= 6) return { common: 0.55, rare: 0.35, epic: 0.1 };
+  return { common: 0.4, rare: 0.4, epic: 0.2 };
+}
+
+export function getEvolutionPathWeights(floor: number): Record<EvolutionPath, number> {
+  if (floor <= 2) return { attack: 40, defense: 35, utility: 25 };
+  if (floor <= 4) return { attack: 38, defense: 34, utility: 28 };
+  if (floor <= 6) return { attack: 35, defense: 33, utility: 32 };
+  return { attack: 34, defense: 33, utility: 33 };
+}
+
+const BUFF_WEIGHTS_BY_BAND: Record<BuffId, Record<FloorBand, number>> = {
+  buff_field_patch: { f1_2: 24, f3_4: 18, f5_6: 12, f7_plus: 8 },
+  buff_loot_magnet: { f1_2: 22, f3_4: 16, f5_6: 10, f7_plus: 8 },
+  buff_quick_burst: { f1_2: 18, f3_4: 14, f5_6: 8, f7_plus: 6 },
+  buff_trap_echo: { f1_2: 0, f3_4: 12, f5_6: 10, f7_plus: 8 },
+  buff_keen_edge: { f1_2: 0, f3_4: 10, f5_6: 12, f7_plus: 12 },
+  buff_emergency_mend: { f1_2: 0, f3_4: 8, f5_6: 10, f7_plus: 10 },
+  buff_treasure_window: { f1_2: 0, f3_4: 0, f5_6: 12, f7_plus: 10 },
+  buff_momentum_rush: { f1_2: 0, f3_4: 0, f5_6: 8, f7_plus: 10 },
+  buff_golden_drift: { f1_2: 0, f3_4: 0, f5_6: 0, f7_plus: 9 },
+  buff_execution_swing: { f1_2: 0, f3_4: 0, f5_6: 0, f7_plus: 8 },
+};
+
+export function getBuffWeight(buffId: BuffId, floor: number): number {
+  const band = getFloorBand(floor);
+  return BUFF_WEIGHTS_BY_BAND[buffId][band];
+}

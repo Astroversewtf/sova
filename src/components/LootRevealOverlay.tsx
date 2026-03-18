@@ -243,10 +243,10 @@ export function LootRevealOverlay() {
                   ? "top-[15%] w-[180px] h-[180px] sm:w-[230px] sm:h-[230px]"
                   : "top-[58%] -translate-y-1/2 w-[240px] h-[240px] sm:w-[320px] sm:h-[320px]"
               } ${
-                stage === "opening" || stage === "reveal"
+                stage === "opening"
                   ? "animate-run-end-chest-shake"
                   : stage === "closed"
-                  ? "animate-run-end-chest-bounce"
+                  ? "animate-run-end-chest-drop"
                   : ""
               }`}
               style={{ imageRendering: "pixelated" }}
