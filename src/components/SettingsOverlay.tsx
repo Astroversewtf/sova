@@ -59,10 +59,12 @@ export function SettingsOverlay() {
   const gameOverData = useGameStore((s) => s.gameOverData);
   const lootPhase = useGameStore((s) => s.lootPhase);
   const runEndActive = useGameStore((s) => s.runEndActive);
+  const tutorialMode = useGameStore((s) => s.tutorialMode);
   const [bindingCapture, setBindingCapture] = useState<{
     action: ControlAction;
     slot: number;
   } | null>(null);
+  const [tutorialDialogueVisible, setTutorialDialogueVisible] = useState(false);
 
   useEffect(() => {
     window.dispatchEvent(new Event("sova:controls-updated"));
@@ -105,6 +107,21 @@ export function SettingsOverlay() {
     }
   }, [endRunOverlayVisible, isOpen, close]);
 
+  useEffect(() => {
+    if (!tutorialMode) {
+      setTutorialDialogueVisible(false);
+      return;
+    }
+    const onTutorialDialogue = (e: Event) => {
+      const detail = (e as CustomEvent<{ visible?: boolean }>).detail;
+      setTutorialDialogueVisible(Boolean(detail?.visible));
+    };
+    window.addEventListener("sova:tutorial-dialogue", onTutorialDialogue as EventListener);
+    return () => {
+      window.removeEventListener("sova:tutorial-dialogue", onTutorialDialogue as EventListener);
+    };
+  }, [tutorialMode]);
+
   async function handleSignOut() {
     close();
     walletDisconnect();
@@ -120,25 +137,53 @@ export function SettingsOverlay() {
     ? `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(walletAddress)}`
     : null;
   const profileAvatar = walletAvatar || defaultAvatar;
+  const showTutorialCard = tutorialMode && tutorialDialogueVisible;
 
   return (
     <>
       {view === "game" && upgradeScreenFloor === null && !endRunOverlayVisible && (
-        <div className="fixed bottom-8 right-8 z-[90] pointer-events-auto">
-          <button
-            type="button"
-            onClick={open}
-            className="relative w-10 h-10 flex items-center justify-center transition-transform hover:scale-[1.03] active:scale-[0.98]"
-            aria-label="Open settings"
+        <>
+          <div
+            className="hidden md:block fixed right-8 z-[90] pointer-events-auto"
+            style={{ bottom: showTutorialCard ? "11.5rem" : "1rem" }}
           >
-            <img
-              src="/sprites/ui/onboarding/buttons_menu_01.png"
-              alt=""
-              className="absolute inset-0 w-full h-full"
-              style={{ imageRendering: "pixelated" }}
-            />
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={open}
+              className="relative w-10 h-10 flex items-center justify-center transition-transform hover:scale-[1.03] active:scale-[0.98]"
+              aria-label="Open settings"
+            >
+              <img
+                src="/sprites/ui/onboarding/buttons_menu_01.png"
+                alt=""
+                className="absolute inset-0 w-full h-full"
+                style={{ imageRendering: "pixelated" }}
+              />
+            </button>
+          </div>
+          <div
+            className="md:hidden fixed right-4 z-[90] pointer-events-auto"
+            style={{
+              bottom: showTutorialCard
+                ? "calc(max(env(safe-area-inset-bottom), 2rem) + 8.75rem)"
+                : "max(env(safe-area-inset-bottom), 2rem)",
+            }}
+          >
+            <button
+              type="button"
+              onClick={open}
+              className="relative w-10 h-10 flex items-center justify-center transition-transform active:scale-[0.98]"
+              aria-label="Open settings"
+            >
+              <img
+                src="/sprites/ui/onboarding/buttons_menu_01.png"
+                alt=""
+                className="absolute inset-0 w-full h-full"
+                style={{ imageRendering: "pixelated" }}
+              />
+            </button>
+          </div>
+        </>
       )}
 
       {isOpen && (

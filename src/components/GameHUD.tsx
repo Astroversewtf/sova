@@ -47,6 +47,7 @@ const MOG_SHADOW = mogShadow();
 
 export function GameHUD() {
   const isRunning = useGameStore((s) => s.isRunning);
+  const tutorialMode = useGameStore((s) => s.tutorialMode);
   const energy = useGameStore((s) => s.energy);
   const maxEnergy = useGameStore((s) => s.maxEnergy);
   const coins = useGameStore((s) => s.coinsCollected);
@@ -82,6 +83,9 @@ export function GameHUD() {
 
   const prevEnergy = useRef(energy);
   const [energyPulse, setEnergyPulse] = useState(false);
+  const [tutorialDialogue, setTutorialDialogue] = useState("");
+  const [tutorialDialogueVisible, setTutorialDialogueVisible] = useState(false);
+  const [typedDialogue, setTypedDialogue] = useState("");
 
   useEffect(() => {
     const before = prevEnergy.current;
@@ -94,6 +98,47 @@ export function GameHUD() {
     }
   }, [energy, isRunning]);
 
+  useEffect(() => {
+    if (!tutorialMode) {
+      setTutorialDialogue("");
+      setTutorialDialogueVisible(false);
+      setTypedDialogue("");
+      return;
+    }
+
+    const onTutorialDialogue = (e: Event) => {
+      const detail = (e as CustomEvent<{ text?: string; visible?: boolean }>).detail;
+      const text = detail?.text ?? "";
+      const visible = detail?.visible ?? false;
+      setTutorialDialogue(text);
+      setTutorialDialogueVisible(visible);
+    };
+
+    window.addEventListener("sova:tutorial-dialogue", onTutorialDialogue as EventListener);
+    return () => {
+      window.removeEventListener("sova:tutorial-dialogue", onTutorialDialogue as EventListener);
+    };
+  }, [tutorialMode]);
+
+  useEffect(() => {
+    if (!tutorialDialogueVisible || !tutorialDialogue) {
+      setTypedDialogue("");
+      return;
+    }
+
+    let i = 0;
+    setTypedDialogue("");
+    const ticker = window.setInterval(() => {
+      i = Math.min(tutorialDialogue.length, i + 2);
+      setTypedDialogue(tutorialDialogue.slice(0, i));
+      if (i >= tutorialDialogue.length) {
+        window.clearInterval(ticker);
+      }
+    }, 16);
+
+    return () => window.clearInterval(ticker);
+  }, [tutorialDialogue, tutorialDialogueVisible]);
+
   if (!isRunning) return null;
 
   const barBg =
@@ -103,6 +148,7 @@ export function GameHUD() {
   // Keep high values visually unchanged while giving low-energy values
   // enough visible width inside the decorative frame.
   const bluePct = pct <= 0 ? 0 : Math.min(100, pct + (1 - pct / 100) * 12);
+  const showTutorialCard = tutorialMode && tutorialDialogueVisible;
 
   return (
     <div className="absolute inset-0 pointer-events-none z-10">
@@ -339,7 +385,10 @@ export function GameHUD() {
         </div>
       </div>
 
-      <div className="hidden md:block absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-auto">
+      <div
+        className="hidden md:block absolute left-1/2 -translate-x-1/2 pointer-events-auto"
+        style={{ bottom: showTutorialCard ? "11.5rem" : "1rem" }}
+      >
         <button
           type="button"
           onClick={() => window.dispatchEvent(new Event("sova:request-skip-turn"))}
@@ -358,7 +407,11 @@ export function GameHUD() {
 
       <div
         className="md:hidden absolute left-1/2 -translate-x-1/2 pointer-events-auto"
-        style={{ bottom: "max(env(safe-area-inset-bottom), 2rem)" }}
+        style={{
+          bottom: showTutorialCard
+            ? "calc(max(env(safe-area-inset-bottom), 2rem) + 8.75rem)"
+            : "max(env(safe-area-inset-bottom), 2rem)",
+        }}
       >
         <button
           type="button"
@@ -374,6 +427,25 @@ export function GameHUD() {
             style={{ imageRendering: "pixelated" }}
           />
         </button>
+      </div>
+
+      <div
+        className={`absolute inset-x-0 bottom-0 z-20 pointer-events-none transition-opacity duration-150 ${showTutorialCard ? "opacity-100" : "opacity-0"}`}
+      >
+        <div className="relative w-full h-[140px] md:h-[170px] bg-black/95 border-t-4 border-white">
+          <img
+            src="/images/tutorial-astro.png"
+            alt=""
+            className="absolute left-1 md:left-2 bottom-0 h-[185px] md:h-[260px] w-auto"
+            style={{ imageRendering: "pixelated" }}
+          />
+          <div className="absolute inset-0 flex items-center justify-center px-[140px] md:px-[300px]">
+            <p className="font-press-start text-[9px] md:text-[13px] leading-relaxed text-white text-center">
+              <span className="text-[#6fb6ff]">ASTRO:</span>{" "}
+              <span>{typedDialogue}</span>
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );

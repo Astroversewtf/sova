@@ -182,6 +182,7 @@ export class GameScene extends Phaser.Scene {
       this.tutorialHudContainer?.destroy();
       this.tutorialHudContainer = null;
       this.tutorialDialogueText = null;
+      this.emitTutorialDialogue("", false);
     });
 
     if (this.tutorialMode) {
@@ -1441,8 +1442,19 @@ export class GameScene extends Phaser.Scene {
   }
 
   private advanceTutorialStep(next: number) {
+    const prevStep = this.tutorialStepIndex;
     this.tutorialStepIndex = Phaser.Math.Clamp(next, 0, TUTORIAL_STEPS.length);
-    this.refreshTutorialHud();
+    const completedObjective =
+      this.tutorialStepIndex > prevStep &&
+      prevStep >= 0 &&
+      prevStep < TUTORIAL_STEPS.length &&
+      this.tutorialStepIndex < TUTORIAL_STEPS.length;
+
+    if (completedObjective) {
+      this.showTutorialStepSuccess();
+    } else {
+      this.refreshTutorialHud();
+    }
     this.applyTutorialInputPolicyOnStepEnter();
 
     if (this.tutorialStepIndex === 7) {
@@ -1457,6 +1469,19 @@ export class GameScene extends Phaser.Scene {
     } catch {}
     this.time.delayedCall(900, () => {
       this.game.events.emit("go-to-lobby");
+    });
+  }
+
+  private showTutorialStepSuccess() {
+    const reactions = ["BOA!", "PERFEITO!", "EXCELENTE!", "NICE!"];
+    const text = Phaser.Utils.Array.GetRandom(reactions);
+    if (this.tutorialDialogueText) {
+      this.tutorialDialogueText.setText(text);
+      this.emitTutorialDialogue(text, true);
+    }
+    this.tutorialHintTimer?.remove(false);
+    this.tutorialHintTimer = this.time.delayedCall(520, () => {
+      this.refreshTutorialHud();
     });
   }
 
@@ -1593,21 +1618,35 @@ export class GameScene extends Phaser.Scene {
     if (!this.tutorialDialogueText) return;
 
     if (this.tutorialStepIndex >= TUTORIAL_STEPS.length) {
-      this.tutorialDialogueText.setText("Tutorial complete. Returning to lobby...");
+      const text = "Tutorial complete. Returning to lobby...";
+      this.tutorialDialogueText.setText(text);
+      this.emitTutorialDialogue(text, true);
       return;
     }
 
     const step = TUTORIAL_STEPS[this.tutorialStepIndex];
-    this.tutorialDialogueText.setText(`${step.dialogue} ${step.hint}`);
+    const text = `${step.dialogue} ${step.hint}`.trim();
+    this.tutorialDialogueText.setText(text);
+    this.emitTutorialDialogue(text, true);
   }
 
   private showTutorialHint(text: string) {
     if (!this.tutorialMode || !this.tutorialDialogueText) return;
     this.tutorialDialogueText.setText(text);
+    this.emitTutorialDialogue(text, true);
     this.tutorialHintTimer?.remove(false);
     this.tutorialHintTimer = this.time.delayedCall(1300, () => {
       this.refreshTutorialHud();
     });
+  }
+
+  private emitTutorialDialogue(text: string, visible: boolean) {
+    if (typeof window === "undefined") return;
+    window.dispatchEvent(
+      new CustomEvent("sova:tutorial-dialogue", {
+        detail: { text, visible },
+      }),
+    );
   }
 
 

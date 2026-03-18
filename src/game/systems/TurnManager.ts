@@ -213,9 +213,9 @@ export class TurnManager {
     emitSfxEvent("breakbles");
     chest.open();
     useGameStore.getState().incrementChests();
-    this.scene.events.emit("tutorial:chest-opened", pos);
 
     const pos = chest.pos;
+    this.scene.events.emit("tutorial:chest-opened", pos);
     const tutorialMode = useGameStore.getState().tutorialMode;
     const roll = Math.random();
 
