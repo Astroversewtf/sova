@@ -17,17 +17,17 @@ export function ChestPopup({ chestImage, timeLabel, isReady, onClose, onOpen }: 
       className="fixed inset-0 z-[130] bg-black/72 backdrop-blur-[3px] flex items-center justify-center px-4 py-6"
       onClick={onClose}
     >
-      <div onClick={(e) => e.stopPropagation()}>
+      <div className="relative" onClick={(e) => e.stopPropagation()}>
+        <OverlayTitlePill
+          title="CHEST"
+          className="absolute left-1/2 top-0 z-30 -translate-x-1/2 -translate-y-[50%]"
+          width="min(200px,60%)"
+        />
         <OverlayFrame
           className="w-[min(360px,85vw)] h-auto"
           contentClassName="flex flex-col items-center gap-4 py-6 px-4"
           edge={64}
         >
-          <OverlayTitlePill
-            title="CHEST"
-            className="absolute left-1/2 top-0 z-20 -translate-x-1/2 -translate-y-[72%]"
-            width="min(200px,60%)"
-          />
 
           <img
             src={chestImage}
@@ -62,14 +62,24 @@ export function ChestPopup({ chestImage, timeLabel, isReady, onClose, onOpen }: 
             </p>
           )}
 
+          {/* Close button */}
           <button
             type="button"
             onClick={onClose}
-            className="mt-1"
+            className="mt-2"
           >
-            <span className="font-pixel text-[10px] text-white/40 text-outline uppercase">
-              CLOSE
-            </span>
+            <OverlayFrame
+              className="h-8 min-w-[100px]"
+              contentClassName="!p-0 flex items-center justify-center px-4"
+              namePrefix="square"
+              basePath="/sprites/ui/square_tileset"
+              edge={16}
+              innerEdge={16}
+            >
+              <span className="font-press-start text-[8px] text-white/80 leading-none uppercase">
+                CLOSE
+              </span>
+            </OverlayFrame>
           </button>
         </OverlayFrame>
       </div>

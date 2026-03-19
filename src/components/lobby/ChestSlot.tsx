@@ -1,11 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { OverlayFrame } from "@/components/OverlayFrame";
 
 interface ChestSlotProps {
   chestImage: string;
-  unlockTime?: number; // timestamp when chest unlocks, undefined = empty slot
+  unlockTime?: number;
   onOpen?: () => void;
 }
 
@@ -20,6 +19,10 @@ function formatTime(ms: number): string {
   return `${s}s`;
 }
 
+/*
+  CHEST SLOT — placeholder wireframe matching sketch.
+  Replace the border box with chest art/image when ready.
+*/
 export function ChestSlot({ chestImage, unlockTime, onOpen }: ChestSlotProps) {
   const [remaining, setRemaining] = useState<number | null>(null);
 
@@ -39,31 +42,24 @@ export function ChestSlot({ chestImage, unlockTime, onOpen }: ChestSlotProps) {
       type="button"
       onClick={hasChest ? onOpen : undefined}
       disabled={!hasChest}
-      className="relative flex flex-col items-center gap-1 disabled:opacity-40"
+      className="flex flex-col items-center gap-1 disabled:opacity-30"
     >
-      <OverlayFrame
-        className="w-[clamp(70px,18vw,100px)] h-[clamp(70px,18vw,100px)]"
-        contentClassName="flex items-center justify-center !p-0"
-        namePrefix="square"
-        edge={16}
-        innerEdge={16}
-      >
-        {hasChest ? (
-          <img
-            src={chestImage}
-            alt="Chest"
-            className={`w-[75%] h-[75%] object-contain ${isReady ? "animate-run-end-chest-shake" : ""}`}
-            style={{ imageRendering: "pixelated" }}
-          />
-        ) : (
-          <span className="font-pixel text-[8px] text-white/30 text-outline">EMPTY</span>
-        )}
-      </OverlayFrame>
+      <div className="w-[clamp(70px,18vw,120px)] h-[clamp(80px,20vw,130px)] border-2 border-white/30 flex flex-col items-center justify-center gap-1">
+        <img
+          src={chestImage}
+          alt="Chest"
+          className={`w-[60%] h-auto object-contain ${isReady ? "animate-run-end-chest-shake" : ""}`}
+          style={{ imageRendering: "pixelated" }}
+        />
+        <span className="font-press-start text-[clamp(5px,1.2vw,8px)] text-white/50 leading-none">
+          chest
+        </span>
+      </div>
 
       {hasChest && remaining != null && (
         <span
-          className={`font-press-start text-[7px] text-outline ${
-            isReady ? "text-[#7fff7f]" : "text-[#ffdf75]"
+          className={`font-press-start text-[7px] ${
+            isReady ? "text-green-400/80" : "text-yellow-300/60"
           }`}
         >
           {formatTime(remaining)}

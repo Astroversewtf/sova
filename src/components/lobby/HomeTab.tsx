@@ -12,14 +12,6 @@ import { ChestPopup } from "@/components/lobby/ChestPopup";
 const MAX_KEYS = 15;
 const CHEST_IMAGE = "/sprites/props/chest_wood_01.png";
 
-// Placeholder chest data — replace with real data from backend later
-const PLACEHOLDER_CHESTS = [
-  { id: 0, unlockTime: Date.now() + 2 * 60 * 60 * 1000 },
-  { id: 1, unlockTime: Date.now() + 30 * 60 * 1000 },
-  { id: 2, unlockTime: undefined as number | undefined },
-  { id: 3, unlockTime: undefined as number | undefined },
-];
-
 function formatTime(ms: number): string {
   if (ms <= 0) return "READY";
   const totalSec = Math.floor(ms / 1000);
@@ -168,16 +160,29 @@ function KeyPicker() {
 
 export function HomeTab() {
   const keyPickerOpen = useLobbyStore((s) => s.keyPickerOpen);
+  const setKeyPickerOpen = useLobbyStore((s) => s.setKeyPickerOpen);
   const [selectedChest, setSelectedChest] = useState<number | null>(null);
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState<number | null>(null);
+
+  // Compute placeholder chests relative to mounted time to avoid hydration mismatch
+  const [chests] = useState(() => [
+    { id: 0, unlockTime: undefined as number | undefined },
+    { id: 1, unlockTime: undefined as number | undefined },
+    { id: 2, unlockTime: undefined as number | undefined },
+    { id: 3, unlockTime: undefined as number | undefined },
+  ]);
 
   useEffect(() => {
+    const base = Date.now();
+    chests[0].unlockTime = base + 2 * 60 * 60 * 1000;
+    chests[1].unlockTime = base + 30 * 60 * 1000;
+    setNow(base);
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
-  }, []);
+  }, [chests]);
 
-  const selectedData = selectedChest != null ? PLACEHOLDER_CHESTS[selectedChest] : null;
-  const selectedRemaining = selectedData?.unlockTime ? Math.max(0, selectedData.unlockTime - now) : 0;
+  const selectedData = selectedChest != null ? chests[selectedChest] : null;
+  const selectedRemaining = selectedData?.unlockTime && now ? Math.max(0, selectedData.unlockTime - now) : 0;
 
   if (keyPickerOpen) {
     return (
@@ -188,25 +193,26 @@ export function HomeTab() {
   }
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Main content */}
-      <div className="flex-1 flex flex-col items-center justify-center gap-4 sm:gap-6">
-        {/* News placeholder */}
-        <OverlayFrame
-          className="w-full max-w-[500px] h-[80px] sm:h-[100px]"
-          contentClassName="flex items-center justify-center !p-0"
-          edge={32}
-          innerEdge={32}
-        >
-          <span className="font-pixel text-[9px] sm:text-[10px] text-white/40 text-outline uppercase">
-            NEWS
-          </span>
-        </OverlayFrame>
+    <div className="h-full flex flex-col gap-4 sm:gap-6">
+      {/* News — placeholder box matching sketch */}
+      <div className="w-full border-2 border-white/30 h-[80px] sm:h-[110px] md:h-[130px] flex items-center justify-center">
+        <span className="font-press-start text-[clamp(8px,2vw,14px)] text-white/50">news</span>
       </div>
 
-      {/* Chest slots */}
-      <div className="flex items-center justify-center gap-2 sm:gap-3 pb-16 sm:pb-20">
-        {PLACEHOLDER_CHESTS.map((chest) => (
+      {/* Play button — placeholder box matching sketch */}
+      <div className="flex-1 flex items-center justify-center">
+        <button
+          type="button"
+          onClick={() => setKeyPickerOpen(true)}
+          className="border-2 border-white/30 px-8 sm:px-12 py-3 sm:py-4 hover:bg-white/10 transition-colors"
+        >
+          <span className="font-press-start text-[clamp(10px,2.5vw,18px)] text-white/60">play</span>
+        </button>
+      </div>
+
+      {/* Chest slots — 4 placeholder boxes matching sketch */}
+      <div className="flex items-center justify-center gap-2 sm:gap-3 pb-2 sm:pb-4">
+        {chests.map((chest) => (
           <ChestSlot
             key={chest.id}
             chestImage={CHEST_IMAGE}
@@ -217,14 +223,13 @@ export function HomeTab() {
       </div>
 
       {/* Chest popup */}
-      {selectedChest != null && selectedData && selectedData.unlockTime != null && (
+      {selectedChest != null && selectedData && selectedData.unlockTime != null && now != null && (
         <ChestPopup
           chestImage={CHEST_IMAGE}
           timeLabel={formatTime(selectedRemaining)}
           isReady={selectedRemaining <= 0}
           onClose={() => setSelectedChest(null)}
           onOpen={() => {
-            console.log("Opening chest", selectedChest);
             setSelectedChest(null);
           }}
         />

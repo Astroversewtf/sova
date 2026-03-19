@@ -393,16 +393,17 @@ function LobbyView() {
         {/* Main content */}
         <div className="flex-1 flex flex-col min-w-0 relative">
           <TopBar />
-          <div className="relative flex-1 overflow-hidden">
-            <div className="h-full box-border pt-[12%] px-[24px] sm:px-[40px] lg:px-[60px]">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden">
+            <div className="h-full box-border pt-2 sm:pt-4 px-4 sm:px-8 lg:px-12">
               {activeTab === "home" && <HomeTab />}
               {activeTab === "shop" && <ShopTab />}
               {activeTab === "quests" && <QuestsTab />}
               {activeTab === "rankings" && <RankingsTab />}
               {activeTab === "stash" && <StashTab />}
             </div>
-            <BottomNav />
           </div>
+          {/* Bottom nav — full width of content area (chat to right edge) */}
+          <BottomNav />
         </div>
       </div>
     </div>
