@@ -4,7 +4,6 @@ import { usePlayerStore } from "@/stores/playerStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useLobbyStore } from "@/stores/lobbyStore";
 import { useEffect, useState } from "react";
-import { OverlayFrame } from "@/components/OverlayFrame";
 
 function useCountdownToFriday() {
   const [text, setText] = useState("");
@@ -43,179 +42,67 @@ function useCountdownToFriday() {
   return text;
 }
 
-function PrizeCard({
-  frame,
-  value,
-  label,
-  glowColor,
-  countdown,
-}: {
-  frame: string;
-  value: string;
-  label: string;
-  glowColor: string;
-  countdown?: string;
-}) {
-  return (
-    <div className="relative w-[clamp(248px,24vw,318px)] aspect-[8/5]">
-      <div
-        className="absolute inset-0 z-0 flex items-center justify-center"
-        aria-hidden="true"
-      >
-        <div
-          className="h-[62%] w-[84%] rounded-full blur-[20px] opacity-80"
-          style={{
-            background: `radial-gradient(circle at center, ${glowColor} 0%, rgba(0,0,0,0) 70%)`,
-          }}
-        />
-      </div>
-      <img
-        src={frame}
-        alt={label}
-        className="absolute inset-0 z-10 w-full h-full"
-        style={{ imageRendering: "pixelated" }}
-      />
-      <div className="absolute inset-0 z-20 flex items-center justify-center">
-        <span className="font-press-start text-[clamp(12px,1.2vw,18px)] text-white text-outline-5 leading-none text-center px-3">
-          {value}
-        </span>
-      </div>
-      {countdown && (
-        <div className="absolute left-1/2 -translate-x-1/2 -bottom-1">
-          <span className="font-press-start text-[9px] sm:text-xs text-white text-outline whitespace-nowrap leading-none">
-            {countdown}
-          </span>
-        </div>
-      )}
-    </div>
-  );
-}
-
+/*
+  TOP BAR — placeholder wireframe matching sketch.
+  Replace the wrapper div and inner boxes with themed images when ready.
+  Structure: [PFP] [weekly pool] [jackpot] ... [coin] [orbs] [keys] [sett]
+*/
 export function TopBar() {
   const { coins, gems, keys } = usePlayerStore();
   const openSettings = useSettingsStore((s) => s.open);
   const setActiveTab = useLobbyStore((s) => s.setActiveTab);
   const countdown = useCountdownToFriday();
-  const rowAnchorY = "66%";
 
   return (
-    <div className="relative shrink-0 h-[clamp(138px,18vh,186px)] px-[1.8%]">
-      <div
-        className="absolute z-30 w-[92px] flex justify-center -translate-y-1/2"
-        style={{ top: rowAnchorY, left: "2.2%" }}
-      >
-        <button
-          type="button"
-          onClick={openSettings}
-          className="relative w-12 h-12 flex items-center justify-center"
-          aria-label="Open settings"
-        >
-          <img
-            src="/sprites/ui/onboarding/buttons_menu_01.png"
-            alt=""
-            className="absolute inset-0 w-full h-full"
-            style={{ imageRendering: "pixelated" }}
-          />
-        </button>
-      </div>
+    <div className="shrink-0 w-full border-2 border-white/30 bg-black/20">
+      <div className="flex items-center h-14 sm:h-16 md:h-18 px-2 sm:px-3 gap-2 sm:gap-3">
+        {/* PFP */}
+        <div className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 border-2 border-white/30 flex items-center justify-center">
+          <span className="font-press-start text-[8px] sm:text-[10px] text-white/60">pfp</span>
+        </div>
 
-      <div
-        className="absolute z-30 -translate-y-1/2 flex items-center gap-2"
-        style={{ top: rowAnchorY, right: "2%" }}
-      >
-        <OverlayFrame
-          className="relative w-[56px] h-[56px]"
-          contentClassName="!p-0 flex items-center justify-center"
-          namePrefix="square"
-          basePath="/sprites/ui/square_tileset"
-          edge={16}
-          innerEdge={16}
-        >
-          <img
-            src="/sprites/items/coin/coin_01.png"
-            alt="Coins"
-            className="absolute left-1/2 top-0 z-20 w-10 h-10 -translate-x-1/2 -translate-y-[50%]"
-            style={{ imageRendering: "pixelated" }}
-          />
-          <span
-            className="relative z-10 font-press-start-crisp text-[11px] text-amber-300 leading-none mt-[6px]"
-            style={{ textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000" }}
-          >
-            {coins.toLocaleString()}
-          </span>
-        </OverlayFrame>
+        {/* Weekly Pool */}
+        <div className="flex-1 min-w-0 h-9 sm:h-11 border-2 border-white/30 flex flex-col items-center justify-center">
+          <span className="font-press-start text-[clamp(6px,1.4vw,10px)] text-white/60 leading-none">weekly pool</span>
+          {countdown && (
+            <span className="font-press-start text-[clamp(4px,1vw,7px)] text-white/40 leading-none mt-0.5">{countdown}</span>
+          )}
+        </div>
 
-        <OverlayFrame
-          className="relative w-[56px] h-[56px]"
-          contentClassName="!p-0 flex items-center justify-center"
-          namePrefix="square"
-          basePath="/sprites/ui/square_tileset"
-          edge={16}
-          innerEdge={16}
-        >
-          <img
-            src="/sprites/items/orb/item_orb_01.png"
-            alt="Orbs"
-            className="absolute left-1/2 top-0 z-20 w-10 h-10 -translate-x-1/2 -translate-y-[50%]"
-            style={{ imageRendering: "pixelated" }}
-          />
-          <span
-            className="relative z-10 font-press-start-crisp text-[11px] text-teal-300 leading-none mt-[6px]"
-            style={{ textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000" }}
-          >
-            {gems}
-          </span>
-        </OverlayFrame>
+        {/* Jackpot */}
+        <div className="flex-1 min-w-0 h-9 sm:h-11 border-2 border-white/30 flex items-center justify-center">
+          <span className="font-press-start text-[clamp(6px,1.4vw,10px)] text-white/60 leading-none">jackpot</span>
+        </div>
 
-        <button
-          type="button"
-          onClick={() => setActiveTab("shop")}
-          className="relative w-[56px] h-[56px] bg-transparent flex items-center justify-center"
-        >
-          <OverlayFrame
-            className="relative w-full h-full"
-            contentClassName="!p-0 flex items-center justify-center"
-            namePrefix="square"
-            basePath="/sprites/ui/square_tileset"
-            edge={16}
-            innerEdge={16}
-          >
-            <img
-              src="/sprites/items/key/key_02.png"
-              alt="Keys"
-              className="absolute left-1/2 top-0 z-20 w-8 h-8 -translate-x-1/2 -translate-y-[60%]"
-              style={{ imageRendering: "pixelated" }}
-            />
-            <span
-              className="relative z-10 font-press-start-crisp text-[11px] text-yellow-200 leading-none mt-[6px]"
-              style={{ textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000" }}
-            >
-              {keys}
-            </span>
-          </OverlayFrame>
-        </button>
-      </div>
+        {/* Spacer */}
+        <div className="flex-1 min-w-0 hidden md:block" />
 
-      <div
-        className="absolute left-1/2 z-20 -translate-y-1/2 -translate-x-[120%]"
-        style={{ top: rowAnchorY }}
-      >
-        <div className="relative">
-          <PrizeCard
-            frame="/sprites/ui/hud/prizes/weekly_prize_01.png"
-            label="Weekly Pool"
-            value="77,191 USD"
-            glowColor="#2f74ff"
-            countdown={countdown}
-          />
-          <div className="absolute top-0 left-full ml-[-6%]">
-            <PrizeCard
-              frame="/sprites/ui/hud/prizes/jackpot_prize_01.png"
-              label="Jackpot"
-              value="14,313 USD"
-              glowColor="#d3a13a"
-            />
+        {/* Resources */}
+        <div className="flex items-center gap-1 sm:gap-2">
+          <div className="h-8 sm:h-10 px-2 sm:px-3 border-2 border-white/30 flex items-center justify-center gap-1">
+            <span className="font-press-start text-[clamp(5px,1.2vw,8px)] text-white/60 leading-none">coin</span>
+            <span className="font-press-start text-[clamp(5px,1.2vw,8px)] text-yellow-300/80 leading-none">{coins.toLocaleString()}</span>
           </div>
+          <div className="h-8 sm:h-10 px-2 sm:px-3 border-2 border-white/30 flex items-center justify-center gap-1">
+            <span className="font-press-start text-[clamp(5px,1.2vw,8px)] text-white/60 leading-none">orbs</span>
+            <span className="font-press-start text-[clamp(5px,1.2vw,8px)] text-teal-300/80 leading-none">{gems}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActiveTab("shop")}
+            className="h-8 sm:h-10 px-2 sm:px-3 border-2 border-white/30 flex items-center justify-center gap-1"
+          >
+            <span className="font-press-start text-[clamp(5px,1.2vw,8px)] text-white/60 leading-none">keys</span>
+            <span className="font-press-start text-[clamp(5px,1.2vw,8px)] text-yellow-200/80 leading-none">{keys}</span>
+          </button>
+          <button
+            type="button"
+            onClick={openSettings}
+            className="h-8 sm:h-10 w-8 sm:w-10 border-2 border-white/30 flex items-center justify-center"
+            aria-label="Settings"
+          >
+            <span className="font-press-start text-[clamp(5px,1vw,8px)] text-white/60 leading-none">sett</span>
+          </button>
         </div>
       </div>
     </div>
