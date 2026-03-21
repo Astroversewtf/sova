@@ -1,0 +1,520 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SOVA Chest MVP Example</title>
+  <style>
+    :root {
+      --bg: #0a0d12;
+      --panel: #121722;
+      --panel-2: #182131;
+      --line: #293247;
+      --text: #eef3ff;
+      --muted: #a2afc8;
+      --green: #88e870;
+      --blue: #56b7ff;
+      --gold: #ffd85f;
+      --pink: #ff82d8;
+      --danger: #ff6e7d;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: radial-gradient(1200px 700px at 70% -10%, #1a2538 0%, var(--bg) 55%);
+      color: var(--text);
+      font: 14px/1.4 "Press Start 2P", "Inter", "Segoe UI", sans-serif;
+      min-height: 100dvh;
+    }
+    .wrap {
+      max-width: 1220px;
+      margin: 0 auto;
+      padding: 20px;
+      display: grid;
+      gap: 14px;
+      grid-template-columns: 1.2fr 1fr;
+    }
+    .card {
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, var(--panel-2), var(--panel));
+      border-radius: 12px;
+      padding: 14px;
+    }
+    h1, h2, h3 {
+      margin: 0;
+      line-height: 1.2;
+      letter-spacing: 0.02em;
+    }
+    h1 { font-size: 20px; }
+    h2 { font-size: 13px; margin-bottom: 10px; color: var(--blue); }
+    h3 { font-size: 11px; margin-bottom: 8px; color: var(--muted); }
+    .top {
+      grid-column: 1 / -1;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+    }
+    .subtitle {
+      color: var(--muted);
+      font-size: 10px;
+      margin-top: 6px;
+    }
+    .balances {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .pill {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 8px 10px;
+      font-size: 10px;
+      background: #0d1320;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .coin { color: var(--gold); }
+    .orb { color: var(--blue); }
+    .skin { color: var(--pink); }
+    .shard { color: var(--green); }
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    button {
+      border: 1px solid #394663;
+      border-bottom-width: 3px;
+      border-radius: 8px;
+      background: linear-gradient(180deg, #314467, #263551);
+      color: var(--text);
+      font: inherit;
+      font-size: 10px;
+      padding: 10px 8px;
+      cursor: pointer;
+      transition: transform .08s ease, filter .08s ease;
+    }
+    button:hover { transform: translateY(-1px); filter: brightness(1.08); }
+    button:active { transform: translateY(1px); }
+    button:disabled {
+      opacity: .45;
+      cursor: not-allowed;
+      transform: none;
+      filter: none;
+    }
+    .btn-run { border-color: #3f6b4a; background: linear-gradient(180deg, #2a5a3a, #1f472f); }
+    .btn-quest { border-color: #63562f; background: linear-gradient(180deg, #5f5027, #453b1c); }
+    .btn-open { border-color: #2f5b73; background: linear-gradient(180deg, #2a6081, #214b67); }
+    .btn-open-all { border-color: #6f2f73; background: linear-gradient(180deg, #7b2a81, #5d1f62); }
+    .layout-col {
+      display: grid;
+      gap: 14px;
+    }
+    .chest-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+    .chest-tile {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 12px;
+      text-align: center;
+      background: #0f1522;
+      min-height: 92px;
+      display: grid;
+      place-items: center;
+      gap: 8px;
+    }
+    .chest-name { font-size: 10px; color: var(--muted); }
+    .count { font-size: 20px; }
+    .common .count { color: #d2d8e4; }
+    .rare .count { color: var(--blue); }
+    .epic .count { color: var(--pink); }
+    .open-box {
+      border: 1px dashed #445070;
+      border-radius: 10px;
+      min-height: 220px;
+      display: grid;
+      place-items: center;
+      padding: 12px;
+      text-align: center;
+      background: #0c121d;
+    }
+    .chest-icon {
+      width: 88px;
+      height: 88px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      font-size: 40px;
+      margin: 0 auto 10px;
+      border: 1px solid rgba(255,255,255,.18);
+      box-shadow: 0 8px 22px rgba(0,0,0,.35);
+    }
+    .c-common { background: linear-gradient(180deg, #3d4556, #2f3542); }
+    .c-rare { background: linear-gradient(180deg, #265f8e, #1b4265); }
+    .c-epic { background: linear-gradient(180deg, #70358e, #4f2466); }
+    .opening {
+      animation: pulse .45s ease-in-out 3;
+    }
+    @keyframes pulse {
+      0% { transform: scale(1); filter: brightness(1); }
+      50% { transform: scale(1.08); filter: brightness(1.25); }
+      100% { transform: scale(1); filter: brightness(1); }
+    }
+    .reward {
+      border: 1px solid #3a4c71;
+      border-radius: 10px;
+      background: #0c1424;
+      padding: 12px;
+      width: 100%;
+      max-width: 420px;
+      margin: 0 auto;
+    }
+    .reward-title {
+      font-size: 10px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .reward-value {
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+    .reward-meta {
+      font-size: 9px;
+      color: var(--muted);
+    }
+    .log {
+      max-height: 180px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #0b111b;
+      padding: 8px;
+    }
+    .log-item {
+      padding: 6px;
+      border-bottom: 1px solid #1c2638;
+      font-size: 9px;
+      color: #c3cde0;
+    }
+    .log-item:last-child { border-bottom: 0; }
+    .tables table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+      font-size: 9px;
+    }
+    .tables th, .tables td {
+      border: 1px solid #2e3a55;
+      padding: 6px;
+      text-align: left;
+    }
+    .tables th {
+      color: var(--muted);
+      background: #0f1728;
+    }
+    .foot {
+      margin-top: 8px;
+      font-size: 8px;
+      color: #8f9dbc;
+    }
+    @media (max-width: 1020px) {
+      .wrap { grid-template-columns: 1fr; }
+      .actions { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="top card">
+      <div>
+        <h1>SOVA CHEST LOOP - MVP EXAMPLE</h1>
+        <div class="subtitle">Flow: complete run/quest -> gain chest -> open chest -> reward added to lobby economy</div>
+      </div>
+      <div class="balances">
+        <div class="pill"><span class="coin">COINS</span> <strong id="balCoins">0</strong></div>
+        <div class="pill"><span class="orb">ORBS</span> <strong id="balOrbs">0</strong></div>
+        <div class="pill"><span class="shard">SHARDS</span> <strong id="balShards">0</strong></div>
+        <div class="pill"><span class="skin">SKINS</span> <strong id="balSkins">0</strong></div>
+      </div>
+    </section>
+
+    <section class="layout-col">
+      <div class="card">
+        <h2>1) GRANT CHESTS</h2>
+        <h3>Use these to simulate end-of-run and quest rewards</h3>
+        <div class="actions">
+          <button class="btn-run" id="btnRun">COMPLETE RUN</button>
+          <button class="btn-quest" id="btnQuest">COMPLETE QUEST</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>2) CHEST INVENTORY</h2>
+        <div class="chest-grid">
+          <div class="chest-tile common">
+            <div class="chest-name">COMMON</div>
+            <div class="count" id="countCommon">0</div>
+          </div>
+          <div class="chest-tile rare">
+            <div class="chest-name">RARE</div>
+            <div class="count" id="countRare">0</div>
+          </div>
+          <div class="chest-tile epic">
+            <div class="chest-name">EPIC</div>
+            <div class="count" id="countEpic">0</div>
+          </div>
+        </div>
+        <div class="actions" style="margin-top:12px">
+          <button class="btn-open" id="btnOpen">OPEN NEXT CHEST</button>
+          <button class="btn-open-all" id="btnOpenAll">OPEN ALL</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="layout-col">
+      <div class="card">
+        <h2>3) OPENING + REVEAL</h2>
+        <div class="open-box" id="openBox">
+          <div style="color:#8ea0c1;font-size:10px">NO CHEST OPENED YET</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>4) REWARD LOG</h2>
+        <div class="log" id="rewardLog"></div>
+      </div>
+    </section>
+
+    <section class="card tables" style="grid-column:1 / -1;">
+      <h2>MVP DROP TABLES (EXAMPLE)</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Chest</th>
+            <th>Coins</th>
+            <th>Orbs</th>
+            <th>Skin Shards</th>
+            <th>Full Skin</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Common</td><td>55%</td><td>30%</td><td>12%</td><td>3%</td></tr>
+          <tr><td>Rare</td><td>45%</td><td>30%</td><td>20%</td><td>5%</td></tr>
+          <tr><td>Epic</td><td>30%</td><td>25%</td><td>30%</td><td>15%</td></tr>
+        </tbody>
+      </table>
+      <table>
+        <thead>
+          <tr>
+            <th>Grant Source</th>
+            <th>Common</th>
+            <th>Rare</th>
+            <th>Epic</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>End Run</td><td>70%</td><td>25%</td><td>5%</td></tr>
+          <tr><td>Quest</td><td>0%</td><td>70%</td><td>30%</td></tr>
+        </tbody>
+      </table>
+      <div class="foot">
+        Notes: this is a front-end prototype only. In production, chest grant/open RNG should run server-side.
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const state = {
+      balances: { coins: 0, orbs: 0, shards: 0, skins: 0 },
+      queue: [],
+      opening: false
+    };
+
+    const CHEST_DROPS = {
+      common: [
+        { type: "coins", w: 55, amount: () => randInt(20, 45) },
+        { type: "orbs", w: 30, amount: () => randInt(1, 3) },
+        { type: "shards", w: 12, amount: () => randInt(1, 2) },
+        { type: "skin", w: 3, amount: () => 1 }
+      ],
+      rare: [
+        { type: "coins", w: 45, amount: () => randInt(45, 90) },
+        { type: "orbs", w: 30, amount: () => randInt(3, 6) },
+        { type: "shards", w: 20, amount: () => randInt(2, 5) },
+        { type: "skin", w: 5, amount: () => 1 }
+      ],
+      epic: [
+        { type: "coins", w: 30, amount: () => randInt(90, 170) },
+        { type: "orbs", w: 25, amount: () => randInt(6, 12) },
+        { type: "shards", w: 30, amount: () => randInt(5, 10) },
+        { type: "skin", w: 15, amount: () => 1 }
+      ]
+    };
+
+    const GRANT_TABLE = {
+      run: [
+        { chest: "common", w: 70 },
+        { chest: "rare", w: 25 },
+        { chest: "epic", w: 5 }
+      ],
+      quest: [
+        { chest: "rare", w: 70 },
+        { chest: "epic", w: 30 }
+      ]
+    };
+
+    const els = {
+      balCoins: document.getElementById("balCoins"),
+      balOrbs: document.getElementById("balOrbs"),
+      balShards: document.getElementById("balShards"),
+      balSkins: document.getElementById("balSkins"),
+      countCommon: document.getElementById("countCommon"),
+      countRare: document.getElementById("countRare"),
+      countEpic: document.getElementById("countEpic"),
+      btnRun: document.getElementById("btnRun"),
+      btnQuest: document.getElementById("btnQuest"),
+      btnOpen: document.getElementById("btnOpen"),
+      btnOpenAll: document.getElementById("btnOpenAll"),
+      openBox: document.getElementById("openBox"),
+      rewardLog: document.getElementById("rewardLog")
+    };
+
+    function randInt(min, max) {
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function weightedPick(items, keyWeight) {
+      const total = items.reduce((acc, it) => acc + it[keyWeight], 0);
+      let roll = Math.random() * total;
+      for (const it of items) {
+        roll -= it[keyWeight];
+        if (roll <= 0) return it;
+      }
+      return items[items.length - 1];
+    }
+
+    function grantChest(source) {
+      const pick = weightedPick(GRANT_TABLE[source], "w");
+      state.queue.push(pick.chest);
+      appendLog("+" + pick.chest.toUpperCase() + " chest (" + source + ")");
+      render();
+    }
+
+    function countByTier() {
+      const c = { common: 0, rare: 0, epic: 0 };
+      for (const tier of state.queue) c[tier] += 1;
+      return c;
+    }
+
+    function applyReward(rewardType, amount) {
+      if (rewardType === "coins") state.balances.coins += amount;
+      if (rewardType === "orbs") state.balances.orbs += amount;
+      if (rewardType === "shards") state.balances.shards += amount;
+      if (rewardType === "skin") state.balances.skins += amount;
+    }
+
+    function chestEmoji(tier) {
+      if (tier === "common") return "📦";
+      if (tier === "rare") return "🎁";
+      return "👑";
+    }
+
+    function tierClass(tier) {
+      if (tier === "common") return "c-common";
+      if (tier === "rare") return "c-rare";
+      return "c-epic";
+    }
+
+    function labelForReward(type) {
+      if (type === "coins") return "COINS";
+      if (type === "orbs") return "ORBS";
+      if (type === "shards") return "SKIN SHARDS";
+      return "FULL SKIN";
+    }
+
+    function renderReveal(tier, rewardType, amount) {
+      els.openBox.innerHTML = "";
+      const wrap = document.createElement("div");
+      wrap.className = "reward";
+      wrap.innerHTML = [
+        '<div class="chest-icon ' + tierClass(tier) + ' opening">' + chestEmoji(tier) + "</div>",
+        '<div class="reward-title">' + tier.toUpperCase() + " CHEST OPENED</div>",
+        '<div class="reward-value">+' + amount + " " + labelForReward(rewardType) + "</div>",
+        '<div class="reward-meta">Reward rolled from ' + tier.toUpperCase() + " table</div>"
+      ].join("");
+      els.openBox.appendChild(wrap);
+    }
+
+    function appendLog(text) {
+      const item = document.createElement("div");
+      item.className = "log-item";
+      item.textContent = new Date().toLocaleTimeString() + " - " + text;
+      els.rewardLog.prepend(item);
+    }
+
+    async function openNextChest() {
+      if (state.opening || state.queue.length === 0) return;
+      state.opening = true;
+      render();
+
+      const tier = state.queue.shift();
+      const reward = weightedPick(CHEST_DROPS[tier], "w");
+      const amount = reward.amount();
+
+      renderReveal(tier, reward.type, amount);
+      await wait(620);
+      applyReward(reward.type, amount);
+      appendLog("Opened " + tier.toUpperCase() + ": +" + amount + " " + labelForReward(reward.type));
+
+      state.opening = false;
+      render();
+    }
+
+    async function openAll() {
+      while (!state.opening && state.queue.length > 0) {
+        await openNextChest();
+        await wait(180);
+      }
+    }
+
+    function wait(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    function render() {
+      const byTier = countByTier();
+      els.countCommon.textContent = byTier.common;
+      els.countRare.textContent = byTier.rare;
+      els.countEpic.textContent = byTier.epic;
+
+      els.balCoins.textContent = state.balances.coins;
+      els.balOrbs.textContent = state.balances.orbs;
+      els.balShards.textContent = state.balances.shards;
+      els.balSkins.textContent = state.balances.skins;
+
+      els.btnOpen.disabled = state.opening || state.queue.length === 0;
+      els.btnOpenAll.disabled = state.opening || state.queue.length === 0;
+      els.btnRun.disabled = state.opening;
+      els.btnQuest.disabled = state.opening;
+
+      if (!state.opening && state.queue.length === 0 && els.openBox.children.length === 0) {
+        els.openBox.innerHTML = '<div style="color:#8ea0c1;font-size:10px">NO CHESTS IN INVENTORY</div>';
+      }
+    }
+
+    els.btnRun.addEventListener("click", () => grantChest("run"));
+    els.btnQuest.addEventListener("click", () => grantChest("quest"));
+    els.btnOpen.addEventListener("click", openNextChest);
+    els.btnOpenAll.addEventListener("click", openAll);
+
+    appendLog("Chest MVP ready");
+    render();
+  </script>
+</body>
+</html>

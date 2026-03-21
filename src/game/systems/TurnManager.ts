@@ -144,7 +144,9 @@ export class TurnManager {
       // Stair entry is still a completed turn; tick timed buffs once.
       useGameStore.getState().advanceUpgradeRound();
       emitSfxEvent("stairs-enter");
-      this.scene.completeFloor();
+      this.scene.playStairsEnterAnimation(() => {
+        this.scene.completeFloor();
+      });
       return;
     }
 
@@ -217,11 +219,16 @@ export class TurnManager {
     const pos = chest.pos;
     this.scene.events.emit("tutorial:chest-opened", pos);
     const tutorialMode = useGameStore.getState().tutorialMode;
+    const tutorialDrop = tutorialMode
+      ? this.scene.getTutorialChestDropOverride(pos)
+      : null;
     const roll = Math.random();
 
     let type: TreasureType | null;
-    if (tutorialMode) {
-      type = TreasureType.ENERGY;
+    let forcedValue: number | null = null;
+    if (tutorialDrop) {
+      type = tutorialDrop.type;
+      forcedValue = tutorialDrop.value;
     } else if (roll < 0.50) {
       type = TreasureType.ENERGY;
     } else if (roll < 0.70) {
@@ -239,7 +246,9 @@ export class TurnManager {
     const keys = useGameStore.getState().keysUsed;
     const baseValue = TREASURE_VALUES[type];
     let finalValue: number;
-    if (type === TreasureType.ENERGY) {
+    if (forcedValue !== null) {
+      finalValue = forcedValue;
+    } else if (type === TreasureType.ENERGY) {
       finalValue = Math.floor(baseValue * tier.lootMult); // Energy NOT multiplied by keys
     } else if (type === TreasureType.ORB) {
       finalValue = baseValue * keys; // Linear key multiplier
@@ -258,7 +267,11 @@ export class TurnManager {
     const fountain = this.scene.getFountainAt(pos);
     if (!fountain) return;
 
-    const heal = fountain.use();
+    const tutorialMode = useGameStore.getState().tutorialMode;
+    const forcedHeal = tutorialMode
+      ? this.scene.getTutorialFountainHealOverride(pos)
+      : null;
+    const heal = fountain.use(forcedHeal ?? undefined);
     if (heal > 0) {
       this.scene.events.emit("tutorial:fountain-used");
       const worldX = pos.x * TILE_SIZE + TILE_SIZE / 2;
@@ -278,7 +291,9 @@ export class TurnManager {
     const store = useGameStore.getState();
     const baseDmg = trap.trigger();
     const tutorialMode = useGameStore.getState().tutorialMode;
-    const appliedBase = tutorialMode ? 2 : baseDmg;
+    const appliedBase = tutorialMode
+      ? this.scene.getTutorialTrapDamageOverride(pos, baseDmg)
+      : baseDmg;
     this.scene.events.emit("tutorial:trap-triggered");
     const dmg = this.scene.energyManager.takeDamage(appliedBase);
 

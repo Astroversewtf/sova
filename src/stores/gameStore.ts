@@ -268,7 +268,8 @@ export const useGameStore = create<GameState>((set, get) => ({
         if (lockedPath && def.path !== lockedPath) return {};
 
         const currentTier = s.buildTiers[def.path];
-        if (def.tier !== (currentTier + 1)) return {};
+        // Tutorial can jump directly to a fixed tier pick (for onboarding flow).
+        if (!s.tutorialMode && def.tier !== (currentTier + 1)) return {};
         if (def.tier <= currentTier) return {};
 
         const nextBuildTiers = { ...s.buildTiers, [def.path]: def.tier };

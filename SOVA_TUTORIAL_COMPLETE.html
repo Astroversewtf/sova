@@ -1,0 +1,495 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SOVA Tutorial - Complete Spec</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --panel: #f8fafc;
+      --line: #dbe3ef;
+      --text: #0f172a;
+      --muted: #475569;
+      --blue: #1d4ed8;
+      --green: #166534;
+      --amber: #92400e;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 14px/1.5 Inter, "Segoe UI", Arial, sans-serif;
+    }
+    .wrap {
+      width: min(1240px, 95vw);
+      margin: 20px auto 36px;
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 14px;
+    }
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel);
+      padding: 12px;
+    }
+    h1, h2, h3, p { margin: 0 0 10px; }
+    h1 { font-size: 26px; }
+    h2 { font-size: 20px; }
+    h3 { font-size: 16px; }
+    p { color: var(--muted); }
+    .tiny { font-size: 12px; color: #64748b; }
+    .kpi {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(130px, 1fr));
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .kpi .box {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 10px;
+      padding: 9px;
+      min-height: 60px;
+    }
+    .tag {
+      display: inline-block;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 2px 8px;
+      margin-right: 6px;
+      font-size: 12px;
+      background: #fff;
+      color: #334155;
+    }
+    .tag.ok { border-color: #bbf7d0; background: #f0fdf4; color: var(--green); }
+    .tag.warn { border-color: #fde68a; background: #fffbeb; color: var(--amber); }
+    .steps {
+      display: grid;
+      gap: 6px;
+      max-height: calc(100vh - 180px);
+      overflow: auto;
+      padding-right: 2px;
+    }
+    .step-btn {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: #fff;
+      color: #0f172a;
+      text-align: left;
+      padding: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+    .step-btn .floor {
+      display: inline-block;
+      margin-right: 6px;
+      border: 1px solid #bfdbfe;
+      border-radius: 999px;
+      padding: 1px 6px;
+      font-size: 11px;
+      color: #1d4ed8;
+      background: #eff6ff;
+    }
+    .step-btn.active {
+      border-color: #93c5fd;
+      background: #eff6ff;
+    }
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .block {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+      padding: 10px;
+      min-height: 100px;
+    }
+    .label {
+      font-size: 12px;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      color: #334155;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    ul { margin: 0 0 0 18px; padding: 0; }
+    li { margin: 3px 0; }
+    .astro {
+      margin-top: 10px;
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 12px;
+      padding: 10px;
+      display: grid;
+      grid-template-columns: 92px 1fr;
+      gap: 10px;
+      align-items: center;
+    }
+    .astro img {
+      width: 82px;
+      height: 82px;
+      object-fit: contain;
+      image-rendering: pixelated;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: #f8fafc;
+      padding: 4px;
+    }
+    .bubble {
+      border: 1px solid #c7d2fe;
+      background: #eef2ff;
+      border-radius: 10px;
+      padding: 8px 10px;
+      color: #1e293b;
+      font-size: 14px;
+    }
+    .map {
+      margin-top: 10px;
+      border: 1px solid #0f172a;
+      border-radius: 10px;
+      background: #0b1220;
+      color: #e2e8f0;
+      font: 13px/1.25 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      padding: 10px;
+      white-space: pre;
+      overflow: auto;
+    }
+    .legend {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #64748b;
+    }
+    .actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .actions button {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      padding: 7px 10px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .actions button:hover { background: #f8fafc; }
+    .foot {
+      margin-top: 12px;
+      border-top: 1px solid var(--line);
+      padding-top: 8px;
+      font-size: 12px;
+      color: #64748b;
+    }
+    @media (max-width: 980px) {
+      .wrap { grid-template-columns: 1fr; }
+      .row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <aside class="panel">
+      <h2>Tutorial Steps</h2>
+      <p class="tiny">Mandatory gates only. No critical step is optional.</p>
+      <div class="steps" id="steps"></div>
+      <div class="foot">
+        Portrait source:<br />
+        <code>file:///Users/ruilopes/Downloads/astro_pixel_01.png</code>
+      </div>
+    </aside>
+
+    <main class="panel">
+      <h1>SOVA Tutorial - Complete Spec</h1>
+      <p>Single source of truth for tutorial flow, maps, dialogue and implementation rules.</p>
+
+      <div class="kpi">
+        <div class="box"><strong>Duration</strong><br />3-5 min target</div>
+        <div class="box"><strong>Floors</strong><br />T1 -> T2 -> T3</div>
+        <div class="box"><strong>HUD floor</strong><br />T3 displayed as F7</div>
+        <div class="box"><strong>Finish</strong><br />Kill SOVA + ticket</div>
+      </div>
+
+      <span class="tag ok">Fixed maps</span>
+      <span class="tag ok">Deterministic gates</span>
+      <span class="tag warn">Skip != completed</span>
+
+      <div class="row">
+        <section class="block">
+          <div class="label">Objective</div>
+          <div id="objective"></div>
+        </section>
+        <section class="block">
+          <div class="label">Success Gate</div>
+          <div id="gate"></div>
+        </section>
+      </div>
+
+      <div class="row">
+        <section class="block">
+          <div class="label">Player Actions</div>
+          <ul id="actions"></ul>
+        </section>
+        <section class="block">
+          <div class="label">Scene Details</div>
+          <div id="meta"></div>
+        </section>
+      </div>
+
+      <div class="row">
+        <section class="block">
+          <div class="label">Input Policy</div>
+          <div id="inputPolicy"></div>
+        </section>
+        <section class="block">
+          <div class="label">Implementation Notes</div>
+          <ul id="tech"></ul>
+        </section>
+      </div>
+
+      <div class="map" id="map"></div>
+      <div class="legend">
+        Legend: # wall, . floor, P player, R rock, B breakable, C chest, ^ trap, F fountain, S stairs, U upgrade, V pass tutorial tile, O SOVA, T ticket.
+      </div>
+
+      <section class="astro">
+        <img src="file:///Users/ruilopes/Downloads/astro_pixel_01.png" alt="Astro portrait" />
+        <div>
+          <div class="label" style="margin-bottom:4px;">Astro Dialogue</div>
+          <div class="bubble" id="dialogue"></div>
+          <div class="tiny" id="hint" style="margin-top: 6px;"></div>
+        </div>
+      </section>
+
+      <div class="actions">
+        <button id="prev">Previous</button>
+        <button id="next">Next</button>
+        <button id="print">Print</button>
+      </div>
+
+      <div class="foot">
+        Entry rule: if <code>tutorialCompleted === false</code> on Play, go to tutorial mode.
+        Skip sets only <code>tutorialSkipped = true</code>. Completion sets <code>tutorialCompleted = true</code>.
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const STEPS = [
+      {
+        id: "S0", floor: "T1", title: "Intro and movement",
+        objective: "Move two tiles.",
+        gate: "playerMovesCount >= 2",
+        actions: ["Move in any direction twice", "Observe turn cadence"],
+        meta: "Safe room. No enemies.",
+        inputPolicy: "LOCKED during Astro line, then UNLOCKED.",
+        tech: ["Show movement arrows", "Pulse energy HUD once"],
+        map: ["#########", "#..P....#", "#.......#", "#.......#", "#########"].join("\n"),
+        dialogue: "Welcome to SOVA. Move two tiles to begin.",
+        hint: "Use WASD/arrows or touch controls."
+      },
+      {
+        id: "S1", floor: "T1", title: "First combat",
+        objective: "Kill one Rock by bump attack.",
+        gate: "killsTutorial >= 1",
+        actions: ["Approach Rock", "Bump until it dies"],
+        meta: "Single-lane encounter.",
+        inputPolicy: "UNLOCKED.",
+        tech: ["No extra enemies spawn"],
+        map: ["###########", "#P..R.....#", "###########"].join("\n"),
+        dialogue: "Bump into enemies to attack. Kill this Rock.",
+        hint: "Each action spends a turn."
+      },
+      {
+        id: "S2", floor: "T1", title: "Breakable and chest",
+        objective: "Break one crate and open one chest.",
+        gate: "breakablesDestroyed >= 1 && chestsOpened >= 1",
+        actions: ["Break blocking crate", "Open chest behind it"],
+        meta: "Chest gated by breakable.",
+        inputPolicy: "UNLOCKED.",
+        tech: ["Tutorial chest guaranteed energy drop"],
+        map: ["#############", "#P...B.C....#", "#...........#", "#############"].join("\n"),
+        dialogue: "Break the crate, then open the chest.",
+        hint: "This chest is mandatory."
+      },
+      {
+        id: "S3", floor: "T1", title: "Trap awareness",
+        objective: "Trigger one trap safely.",
+        gate: "trapsTriggered >= 1",
+        actions: ["Step on highlighted trap once"],
+        meta: "Controlled trap damage.",
+        inputPolicy: "UNLOCKED.",
+        tech: ["Trap override damage = 2 in tutorial"],
+        map: ["###########", "#P....^...#", "###########"].join("\n"),
+        dialogue: "Traps cost energy. Learn to read the floor.",
+        hint: "This one is scripted."
+      },
+      {
+        id: "S4", floor: "T1", title: "Fountain usage",
+        objective: "Use fountain and recover energy.",
+        gate: "fountainUsed === true",
+        actions: ["Step on fountain tile"],
+        meta: "One-time fountain.",
+        inputPolicy: "UNLOCKED.",
+        tech: ["Show clear bar recovery feedback"],
+        map: ["###########", "#P....F...#", "###########"].join("\n"),
+        dialogue: "Fountains restore energy. Use this one now.",
+        hint: "Fountain works once."
+      },
+      {
+        id: "S5", floor: "T1", title: "Stairs to next floor",
+        objective: "Use stairs to leave T1.",
+        gate: "tutorialFloor === 2",
+        actions: ["Reach stairs", "Enter stairs"],
+        meta: "Direct stairs path.",
+        inputPolicy: "LOCKED for line, then UNLOCKED.",
+        tech: ["Normal transition VFX"],
+        map: ["###########", "#P......S.#", "###########"].join("\n"),
+        dialogue: "Good. Use stairs and go deeper.",
+        hint: "Tutorial progress is kept."
+      },
+      {
+        id: "S6", floor: "T2", title: "Pass mechanic",
+        objective: "Use PASS once, then move once.",
+        gate: "didPass && movedAfterPass",
+        actions: ["Tap PASS", "Make one normal move after pass"],
+        meta: "Low-pressure turn economy lesson.",
+        inputPolicy: "UNLOCKED.",
+        tech: ["Highlight PASS button first time"],
+        map: ["#############", "#P....V.....#", "#......R....#", "#############"].join("\n"),
+        dialogue: "PASS spends a turn. Use it smart.",
+        hint: "Great for baiting enemy movement."
+      },
+      {
+        id: "S7", floor: "T2", title: "Upgrade pick",
+        objective: "Choose one upgrade card.",
+        gate: "upgradeChosen === true",
+        actions: ["Open upgrade overlay", "Pick one card"],
+        meta: "Three curated beginner options.",
+        inputPolicy: "LOCKED until selection.",
+        tech: ["Persist selection for remaining tutorial"],
+        map: ["###########", "#P....U...#", "###########"].join("\n"),
+        dialogue: "Choose one upgrade. Keep it simple.",
+        hint: "Build evolves later."
+      },
+      {
+        id: "S8", floor: "T2", title: "Jump to boss layer",
+        objective: "Take jump stairs to boss layer.",
+        gate: "tutorialFloor === 3",
+        actions: ["Reach jump stairs", "Confirm transition"],
+        meta: "Fast-forward to boss training.",
+        inputPolicy: "LOCKED for intro, then UNLOCKED.",
+        tech: ["Load fixed T3 map", "Display floor label as F7"],
+        map: ["###########", "#P......S.#", "###########"].join("\n"),
+        dialogue: "Now we jump to Floor 7. Time for SOVA.",
+        hint: "Tutorial-only skip."
+      },
+      {
+        id: "S9", floor: "T3/F7", title: "Boss discovery",
+        objective: "Reveal SOVA in fog.",
+        gate: "bossSeen === true",
+        actions: ["Advance in arena", "Bring boss into visibility"],
+        meta: "Compact arena, deterministic AI.",
+        inputPolicy: "LOCKED for line, then UNLOCKED.",
+        tech: ["Boss-spot SFX once"],
+        map: ["#################", "#P..............#", "#.......O.......#", "#...............#", "#################"].join("\n"),
+        dialogue: "There it is. Corner SOVA and finish the fight.",
+        hint: "SOVA is easier in tutorial."
+      },
+      {
+        id: "S10", floor: "T3/F7", title: "Kill SOVA",
+        objective: "Defeat SOVA.",
+        gate: "sovaKilled === true",
+        actions: ["Land final hit"],
+        meta: "Tutorial boss override: HP3 DMG3 no flee.",
+        inputPolicy: "UNLOCKED.",
+        tech: ["Disable advanced random behavior"],
+        map: ["#################", "#P..............#", "#.......O.......#", "#...............#", "#################"].join("\n"),
+        dialogue: "One more hit. Finish SOVA.",
+        hint: "Keep pressure."
+      },
+      {
+        id: "S11", floor: "T3/F7", title: "Collect Golden Ticket",
+        objective: "Pick up guaranteed ticket drop.",
+        gate: "ticketCollected === true",
+        actions: ["Move onto ticket", "Complete tutorial"],
+        meta: "Final onboarding reward action.",
+        inputPolicy: "LOCKED for completion line after pickup.",
+        tech: ["Set tutorialCompleted=true", "Route to lobby"],
+        map: ["#################", "#P..............#", "#.......T.......#", "#...............#", "#################"].join("\n"),
+        dialogue: "You got the Golden Ticket. Tutorial complete.",
+        hint: "Next Play enters normal run."
+      }
+    ];
+
+    let index = 0;
+    const elSteps = document.getElementById("steps");
+    const elObjective = document.getElementById("objective");
+    const elGate = document.getElementById("gate");
+    const elActions = document.getElementById("actions");
+    const elMeta = document.getElementById("meta");
+    const elInputPolicy = document.getElementById("inputPolicy");
+    const elTech = document.getElementById("tech");
+    const elMap = document.getElementById("map");
+    const elDialogue = document.getElementById("dialogue");
+    const elHint = document.getElementById("hint");
+
+    function renderStepList() {
+      elSteps.innerHTML = "";
+      STEPS.forEach((step, i) => {
+        const btn = document.createElement("button");
+        btn.className = "step-btn" + (i === index ? " active" : "");
+        btn.innerHTML = `<span class="floor">${step.floor}</span><strong>${step.id}</strong> - ${step.title}`;
+        btn.addEventListener("click", () => { index = i; render(); });
+        elSteps.appendChild(btn);
+      });
+    }
+
+    function render() {
+      const step = STEPS[index];
+      elObjective.textContent = step.objective;
+      elGate.innerHTML = `<code>${step.gate}</code>`;
+      elMeta.textContent = step.meta;
+      elInputPolicy.textContent = step.inputPolicy;
+      elMap.textContent = step.map;
+      elDialogue.textContent = step.dialogue;
+      elHint.textContent = step.hint;
+
+      elActions.innerHTML = "";
+      step.actions.forEach((a) => {
+        const li = document.createElement("li");
+        li.textContent = a;
+        elActions.appendChild(li);
+      });
+
+      elTech.innerHTML = "";
+      step.tech.forEach((t) => {
+        const li = document.createElement("li");
+        li.textContent = t;
+        elTech.appendChild(li);
+      });
+
+      renderStepList();
+    }
+
+    document.getElementById("prev").addEventListener("click", () => {
+      index = Math.max(0, index - 1);
+      render();
+    });
+    document.getElementById("next").addEventListener("click", () => {
+      index = Math.min(STEPS.length - 1, index + 1);
+      render();
+    });
+    document.getElementById("print").addEventListener("click", () => window.print());
+
+    render();
+  </script>
+</body>
+</html>

@@ -145,7 +145,7 @@ export function SettingsOverlay() {
         <>
           <div
             className="hidden md:block fixed right-8 z-[90] pointer-events-auto"
-            style={{ bottom: showTutorialCard ? "11.5rem" : "1rem" }}
+            style={{ bottom: showTutorialCard ? "calc(11.5rem + 1rem)" : "calc(1rem + 1rem)" }}
           >
             <button
               type="button"
@@ -165,8 +165,8 @@ export function SettingsOverlay() {
             className="md:hidden fixed right-4 z-[90] pointer-events-auto"
             style={{
               bottom: showTutorialCard
-                ? "calc(max(env(safe-area-inset-bottom), 2rem) + 8.75rem)"
-                : "max(env(safe-area-inset-bottom), 2rem)",
+                ? "calc(max(env(safe-area-inset-bottom), 2rem) + 8.75rem + 0.75rem)"
+                : "calc(max(env(safe-area-inset-bottom), 2rem) + 0.75rem)",
             }}
           >
             <button

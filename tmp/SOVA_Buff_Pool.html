@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SOVA Build + Buff Pool v3</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --card: #f8fafc;
+      --line: #dbe3ea;
+      --text: #0f172a;
+      --muted: #475569;
+      --accent: #0ea5e9;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 16px/1.45 "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    .wrap {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 28px 20px 48px;
+    }
+    h1, h2 { margin: 0 0 10px; }
+    h1 {
+      font-size: 30px;
+      letter-spacing: -0.02em;
+    }
+    h2 {
+      margin-top: 28px;
+      font-size: 22px;
+      letter-spacing: -0.01em;
+    }
+    p {
+      margin: 8px 0 0;
+      color: var(--muted);
+    }
+    .note {
+      margin-top: 14px;
+      border: 1px solid var(--line);
+      background: #f0f9ff;
+      border-left: 4px solid var(--accent);
+      padding: 12px 14px;
+      border-radius: 8px;
+      color: #0c4a6e;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    thead th {
+      background: var(--card);
+      text-align: left;
+      font-size: 13px;
+      color: #0f172a;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      border-bottom: 1px solid var(--line);
+    }
+    th, td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+    }
+    tbody tr:last-child td { border-bottom: 0; }
+    .small { font-size: 13px; color: var(--muted); }
+    .pill {
+      display: inline-block;
+      padding: 3px 8px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      font-size: 12px;
+      color: #1e293b;
+      background: #fff;
+      margin-right: 6px;
+      margin-top: 4px;
+    }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .index-list {
+      margin: 8px 0 0;
+      padding-left: 18px;
+      color: var(--text);
+    }
+    .index-list li { margin: 6px 0; }
+    .index-list a {
+      color: #0b3a67;
+      text-decoration: none;
+      border-bottom: 1px dashed #9ab8d6;
+    }
+    .index-list a:hover { color: #075985; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>SOVA Build + Buff Pool v3 (No Stacks)</h1>
+    <p>
+      Buff values are fixed. Floor progression changes only which buffs are unlocked and how often they appear.
+    </p>
+
+    <div class="note">
+      Offer rule: each skill screen shows 3 buff options.<br />
+      Roll rule: <span class="mono">chance = buffWeight / sum(unlockedWeights)</span><br />
+      Stack rule: if a buff is selected once in the run, it is removed from the offer pool.
+    </div>
+
+    <h2 id="index">Index</h2>
+    <ul class="index-list">
+      <li><a href="#sec-1">1) Evolution Paths (Core Build)</a></li>
+      <li><a href="#sec-2">2) Evolution Roll by Floor (for offers)</a></li>
+      <li><a href="#sec-3">3) Buff Catalog (Names + Rarity + Balance)</a></li>
+      <li><a href="#sec-4">4) Rarity Roll by Floor</a></li>
+      <li><a href="#sec-5">5) Buff Weights by Floor Band</a></li>
+      <li><a href="#sec-6">6) Implementation Notes</a></li>
+      <li><a href="#sec-7">7) Designer Handoff (Icons Checklist)</a></li>
+    </ul>
+
+    <h2 id="sec-1">1) Evolution Paths (Core Build)</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Evolution</th>
+          <th>SOVA Name</th>
+          <th>T1</th>
+          <th>T2</th>
+          <th>T3</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Attack</td>
+          <td><strong>Rift Fang</strong></td>
+          <td>+0.5 DMG</td>
+          <td>+0.5 DMG</td>
+          <td>+1 DMG + 20% Crit (x2 DMG)</td>
+        </tr>
+        <tr>
+          <td>Defense</td>
+          <td><strong>Stone Veil</strong></td>
+          <td>-0.5 DMG received</td>
+          <td>-0.5 DMG received</td>
+          <td>-1 DMG received + 20% Dodge</td>
+        </tr>
+        <tr>
+          <td>Utility</td>
+          <td><strong>Volt Core</strong></td>
+          <td>+15 Max Energy + 5% Regen on Kill</td>
+          <td>+15 Max Energy + 5% Regen on Kill</td>
+          <td>+20 Max Energy + 10% Regen on Kill</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2 id="sec-2">2) Evolution Roll by Floor (for offers)</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Floor Band</th>
+          <th>Attack (Rift Fang)</th>
+          <th>Defense (Stone Veil)</th>
+          <th>Utility (Volt Core)</th>
+          <th>Tier Chance (T1 / T2 / T3)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>F1-F2</strong></td>
+          <td>40%</td>
+          <td>35%</td>
+          <td>25%</td>
+          <td>80% / 18% / 2%</td>
+        </tr>
+        <tr>
+          <td><strong>F3-F4</strong></td>
+          <td>38%</td>
+          <td>34%</td>
+          <td>28%</td>
+          <td>70% / 24% / 6%</td>
+        </tr>
+        <tr>
+          <td><strong>F5-F6</strong></td>
+          <td>35%</td>
+          <td>33%</td>
+          <td>32%</td>
+          <td>60% / 28% / 12%</td>
+        </tr>
+        <tr>
+          <td><strong>F7+</strong></td>
+          <td>34%</td>
+          <td>33%</td>
+          <td>33%</td>
+          <td>50% / 30% / 20%</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2 id="sec-3">3) Buff Catalog (Names + Rarity + Balance)</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Source Idea</th>
+          <th>SOVA Name</th>
+          <th>Rarity</th>
+          <th>Effect</th>
+          <th>Duration</th>
+          <th>Unlock</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Heal 15</td>
+          <td><strong>Field Patch</strong></td>
+          <td>Common</td>
+          <td>Heal 15 instantly</td>
+          <td>Instant</td>
+          <td>F1+</td>
+        </tr>
+        <tr>
+          <td>Magnetic pull</td>
+          <td><strong>Loot Magnet</strong></td>
+          <td>Common</td>
+          <td>Auto-collect radius +2 tiles</td>
+          <td>Run passive</td>
+          <td>F1+</td>
+        </tr>
+        <tr>
+          <td>10 free moves</td>
+          <td><strong>Quick Burst</strong></td>
+          <td>Common</td>
+          <td>Grant +10 free moves (no energy cost)</td>
+          <td>Consumable counter</td>
+          <td>F1+</td>
+        </tr>
+        <tr>
+          <td>Trap reveals (3 rounds)</td>
+          <td><strong>Trap Echo</strong></td>
+          <td>Rare</td>
+          <td>Reveal all traps in current room</td>
+          <td>3 rounds</td>
+          <td>F3+</td>
+        </tr>
+        <tr>
+          <td>Bonus loot x2 (coins/orbs, 3 rounds)</td>
+          <td><strong>Treasure Window</strong></td>
+          <td>Rare</td>
+          <td>Coins and Orbs drop x2</td>
+          <td>3 rounds</td>
+          <td>F5+</td>
+        </tr>
+        <tr>
+          <td>12% chance of extra drop</td>
+          <td><strong>Lucky Fragments</strong></td>
+          <td>Common</td>
+          <td>+12% chance of an extra coin/orb drop</td>
+          <td>Run passive</td>
+          <td>F1+</td>
+        </tr>
+        <tr>
+          <td>10% critical attack (3 rounds)</td>
+          <td><strong>Keen Edge</strong></td>
+          <td>Rare</td>
+          <td>10% crit chance (crit = x2 damage)</td>
+          <td>3 rounds</td>
+          <td>F3+</td>
+        </tr>
+        <tr>
+          <td>Heal 25</td>
+          <td><strong>Emergency Mend</strong></td>
+          <td>Rare</td>
+          <td>Heal 25 instantly</td>
+          <td>Instant</td>
+          <td>F3+</td>
+        </tr>
+        <tr>
+          <td>20 free moves</td>
+          <td><strong>Momentum Rush</strong></td>
+          <td>Epic</td>
+          <td>Grant +20 free moves (no energy cost)</td>
+          <td>Consumable counter</td>
+          <td>F5+</td>
+        </tr>
+        <tr>
+          <td>20% extra drop</td>
+          <td><strong>Golden Drift</strong></td>
+          <td>Epic</td>
+          <td>+20% chance of an extra coin/orb drop</td>
+          <td>Run passive</td>
+          <td>F7+</td>
+        </tr>
+        <tr>
+          <td>+1 DMG (1 round)</td>
+          <td><strong>Execution Swing</strong></td>
+          <td>Epic</td>
+          <td>+1 flat damage dealt</td>
+          <td>1 round</td>
+          <td>F7+</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2 id="sec-4">4) Rarity Roll by Floor</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Floor Band</th>
+          <th>Common</th>
+          <th>Rare</th>
+          <th>Epic</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><strong>F1-F2</strong></td><td>85%</td><td>15%</td><td>0%</td></tr>
+        <tr><td><strong>F3-F4</strong></td><td>70%</td><td>27%</td><td>3%</td></tr>
+        <tr><td><strong>F5-F6</strong></td><td>55%</td><td>35%</td><td>10%</td></tr>
+        <tr><td><strong>F7+</strong></td><td>40%</td><td>40%</td><td>20%</td></tr>
+      </tbody>
+    </table>
+
+    <h2 id="sec-5">5) Buff Weights by Floor Band</h2>
+    <p class="small">0 means locked in that band. Weights are relative inside the same rarity bucket.</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Buff</th>
+          <th>F1-F2</th>
+          <th>F3-F4</th>
+          <th>F5-F6</th>
+          <th>F7+</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Field Patch</td><td>24</td><td>18</td><td>12</td><td>8</td></tr>
+        <tr><td>Loot Magnet</td><td>22</td><td>16</td><td>10</td><td>8</td></tr>
+        <tr><td>Quick Burst</td><td>18</td><td>14</td><td>8</td><td>6</td></tr>
+        <tr><td>Lucky Fragments</td><td>16</td><td>14</td><td>10</td><td>8</td></tr>
+        <tr><td>Trap Echo</td><td>0</td><td>12</td><td>10</td><td>8</td></tr>
+        <tr><td>Keen Edge</td><td>0</td><td>10</td><td>12</td><td>12</td></tr>
+        <tr><td>Emergency Mend</td><td>0</td><td>8</td><td>10</td><td>10</td></tr>
+        <tr><td>Treasure Window</td><td>0</td><td>0</td><td>12</td><td>10</td></tr>
+        <tr><td>Momentum Rush</td><td>0</td><td>0</td><td>8</td><td>10</td></tr>
+        <tr><td>Golden Drift</td><td>0</td><td>0</td><td>0</td><td>9</td></tr>
+        <tr><td>Execution Swing</td><td>0</td><td>0</td><td>0</td><td>8</td></tr>
+      </tbody>
+    </table>
+
+    <h2 id="sec-6">6) Implementation Notes</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Rule</th>
+          <th>Value</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Options per buff screen</td>
+          <td>3</td>
+        </tr>
+        <tr>
+          <td>No duplicates in a single offer</td>
+          <td>Yes</td>
+        </tr>
+        <tr>
+          <td>No buff stacks in run</td>
+          <td>Selected buff is removed from pool</td>
+        </tr>
+        <tr>
+          <td>Extra-drop family guardrail</td>
+          <td>If <strong>Golden Drift</strong> is picked, remove <strong>Lucky Fragments</strong> from pool</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2 id="sec-7">7) Designer Handoff (Icons Checklist)</h2>
+    <p class="small">
+      Goal: final icon set for Build + Buff systems. Suggested spec: 32x32 PNG, transparent background, pixel-art, 1px clean outline.
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>ID</th>
+          <th>Label</th>
+          <th>Usage</th>
+          <th>Need</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Evolution</td><td>evo_rift_fang_t1</td><td>Rift Fang T1</td><td>Attack evolution</td><td>Required</td></tr>
+        <tr><td>Evolution</td><td>evo_rift_fang_t2</td><td>Rift Fang T2</td><td>Attack evolution</td><td>Required</td></tr>
+        <tr><td>Evolution</td><td>evo_rift_fang_t3</td><td>Rift Fang T3</td><td>Attack evolution capstone</td><td>Required</td></tr>
+        <tr><td>Evolution</td><td>evo_stone_veil_t1</td><td>Stone Veil T1</td><td>Defense evolution</td><td>Required</td></tr>
+        <tr><td>Evolution</td><td>evo_stone_veil_t2</td><td>Stone Veil T2</td><td>Defense evolution</td><td>Required</td></tr>
+        <tr><td>Evolution</td><td>evo_stone_veil_t3</td><td>Stone Veil T3</td><td>Defense evolution capstone</td><td>Required</td></tr>
+        <tr><td>Evolution</td><td>evo_volt_core_t1</td><td>Volt Core T1</td><td>Utility evolution</td><td>Required</td></tr>
+        <tr><td>Evolution</td><td>evo_volt_core_t2</td><td>Volt Core T2</td><td>Utility evolution</td><td>Required</td></tr>
+        <tr><td>Evolution</td><td>evo_volt_core_t3</td><td>Volt Core T3</td><td>Utility evolution capstone</td><td>Required</td></tr>
+        <tr><td>Buff</td><td>buff_field_patch</td><td>Field Patch</td><td>Heal 15</td><td>Required</td></tr>
+        <tr><td>Buff</td><td>buff_loot_magnet</td><td>Loot Magnet</td><td>Magnetic pull</td><td>Required</td></tr>
+        <tr><td>Buff</td><td>buff_quick_burst</td><td>Quick Burst</td><td>10 free moves</td><td>Required</td></tr>
+        <tr><td>Buff</td><td>buff_trap_echo</td><td>Trap Echo</td><td>Trap reveal (3 rounds)</td><td>Required</td></tr>
+        <tr><td>Buff</td><td>buff_treasure_window</td><td>Treasure Window</td><td>x2 coins/orbs (3 rounds)</td><td>Required</td></tr>
+        <tr><td>Buff</td><td>buff_lucky_fragments</td><td>Lucky Fragments</td><td>+12% extra drop</td><td>Required</td></tr>
+        <tr><td>Buff</td><td>buff_keen_edge</td><td>Keen Edge</td><td>10% crit (3 rounds)</td><td>Required</td></tr>
+        <tr><td>Buff</td><td>buff_emergency_mend</td><td>Emergency Mend</td><td>Heal 25</td><td>Required</td></tr>
+        <tr><td>Buff</td><td>buff_momentum_rush</td><td>Momentum Rush</td><td>20 free moves</td><td>Required</td></tr>
+        <tr><td>Buff</td><td>buff_golden_drift</td><td>Golden Drift</td><td>+20% extra drop</td><td>Required</td></tr>
+        <tr><td>Buff</td><td>buff_execution_swing</td><td>Execution Swing</td><td>+1 DMG (1 round)</td><td>Required</td></tr>
+      </tbody>
+    </table>
+    <p class="small">
+      Total icons: <strong>20 required</strong> (9 evolution + 11 buffs). Optional extra: rarity glow variants (Common/Rare/Epic).
+    </p>
+  </div>
+</body>
+</html>

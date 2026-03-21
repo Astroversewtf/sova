@@ -8,22 +8,22 @@ export class Chest {
   opened: boolean = false;
   id: string;
   private scene: Phaser.Scene;
+  private textureKey: string;
 
-  constructor(scene: Phaser.Scene, pos: TilePos, id: string) {
+  constructor(scene: Phaser.Scene, pos: TilePos, id: string, textureKey: string) {
     this.scene = scene;
     this.pos = { ...pos };
     this.id = id;
+    this.textureKey = textureKey;
 
-    // Pick random loot box variant, fallback to procedural
-    const usePng = scene.textures.exists("loot-box-1");
-    const textureKey = usePng
-      ? (Math.random() < 0.5 ? "loot-box-1" : "loot-box-2")
+    const finalTextureKey = scene.textures.exists(this.textureKey)
+      ? this.textureKey
       : "chest-closed";
 
     this.sprite = scene.add.image(
       pos.x * TILE_SIZE + TILE_SIZE / 2,
       pos.y * TILE_FULL_H + TILE_SIZE / 2,
-      textureKey,
+      finalTextureKey,
     );
     this.sprite.setDepth(300);
     this.sprite.setOrigin(0.5, 0.5);
@@ -77,7 +77,7 @@ export class Chest {
 
   private spawnBreakDebris(x: number, y: number) {
     for (let i = 0; i < 6; i++) {
-      const piece = this.scene.add.rectangle(x, y, 2, 2, 0xcdb89a, 0.9).setDepth(305);
+      const piece = this.scene.add.rectangle(x, y, 2, 2, 0x8b6f47, 0.9).setDepth(305);
       const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
       const dist = Phaser.Math.FloatBetween(8, 16);
       const dx = Math.cos(angle) * dist;

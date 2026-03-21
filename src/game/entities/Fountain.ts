@@ -30,15 +30,17 @@ export class Fountain {
     this.sprite.play("fountain-idle");
   }
 
-  /** Use the fountain. Returns energy healed (10-29). */
-  use(): number {
+  /** Use the fountain. Returns energy healed (10-29) unless forced value is provided. */
+  use(forcedHeal?: number): number {
     if (this.used) return 0;
     this.used = true;
 
     // Darken to show it's depleted — animation continues
     this.sprite.setTint(0x555555);
 
-    const heal = 10 + Math.floor(Math.random() * 20); // 10..29
+    const heal = typeof forcedHeal === "number"
+      ? Math.max(0, Math.floor(forcedHeal))
+      : 10 + Math.floor(Math.random() * 20); // 10..29
 
     // Floating heal text
     const text = this.scene.add

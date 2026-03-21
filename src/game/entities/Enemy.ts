@@ -70,16 +70,16 @@ export class Enemy {
       scene.anims.exists("enemy-ghost-idle");
     const canUseFlyingRock =
       type === EnemyType.FLYING_ROCK &&
-      scene.textures.exists("enemy-flying-rock-idle-1") &&
-      scene.anims.exists("enemy-flying-rock-idle");
+      scene.textures.exists("enemy-flying-rock-idle-front-1") &&
+      scene.anims.exists("enemy-flying-rock-idle-front");
     const canUseTree =
       type === EnemyType.TREE &&
       scene.textures.exists("enemy-tree-idle-front-1") &&
       scene.anims.exists("enemy-tree-idle-front");
     const canUseSova =
       type === EnemyType.BOSS &&
-      scene.textures.exists("enemy-sova-idle-1") &&
-      scene.anims.exists("enemy-sova-idle");
+      scene.textures.exists("enemy-sova-idle-front-1") &&
+      scene.anims.exists("enemy-sova-idle-front");
 
     if (canUseRock) {
       const spr = scene.add.sprite(px, py, "enemy-rock-idle-front-1");
@@ -102,13 +102,13 @@ export class Enemy {
       this.sprite = spr;
       this.animatedTree = true;
     } else if (canUseSova) {
-      const spr = scene.add.sprite(px, py, "enemy-sova-idle-1");
-      spr.play("enemy-sova-idle");
+      const spr = scene.add.sprite(px, py, "enemy-sova-idle-front-1");
+      spr.play("enemy-sova-idle-front");
       this.sprite = spr;
       this.animatedSova = true;
     } else if (canUseFlyingRock) {
-      const spr = scene.add.sprite(px, py, "enemy-flying-rock-idle-1");
-      spr.play("enemy-flying-rock-idle");
+      const spr = scene.add.sprite(px, py, "enemy-flying-rock-idle-front-1");
+      spr.play("enemy-flying-rock-idle-front");
       this.sprite = spr;
       this.animatedFlyingRock = true;
     } else if (canUseGhost) {
@@ -155,6 +155,21 @@ export class Enemy {
     this.hp = Math.min(this.maxHp, this.maxHp);
     if (typeof dmgDetectionRange === "number") {
       this.detectionRange = dmgDetectionRange;
+    }
+    this.hearts.forEach((h) => h.destroy());
+    this.hearts = [];
+    this.createHearts();
+    this.updateHearts();
+  }
+
+  setTutorialStats(hp: number, detectionRange?: number, makeActive?: boolean) {
+    this.maxHp = Math.max(1, Math.floor(hp));
+    this.hp = this.maxHp;
+    if (typeof detectionRange === "number") {
+      this.detectionRange = detectionRange;
+    }
+    if (typeof makeActive === "boolean") {
+      this.active = makeActive;
     }
     this.hearts.forEach((h) => h.destroy());
     this.hearts = [];
@@ -211,12 +226,17 @@ export class Enemy {
       const spr = this.sprite as Phaser.GameObjects.Sprite;
       spr.play(`enemy-tree-walk-${this.facing}`, true);
     } else if (this.animatedSova) {
+      this.updateFacingFromDir(dx, dy);
       const spr = this.sprite as Phaser.GameObjects.Sprite;
-      spr.play("enemy-sova-idle", true);
-    } else if (this.animatedGhost || this.animatedFlyingRock) {
+      spr.play(`enemy-sova-walk-${this.facing}`, true);
+    } else if (this.animatedFlyingRock) {
+      this.updateFacingFromDir(dx, dy);
+      const spr = this.sprite as Phaser.GameObjects.Sprite;
+      spr.play(`enemy-flying-rock-idle-${this.facing}`, true);
+    } else if (this.animatedGhost) {
       const spr = this.sprite as Phaser.GameObjects.Sprite;
       if (dx !== 0) spr.setFlipX(dx < 0);
-      spr.play(this.animatedGhost ? "enemy-ghost-idle" : "enemy-flying-rock-idle", true);
+      spr.play("enemy-ghost-idle", true);
     }
 
     this.scene.tweens.add({
@@ -235,10 +255,12 @@ export class Enemy {
         } else if (this.animatedTree && this.sprite.active) {
           (this.sprite as Phaser.GameObjects.Sprite).play(`enemy-tree-idle-${this.facing}`);
         } else if (this.animatedSova && this.sprite.active) {
-          (this.sprite as Phaser.GameObjects.Sprite).play("enemy-sova-idle");
-        } else if ((this.animatedGhost || this.animatedFlyingRock) && this.sprite.active) {
+          (this.sprite as Phaser.GameObjects.Sprite).play(`enemy-sova-idle-${this.facing}`);
+        } else if (this.animatedFlyingRock && this.sprite.active) {
+          (this.sprite as Phaser.GameObjects.Sprite).play(`enemy-flying-rock-idle-${this.facing}`);
+        } else if (this.animatedGhost && this.sprite.active) {
           (this.sprite as Phaser.GameObjects.Sprite).play(
-            this.animatedGhost ? "enemy-ghost-idle" : "enemy-flying-rock-idle",
+            "enemy-ghost-idle",
           );
         }
         this.positionHearts();
@@ -254,7 +276,7 @@ export class Enemy {
     }
 
     // Face the target before attacking
-    if (targetPos && (this.animatedRock || this.animatedRock2 || this.animatedGolem || this.animatedTree)) {
+    if (targetPos && (this.animatedRock || this.animatedRock2 || this.animatedGolem || this.animatedTree || this.animatedFlyingRock)) {
       const dx = targetPos.x - this.pos.x;
       const dy = targetPos.y - this.pos.y;
       this.updateFacingFromDir(dx, dy);
@@ -286,14 +308,30 @@ export class Enemy {
         if (this.sprite.active) spr.play(`enemy-tree-idle-${this.facing}`);
         onComplete?.();
       });
-    } else if (this.animatedGhost || this.animatedFlyingRock) {
+    } else if (this.animatedSova) {
+      const attackAnim = `enemy-sova-attack-${this.facing}`;
+      const idleAnim = `enemy-sova-idle-${this.facing}`;
+      spr.play(attackAnim);
+      spr.once("animationcomplete", () => {
+        if (this.sprite.active) spr.play(idleAnim);
+        onComplete?.();
+      });
+    } else if (this.animatedFlyingRock) {
+      const attackAnim = `enemy-flying-rock-attack-${this.facing}`;
+      const idleAnim = `enemy-flying-rock-idle-${this.facing}`;
+      if (this.scene.anims.exists(attackAnim)) {
+        spr.play(attackAnim);
+        spr.once("animationcomplete", () => {
+          if (this.sprite.active) spr.play(idleAnim);
+          onComplete?.();
+        });
+      } else {
+        onComplete?.();
+      }
+    } else if (this.animatedGhost) {
       const dx = targetPos ? targetPos.x - this.pos.x : 0;
-      const attackAnim = this.animatedGhost
-        ? "enemy-ghost-attack-side"
-        : "enemy-flying-rock-attack-side";
-      const idleAnim = this.animatedGhost
-        ? "enemy-ghost-idle"
-        : "enemy-flying-rock-idle";
+      const attackAnim = "enemy-ghost-attack-side";
+      const idleAnim = "enemy-ghost-idle";
       if (dx !== 0 && this.scene.anims.exists(attackAnim)) {
         spr.setFlipX(dx < 0);
         spr.play(attackAnim);
@@ -311,7 +349,7 @@ export class Enemy {
   }
 
   private updateFacingFromDir(dx: number, dy: number) {
-    if (!this.animatedRock && !this.animatedRock2 && !this.animatedGolem && !this.animatedTree) return;
+    if (!this.animatedRock && !this.animatedRock2 && !this.animatedGolem && !this.animatedTree && !this.animatedFlyingRock && !this.animatedSova) return;
 
     if (dy > 0) this.facing = "front";
     else if (dy < 0) this.facing = "back";

@@ -95,7 +95,7 @@ export class GameScene extends Phaser.Scene {
     right: Phaser.GameObjects.Image;
   };
   private moveArrowPulseTweens = new WeakMap<Phaser.GameObjects.Image, Phaser.Tweens.Tween>();
-  private moveArrowPulseState = new WeakMap<Phaser.GameObjects.Image, "normal" | "blocked" | "stairs">();
+  private moveArrowPulseState = new WeakMap<Phaser.GameObjects.Image, "normal" | "blocked" | "stairs" | "stairs-blocked">();
 
   private pendingMove: { dx: number; dy: number } | null = null;
   isProcessingAction = false;
@@ -103,24 +103,23 @@ export class GameScene extends Phaser.Scene {
   private runEnding = false;
   private tutorialMode = false;
   private tutorialStepIndex = 0;
-  private tutorialMoveCount = 0;
-  private tutorialBreakablesDestroyed = 0;
-  private tutorialChestsOpened = 0;
-  private tutorialTrapTriggered = false;
-  private tutorialFountainUsed = false;
-  private tutorialDidPass = false;
-  private tutorialMovedAfterPass = false;
+  private tutorialGhostKilled = false;
+  private tutorialLootUnlocked = false;
   private tutorialUpgradeChosen = false;
   private tutorialBossSeen = false;
   private tutorialSovaKilled = false;
   private tutorialTicketCollected = false;
+  private tutorialFinalSequenceStarted = false;
   private tutorialInputLocked = false;
   private tutorialLogicalFloor = 1;
+  private tutorialFloor2EntryEnergy: number | null = null;
+  private tutorialPendingRespawnLine: string | null = null;
   private tutorialMarkers = getTutorialMarkers(1);
   private tutorialHudContainer: Phaser.GameObjects.Container | null = null;
   private tutorialDialogueText: Phaser.GameObjects.Text | null = null;
   private tutorialHintTimer: Phaser.Time.TimerEvent | null = null;
   private tutorialUpgradeChosenHandler: ((e: Event) => void) | null = null;
+  private tutorialExitOverlay: Phaser.GameObjects.Container | null = null;
 
   // Input
   private inputKeys: Record<
@@ -179,6 +178,8 @@ export class GameScene extends Phaser.Scene {
     this.events.on("shutdown", () => {
       this.tutorialHintTimer?.remove(false);
       this.tutorialHintTimer = null;
+      this.tutorialExitOverlay?.destroy();
+      this.tutorialExitOverlay = null;
       this.tutorialHudContainer?.destroy();
       this.tutorialHudContainer = null;
       this.tutorialDialogueText = null;
@@ -299,11 +300,19 @@ export class GameScene extends Phaser.Scene {
     this.enemies = enemySpawns.map((e, i) =>
       new Enemy(this, e.pos, e.type, floor, `enemy-${i}`),
     );
-    if (this.tutorialMode && floor >= 7) {
+    if (this.tutorialMode) {
       const boss = this.enemies.find((e) => e.type === EnemyType.BOSS);
       if (boss) {
-        // Spec parity: tutorial boss is easier (HP3, deterministic behavior).
-        boss.setTutorialBossOverride(3, 5);
+        // Tutorial boss is simpler to finish for onboarding purposes.
+        boss.setTutorialBossOverride(4, 5);
+      }
+      if (this.currentFloor === 2 && this.tutorialMarkers.floor2RockNearBossChestPos) {
+        const rock = this.enemies.find((e) =>
+          e.type === EnemyType.ROCK &&
+          e.pos.x === this.tutorialMarkers.floor2RockNearBossChestPos!.x &&
+          e.pos.y === this.tutorialMarkers.floor2RockNearBossChestPos!.y,
+        );
+        rock?.setTutorialStats(2);
       }
     }
 
@@ -313,8 +322,8 @@ export class GameScene extends Phaser.Scene {
     );
 
     // Chests
-    this.chests = chestSpawns.map((pos, i) =>
-      new Chest(this, pos, `chest-${i}`),
+    this.chests = chestSpawns.map((spawn, i) =>
+      new Chest(this, spawn.pos, `chest-${i}`, spawn.textureKey),
     );
 
     // Traps
@@ -628,6 +637,11 @@ export class GameScene extends Phaser.Scene {
     // Sync player visual sprite with GridEngine-controlled dummy
     if (this.player?.dummySprite) {
       this.player.syncWithGridEngine();
+    }
+
+    // Door (stairs tile) near-open behavior.
+    if (this.player && this.stairs) {
+      this.stairs.updateProximity(this.player.pos);
     }
 
     // Desaturation VFX — update only when energy changes
@@ -981,6 +995,10 @@ export class GameScene extends Phaser.Scene {
     );
   }
 
+  playStairsEnterAnimation(onComplete: () => void) {
+    this.stairs.playEnterSequence(onComplete);
+  }
+
   updateEntityVisibility() {
     const trapEchoActive = useGameStore.getState().hasActiveBuff("buff_trap_echo");
     const trapEchoRoom = trapEchoActive
@@ -999,9 +1017,6 @@ export class GameScene extends Phaser.Scene {
         this.tutorialBossSeen = true;
         emitSfxEvent("boss-spot");
         emitSfxEvent("boss-intro-start");
-        if (this.tutorialMode && this.tutorialStepIndex === 9) {
-          this.advanceTutorialStep(10);
-        }
       }
     }
     for (const t of this.treasures) {
@@ -1137,12 +1152,16 @@ export class GameScene extends Phaser.Scene {
         );
         const target = { x: tx, y: ty };
         const isStairs = this.isOnStairs(target);
-        const blockedByEnemyOrChest = !!this.getEnemyAt(target) || !!this.getChestAt(target);
-        const visualState: "normal" | "blocked" | "stairs" = isStairs
-          ? "stairs"
-          : blockedByEnemyOrChest
-            ? "blocked"
-            : "normal";
+        const blockedByEnemy = !!this.getEnemyAt(target);
+        const blockedByEnemyOrChest = blockedByEnemy || !!this.getChestAt(target);
+        const visualState: "normal" | "blocked" | "stairs" | "stairs-blocked" =
+          isStairs && blockedByEnemy
+            ? "stairs-blocked"
+            : isStairs
+              ? "stairs"
+              : blockedByEnemyOrChest
+                ? "blocked"
+                : "normal";
         this.setMoveArrowVisual(arrow, visualState);
         arrow.setVisible(true);
       } else {
@@ -1154,7 +1173,7 @@ export class GameScene extends Phaser.Scene {
 
   private setMoveArrowVisual(
     arrow: Phaser.GameObjects.Image,
-    state: "normal" | "blocked" | "stairs",
+    state: "normal" | "blocked" | "stairs" | "stairs-blocked",
   ) {
     const prev = this.moveArrowPulseState.get(arrow);
     if (prev === state) return;
@@ -1179,6 +1198,22 @@ export class GameScene extends Phaser.Scene {
       const tween = this.tweens.add({
         targets: arrow,
         alpha: 0.9,
+        duration: 520,
+        yoyo: true,
+        repeat: -1,
+        ease: "Sine.easeInOut",
+      });
+      this.moveArrowPulseTweens.set(arrow, tween);
+      this.moveArrowPulseState.set(arrow, state);
+      return;
+    }
+
+    if (state === "stairs-blocked") {
+      arrow.setTint(0xffa43b);
+      arrow.setAlpha(0.48);
+      const tween = this.tweens.add({
+        targets: arrow,
+        alpha: 0.85,
         duration: 520,
         yoyo: true,
         repeat: -1,
@@ -1246,13 +1281,9 @@ export class GameScene extends Phaser.Scene {
       this.enemies.some((e) => e.type === "boss" && !e.isAlive());
 
     if (this.tutorialMode) {
-      this.vfxManager.playPixelatedFadeToBlack(800, () => {
-        this.time.delayedCall(40, () => {
-          const nextFloor = getTutorialNextFloor(this.currentFloor);
-          this.buildFloor(nextFloor);
-          this.vfxManager.playPixelatedFadeFromBlack(650);
-        });
-      });
+      if (this.currentFloor !== 1) return;
+      this.advanceTutorialStep(2);
+      this.startTutorialUpgradePick();
       return;
     }
 
@@ -1304,115 +1335,169 @@ export class GameScene extends Phaser.Scene {
 
   canUseStairs(): boolean {
     if (!this.tutorialMode) return true;
-    if (this.currentFloor <= 1) return this.tutorialStepIndex >= 5;
-    if (this.currentFloor === 2) return this.tutorialStepIndex >= 8;
-    return true;
+    if (this.currentFloor === 1) return true;
+    return false;
   }
 
   onTutorialStairsBlocked() {
     if (!this.tutorialMode) return;
-    this.showTutorialHint("Finish current objective first.");
+    if (this.currentFloor === 1 && !this.tutorialGhostKilled) {
+      this.showTutorialHint("Clear the Ghost first.");
+      return;
+    }
+    this.showTutorialHint("Not this way.");
+  }
+
+  getTutorialChestDropOverride(pos: TilePos): { type: TreasureType; value: number } | null {
+    if (!this.tutorialMode) return null;
+
+    if (
+      this.currentFloor === 1 &&
+      this.tutorialMarkers.floor1BreakablePos &&
+      pos.x === this.tutorialMarkers.floor1BreakablePos.x &&
+      pos.y === this.tutorialMarkers.floor1BreakablePos.y
+    ) {
+      return { type: TreasureType.ENERGY, value: 5 };
+    }
+
+    if (
+      this.currentFloor === 2 &&
+      this.tutorialMarkers.floor2OrbChestPos &&
+      pos.x === this.tutorialMarkers.floor2OrbChestPos.x &&
+      pos.y === this.tutorialMarkers.floor2OrbChestPos.y
+    ) {
+      return { type: TreasureType.ORB, value: 5 };
+    }
+
+    if (
+      this.currentFloor === 2 &&
+      this.tutorialMarkers.floor2BossSpikePos &&
+      pos.x === this.tutorialMarkers.floor2BossSpikePos.x &&
+      pos.y === this.tutorialMarkers.floor2BossSpikePos.y
+    ) {
+      return { type: TreasureType.ENERGY, value: 1 };
+    }
+
+    if (
+      this.currentFloor === 2 &&
+      this.tutorialMarkers.floor2BossChestPos &&
+      pos.x === this.tutorialMarkers.floor2BossChestPos.x &&
+      pos.y === this.tutorialMarkers.floor2BossChestPos.y
+    ) {
+      return { type: TreasureType.COIN, value: 25 };
+    }
+
+    return null;
+  }
+
+  getTutorialFountainHealOverride(pos: TilePos): number | null {
+    if (!this.tutorialMode) return null;
+    if (
+      (this.currentFloor === 1 || this.currentFloor === 2) &&
+      this.floorMap.fountainSpawn &&
+      pos.x === this.floorMap.fountainSpawn.x &&
+      pos.y === this.floorMap.fountainSpawn.y
+    ) {
+      return 20;
+    }
+    return null;
+  }
+
+  getTutorialTrapDamageOverride(pos: TilePos, baseDamage: number): number {
+    if (!this.tutorialMode) return baseDamage;
+    if (
+      this.currentFloor === 2 &&
+      this.tutorialMarkers.floor2BossSpikePos &&
+      pos.x === this.tutorialMarkers.floor2BossSpikePos.x &&
+      pos.y === this.tutorialMarkers.floor2BossSpikePos.y
+    ) {
+      return 7;
+    }
+    return baseDamage;
   }
 
   private setupTutorialFlow() {
     this.tutorialStepIndex = 0;
-    this.tutorialMoveCount = 0;
-    this.tutorialBreakablesDestroyed = 0;
-    this.tutorialChestsOpened = 0;
-    this.tutorialTrapTriggered = false;
-    this.tutorialFountainUsed = false;
-    this.tutorialDidPass = false;
-    this.tutorialMovedAfterPass = false;
+    this.tutorialGhostKilled = false;
+    this.tutorialLootUnlocked = false;
     this.tutorialUpgradeChosen = false;
     this.tutorialBossSeen = false;
     this.tutorialSovaKilled = false;
     this.tutorialTicketCollected = false;
+    this.tutorialFinalSequenceStarted = false;
     this.tutorialInputLocked = false;
     this.tutorialLogicalFloor = 1;
+    this.tutorialFloor2EntryEnergy = null;
+    this.tutorialPendingRespawnLine = null;
     this.tutorialMarkers = getTutorialMarkers(1);
 
-    this.tutorialUpgradeChosenHandler = (e: Event) => {
-      if (!this.tutorialMode || this.tutorialStepIndex !== 7) return;
-      const upgradeId = (e as CustomEvent).detail as string;
-      this.upgradeManager.applyUpgrade(upgradeId as any);
-      useGameStore.getState().hideUpgradeScreen();
-      this.scene.resume();
-      this.tutorialUpgradeChosen = true;
-      this.advanceTutorialStep(8);
-    };
+    this.tutorialUpgradeChosenHandler = (e: Event) => this.handleTutorialUpgradeChosen(e);
     window.addEventListener("sova:upgrade-chosen", this.tutorialUpgradeChosenHandler);
 
-    this.ensureTutorialHud();
     this.refreshTutorialHud();
     this.applyTutorialInputPolicyOnStepEnter();
 
-    this.events.on("tutorial:move-complete", () => {
-      if (this.tutorialStepIndex !== 0) return;
-      this.tutorialMoveCount += 1;
-      if (this.tutorialMoveCount >= 2) this.advanceTutorialStep(1);
-    });
-
-    this.events.on("tutorial:move-complete", () => {
-      if (this.tutorialStepIndex === 6 && this.tutorialDidPass) {
-        this.tutorialMovedAfterPass = true;
-        this.advanceTutorialStep(7);
+    this.events.on("tutorial:move-complete", (target: TilePos) => {
+      if (
+        this.currentFloor === 1 &&
+        this.tutorialStepIndex === 0 &&
+        this.tutorialMarkers.room2EntryPos &&
+        target.x === this.tutorialMarkers.room2EntryPos.x &&
+        target.y === this.tutorialMarkers.room2EntryPos.y
+      ) {
+        // Force room-2 ghost to aggro as soon as player enters the room.
+        for (const enemy of this.enemies) {
+          if (enemy.type === EnemyType.GHOST && enemy.isAlive()) enemy.active = true;
+        }
         return;
       }
-    });
 
-    this.events.on("tutorial:pass-used", () => {
-      if (this.tutorialStepIndex !== 6) return;
-      this.tutorialDidPass = true;
-      this.showTutorialHint("Good. Now make one normal move.");
-    });
-
-    this.events.on("tutorial:chest-opened", (pos: TilePos) => {
-      if (this.tutorialStepIndex !== 2) return;
-      if (this.tutorialMarkers.breakablePos && pos.x === this.tutorialMarkers.breakablePos.x && pos.y === this.tutorialMarkers.breakablePos.y) {
-        this.tutorialBreakablesDestroyed += 1;
-      } else if (this.tutorialMarkers.chestPos && pos.x === this.tutorialMarkers.chestPos.x && pos.y === this.tutorialMarkers.chestPos.y) {
-        this.tutorialChestsOpened += 1;
-      } else {
-        // Fallback for layout changes.
-        if (this.tutorialBreakablesDestroyed < 1) this.tutorialBreakablesDestroyed += 1;
-        else this.tutorialChestsOpened += 1;
+      if (
+        this.currentFloor === 2 &&
+        this.tutorialStepIndex >= 3 &&
+        this.tutorialStepIndex < 5 &&
+        this.tutorialMarkers.floor2BossEntryPos &&
+        target.x === this.tutorialMarkers.floor2BossEntryPos.x &&
+        target.y === this.tutorialMarkers.floor2BossEntryPos.y
+      ) {
+        // Keep floor-2 message stable (no extra popup here).
       }
-      if (this.tutorialBreakablesDestroyed >= 1 && this.tutorialChestsOpened >= 1) {
-        this.advanceTutorialStep(3);
-      }
-    });
-
-    this.events.on("tutorial:trap-triggered", () => {
-      if (this.tutorialStepIndex !== 3) return;
-      this.tutorialTrapTriggered = true;
-      if (this.tutorialTrapTriggered) this.advanceTutorialStep(4);
-    });
-
-    this.events.on("tutorial:fountain-used", () => {
-      if (this.tutorialStepIndex !== 4) return;
-      this.tutorialFountainUsed = true;
-      if (this.tutorialFountainUsed) this.advanceTutorialStep(5);
     });
 
     this.events.on("combat:kill", (enemy: Enemy) => {
-      if (this.tutorialStepIndex === 1 && enemy.type !== EnemyType.BOSS) {
-        this.advanceTutorialStep(2);
+      if (this.currentFloor === 1 && enemy.type === EnemyType.GHOST) {
+        this.tutorialGhostKilled = true;
         return;
       }
-      if (enemy.type === EnemyType.BOSS) {
-        this.tutorialSovaKilled = true;
+
+      if (
+        this.currentFloor === 2 &&
+        (enemy.type === EnemyType.ROCK2 || enemy.type === EnemyType.GOLEM)
+      ) {
+        this.spawnTutorialTreasure(enemy.pos, TreasureType.ENERGY, 15);
       }
-      if (this.tutorialStepIndex === 10 && enemy.type === EnemyType.BOSS) {
-        this.advanceTutorialStep(11);
+
+      if (this.currentFloor === 2 && enemy.type === EnemyType.BOSS) {
+        this.tutorialSovaKilled = true;
       }
     });
 
     this.events.on("treasure:collected", (treasure: Treasure) => {
-      if (treasure.type === TreasureType.GOLDEN_TICKET) {
-        this.tutorialTicketCollected = true;
+      if (
+        this.currentFloor === 2 &&
+        treasure.type === TreasureType.ORB &&
+        !this.tutorialLootUnlocked
+      ) {
+        this.tutorialLootUnlocked = true;
       }
-      if (this.tutorialStepIndex === 11 && treasure.type === TreasureType.GOLDEN_TICKET) {
-        this.advanceTutorialStep(12);
+
+      if (treasure.type === TreasureType.GOLDEN_TICKET && !this.tutorialFinalSequenceStarted) {
+        this.tutorialTicketCollected = true;
+        this.advanceTutorialStep(6);
+        // Lock immediately after ticket pickup so player can't move anymore.
+        this.tutorialInputLocked = true;
+        this.hideMoveArrows();
+        this.startTutorialExitSequence();
       }
     });
 
@@ -1425,60 +1510,53 @@ export class GameScene extends Phaser.Scene {
   }
 
   private handleTutorialFloorLoaded(floor: number) {
+    this.tutorialLogicalFloor = floor;
     this.tutorialMarkers = getTutorialMarkers(floor);
-    useGameStore.getState().setFloor(floor);
+    const store = useGameStore.getState();
+    store.setFloor(floor);
 
-    if (floor === 2 && this.tutorialStepIndex === 5) {
-      this.tutorialLogicalFloor = 2;
-      this.advanceTutorialStep(6);
-      return;
+    if (floor === 1) {
+      this.tutorialStepIndex = 0;
+      const startEnergy = 14;
+      this.energyManager.energy = startEnergy;
+      store.setEnergy(startEnergy);
+    } else {
+      this.tutorialStepIndex = 3;
+      const entryEnergy = this.tutorialFloor2EntryEnergy ?? Math.min(store.maxEnergy, store.energy);
+      this.tutorialFloor2EntryEnergy = entryEnergy;
+      this.energyManager.energy = entryEnergy;
+      store.setEnergy(entryEnergy);
     }
-    if (floor >= 7 && this.tutorialStepIndex === 8) {
-      this.tutorialLogicalFloor = 3;
-      this.advanceTutorialStep(9);
-      return;
+
+    if (this.tutorialPendingRespawnLine) {
+      const line = this.tutorialPendingRespawnLine;
+      this.tutorialPendingRespawnLine = null;
+      this.showTutorialHint(line, 2800);
+    } else {
+      this.refreshTutorialHud();
     }
-    this.refreshTutorialHud();
+
+    this.applyTutorialInputPolicyOnStepEnter();
   }
 
-  private advanceTutorialStep(next: number) {
+  private advanceTutorialStep(next: number, withSuccess = false) {
     const prevStep = this.tutorialStepIndex;
-    this.tutorialStepIndex = Phaser.Math.Clamp(next, 0, TUTORIAL_STEPS.length);
-    const completedObjective =
-      this.tutorialStepIndex > prevStep &&
-      prevStep >= 0 &&
-      prevStep < TUTORIAL_STEPS.length &&
-      this.tutorialStepIndex < TUTORIAL_STEPS.length;
+    const maxStep = Math.max(0, TUTORIAL_STEPS.length - 1);
+    this.tutorialStepIndex = Phaser.Math.Clamp(next, 0, maxStep);
+    const advanced = this.tutorialStepIndex > prevStep;
 
-    if (completedObjective) {
+    if (withSuccess && advanced) {
       this.showTutorialStepSuccess();
     } else {
       this.refreshTutorialHud();
     }
     this.applyTutorialInputPolicyOnStepEnter();
-
-    if (this.tutorialStepIndex === 7) {
-      this.startTutorialUpgradePick();
-    }
-
-    if (this.tutorialStepIndex < TUTORIAL_STEPS.length) return;
-
-    this.showTutorialHint("Tutorial complete. Returning to lobby...");
-    try {
-      localStorage.setItem("sova_tutorial_done", "1");
-    } catch {}
-    this.time.delayedCall(900, () => {
-      this.game.events.emit("go-to-lobby");
-    });
   }
 
   private showTutorialStepSuccess() {
-    const reactions = ["BOA!", "PERFEITO!", "EXCELENTE!", "NICE!"];
+    const reactions = ["NICE!", "PERFECT!", "EXCELLENT!", "GREAT!"];
     const text = Phaser.Utils.Array.GetRandom(reactions);
-    if (this.tutorialDialogueText) {
-      this.tutorialDialogueText.setText(text);
-      this.emitTutorialDialogue(text, true);
-    }
+    this.emitTutorialDialogue(text, true);
     this.tutorialHintTimer?.remove(false);
     this.tutorialHintTimer = this.time.delayedCall(520, () => {
       this.refreshTutorialHud();
@@ -1487,155 +1565,54 @@ export class GameScene extends Phaser.Scene {
 
   private applyTutorialInputPolicyOnStepEnter() {
     if (!this.tutorialMode) return;
-    if (this.tutorialStepIndex >= TUTORIAL_STEPS.length) {
+    if (this.tutorialStepIndex === 2 || this.tutorialFinalSequenceStarted) {
       this.tutorialInputLocked = true;
       return;
     }
-
-    const step = TUTORIAL_STEPS[this.tutorialStepIndex];
-
-    // Locked until explicit upgrade selection.
-    if (this.tutorialStepIndex === 7) {
-      this.tutorialInputLocked = true;
-      return;
-    }
-
-    // Completion line after ticket pickup stays locked.
-    if (this.tutorialStepIndex === 11 && this.tutorialTicketCollected) {
-      this.tutorialInputLocked = true;
-      return;
-    }
-
-    const needsIntroLock =
-      this.tutorialStepIndex === 0 ||
-      this.tutorialStepIndex === 5 ||
-      this.tutorialStepIndex === 8 ||
-      this.tutorialStepIndex === 9;
-
-    if (needsIntroLock) {
-      this.tutorialInputLocked = true;
-      this.tutorialHintTimer?.remove(false);
-      this.tutorialHintTimer = this.time.delayedCall(900, () => {
-        this.tutorialInputLocked = false;
-        this.refreshTutorialHud();
-      });
-      return;
-    }
-
-    // Default unlocked.
     this.tutorialInputLocked = false;
-
-    // Keep this for debugging parity with the spec text.
-    void step.inputPolicy;
   }
 
   private startTutorialUpgradePick() {
-    if (!this.tutorialMode || this.tutorialStepIndex !== 7 || this.tutorialUpgradeChosen) return;
+    if (!this.tutorialMode || this.tutorialStepIndex !== 2 || this.tutorialUpgradeChosen) return;
     this.tutorialInputLocked = true;
+    this.showTutorialHint("Choose Wisely! It may dictate your destiny.");
     this.scene.pause();
     useGameStore.getState().showUpgradeScreen(this.currentFloor);
   }
 
-  private ensureTutorialHud() {
-    if (this.tutorialHudContainer) return;
+  private handleTutorialUpgradeChosen(e: Event) {
+    if (!this.tutorialMode || this.tutorialStepIndex !== 2) return;
+    const upgradeId = (e as CustomEvent).detail as string;
+    this.upgradeManager.applyUpgrade(upgradeId as any);
+    const store = useGameStore.getState();
+    const boostedEnergy = Math.min(store.energy + 10, store.maxEnergy);
+    store.setEnergy(boostedEnergy);
+    this.tutorialFloor2EntryEnergy = boostedEnergy;
+    store.hideUpgradeScreen();
+    this.scene.resume();
+    this.tutorialUpgradeChosen = true;
 
-    const barH = Phaser.Math.Clamp(this.scale.height * 0.16, 118, 156);
-    const barW = this.scale.width;
-    const x = this.scale.width / 2;
-    const y = this.scale.height - barH / 2;
-
-    // Bottom dialogue bar + white separator on top (style from mock).
-    const barBg = this.add.rectangle(0, 0, barW, barH, 0x000000, 0.95);
-    const topLine = this.add.rectangle(0, -barH / 2, barW, 4, 0xffffff, 1);
-
-    // Astro portrait fixed on bottom-left, slightly overlapping game area.
-    const portrait = this.add.image(
-      -barW / 2 + 24,
-      -barH / 2 + 10,
-      this.textures.exists("tutorial-astro") ? "tutorial-astro" : "player-front-idle-1",
-    );
-    portrait.setOrigin(0, 1);
-    if (this.textures.exists("tutorial-astro")) {
-      const desiredH = Phaser.Math.Clamp(this.scale.height * 0.34, 190, 320);
-      portrait.setScale(desiredH / portrait.height);
-    } else {
-      portrait.setScale(4.2);
-      portrait.setTint(0xd5f3ff);
-    }
-
-    const textLeft = -barW / 2 + 260;
-    const textWidth = Math.max(320, barW - 320);
-    const dialogue = this.add.text(textLeft, 8, "", {
-      fontFamily: '"Press Start 2P", monospace',
-      fontSize: "12px",
-      color: "#f1f5f9",
-      align: "center",
-      wordWrap: { width: textWidth, useAdvancedWrap: true },
+    this.vfxManager.playPixelatedFadeToBlack(350, () => {
+      const nextFloor = getTutorialNextFloor(this.currentFloor);
+      this.buildFloor(nextFloor);
+      this.vfxManager.playPixelatedFadeFromBlack(450);
     });
-    dialogue.setOrigin(0, 0.5);
-    dialogue.setShadow(2, 2, "#000000", 0, false, true);
-
-    const container = this.add.container(x, y, [barBg, topLine, portrait, dialogue]);
-    container.setDepth(5100);
-    container.setScrollFactor(0);
-
-    this.tutorialHudContainer = container;
-    this.tutorialDialogueText = dialogue;
-
-    this.scale.on("resize", this.onTutorialResize, this);
-    this.events.once("shutdown", () => {
-      this.scale.off("resize", this.onTutorialResize, this);
-    });
-  }
-
-  private onTutorialResize() {
-    if (!this.tutorialHudContainer) return;
-    const barH = Phaser.Math.Clamp(this.scale.height * 0.16, 118, 156);
-    const barW = this.scale.width;
-
-    this.tutorialHudContainer.setPosition(this.scale.width / 2, this.scale.height - barH / 2);
-
-    const barBg = this.tutorialHudContainer.list[0] as Phaser.GameObjects.Rectangle;
-    const topLine = this.tutorialHudContainer.list[1] as Phaser.GameObjects.Rectangle;
-    const portrait = this.tutorialHudContainer.list[2] as Phaser.GameObjects.Image;
-    const dialogue = this.tutorialHudContainer.list[3] as Phaser.GameObjects.Text;
-
-    barBg.setSize(barW, barH);
-    topLine.setPosition(0, -barH / 2);
-    topLine.setSize(barW, 4);
-    portrait.setPosition(-barW / 2 + 24, -barH / 2 + 10);
-    if (this.textures.exists("tutorial-astro")) {
-      const desiredH = Phaser.Math.Clamp(this.scale.height * 0.34, 190, 320);
-      portrait.setScale(desiredH / portrait.height);
-    }
-    dialogue.setPosition(-barW / 2 + 260, 8);
-    dialogue.setWordWrapWidth(Math.max(320, barW - 320), true);
   }
 
   private refreshTutorialHud() {
     if (!this.tutorialMode) return;
-    this.ensureTutorialHud();
-    if (!this.tutorialDialogueText) return;
-
-    if (this.tutorialStepIndex >= TUTORIAL_STEPS.length) {
-      const text = "Tutorial complete. Returning to lobby...";
-      this.tutorialDialogueText.setText(text);
-      this.emitTutorialDialogue(text, true);
-      return;
-    }
-
-    const step = TUTORIAL_STEPS[this.tutorialStepIndex];
+    const safeIndex = Phaser.Math.Clamp(this.tutorialStepIndex, 0, TUTORIAL_STEPS.length - 1);
+    const step = TUTORIAL_STEPS[safeIndex];
     const text = `${step.dialogue} ${step.hint}`.trim();
-    this.tutorialDialogueText.setText(text);
     this.emitTutorialDialogue(text, true);
   }
 
-  private showTutorialHint(text: string) {
-    if (!this.tutorialMode || !this.tutorialDialogueText) return;
-    this.tutorialDialogueText.setText(text);
+  private showTutorialHint(text: string, holdMs = 1300) {
+    if (!this.tutorialMode) return;
     this.emitTutorialDialogue(text, true);
+    if (holdMs <= 0) return;
     this.tutorialHintTimer?.remove(false);
-    this.tutorialHintTimer = this.time.delayedCall(1300, () => {
+    this.tutorialHintTimer = this.time.delayedCall(holdMs, () => {
       this.refreshTutorialHud();
     });
   }
@@ -1644,11 +1621,126 @@ export class GameScene extends Phaser.Scene {
     if (typeof window === "undefined") return;
     window.dispatchEvent(
       new CustomEvent("sova:tutorial-dialogue", {
-        detail: { text, visible },
+        detail: { text, visible, stepIndex: this.tutorialStepIndex },
       }),
     );
   }
 
+  private spawnTutorialTreasure(pos: TilePos, type: TreasureType, value: number) {
+    const id = `tutorial-loot-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+    const t = new Treasure(this, { x: pos.x, y: pos.y }, type, value, id);
+    this.treasures.push(t);
+    t.setVisible(this.fogOfWar.isVisible(pos));
+  }
+
+  private startTutorialExitSequence() {
+    if (!this.tutorialMode || this.tutorialFinalSequenceStarted) return;
+    this.tutorialFinalSequenceStarted = true;
+    this.tutorialInputLocked = true;
+    this.hideMoveArrows();
+
+    const text = "You're ready to find a real one now!";
+    this.showTutorialHint(text, 0);
+
+    const w = this.scale.width;
+    const h = this.scale.height;
+
+    const fadeRect = this.add.rectangle(w / 2, h / 2, w, h, 0x000000, 0);
+    fadeRect.setDepth(9000);
+    fadeRect.setScrollFactor(0);
+
+    const prompt = this.add.text(w / 2, h / 2, "CLICK ANYWHERE TO GET OUT", {
+      fontFamily: '"Press Start 2P", monospace',
+      fontSize: "22px",
+      color: "#f8fafc",
+      align: "center",
+    });
+    prompt.setOrigin(0.5, 0.5);
+    prompt.setScrollFactor(0);
+    prompt.setDepth(9001);
+    prompt.setAlpha(0);
+    prompt.setShadow(2, 2, "#000000", 0, false, true);
+
+    const hitArea = this.add.zone(w / 2, h / 2, w, h);
+    hitArea.setScrollFactor(0);
+    hitArea.setDepth(9002);
+    hitArea.disableInteractive();
+    const leaveTutorial = () => {
+      try {
+        localStorage.setItem("sova_tutorial_done", "1");
+      } catch {}
+      useGameStore.setState({
+        treasureScore: 0,
+        coinsCollected: 0,
+        orbsCollected: 0,
+        goldenTicketsCollected: 0,
+      });
+      this.game.events.emit("go-to-lobby");
+    };
+
+    const container = this.add.container(0, 0, [fadeRect, prompt, hitArea]);
+    container.setScrollFactor(0);
+    this.tutorialExitOverlay?.destroy();
+    this.tutorialExitOverlay = container;
+
+    this.tweens.add({
+      targets: fadeRect,
+      alpha: 1,
+      duration: 760,
+      ease: "Sine.easeInOut",
+      onComplete: () => {
+        this.time.delayedCall(160, () => {
+          hitArea.setInteractive({ useHandCursor: true });
+          hitArea.once("pointerdown", leaveTutorial);
+        });
+        prompt.setAlpha(1);
+        this.tweens.add({
+          targets: prompt,
+          alpha: 0.35,
+          duration: 520,
+          yoyo: true,
+          repeat: -1,
+          ease: "Sine.easeInOut",
+        });
+      },
+    });
+  }
+
+  private respawnTutorialAfterDeath() {
+    if (!this.tutorialMode) return;
+
+    const cam = this.cameras.main;
+    const baseZoom = CAMERA_ZOOM;
+    cam.setZoom(baseZoom);
+    this.time.timeScale = 1;
+    this.tweens.timeScale = 1;
+    this.anims.globalTimeScale = 1;
+
+    this.runEnding = false;
+    this.pendingMove = null;
+    this.isProcessingAction = false;
+
+    if (this.currentFloor <= 1) {
+      this.tutorialGhostKilled = false;
+      this.tutorialUpgradeChosen = false;
+      this.tutorialSovaKilled = false;
+      this.tutorialTicketCollected = false;
+      this.tutorialFinalSequenceStarted = false;
+      this.tutorialFloor2EntryEnergy = null;
+      this.tutorialPendingRespawnLine = "Maybe you should manage your energy better";
+      this.buildFloor(1);
+      return;
+    }
+
+    this.tutorialSovaKilled = false;
+    this.tutorialTicketCollected = false;
+    this.tutorialFinalSequenceStarted = false;
+    if (this.tutorialFloor2EntryEnergy !== null) {
+      useGameStore.getState().setEnergy(this.tutorialFloor2EntryEnergy);
+    }
+    this.tutorialPendingRespawnLine = "Get's easier over time";
+    this.buildFloor(2);
+  }
 
   endRun(_reason: "energy" | "exit") {
     // Multiple systems can hit endRun in the same turn; run this sequence once.
@@ -1686,6 +1778,13 @@ export class GameScene extends Phaser.Scene {
     const transitionToRunEnd = () => {
       if (transitioned) return;
       transitioned = true;
+      // Tutorial death = respawn in tutorial floor, no GAME OVER flow.
+      if (this.tutorialMode) {
+        useGameStore.getState().setRunEndActive(false);
+        this.respawnTutorialAfterDeath();
+        return;
+      }
+
       useGameStore.getState().setRunEndActive(true);
       this.vfxManager.playPixelatedFadeToBlack(320, () => {
         // Reset time scale before transitioning

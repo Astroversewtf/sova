@@ -119,6 +119,7 @@ export class CombatSystem {
   private dropLoot(tileX: number, tileY: number, enemyType: EnemyType) {
     const pos = { x: tileX, y: tileY };
     const roll = Math.random();
+    const tutorialMode = useGameStore.getState().tutorialMode;
 
     // Boss — always drops something
     if (enemyType === EnemyType.BOSS) {
@@ -149,6 +150,9 @@ export class CombatSystem {
       t.setVisible(this.scene.fogOfWar.isVisible(pos));
       return;
     }
+
+    // Tutorial economy is isolated: only boss drops the scripted ticket.
+    if (tutorialMode) return;
 
     // Normal enemies — per-type drop tables
     const isGhostLike =

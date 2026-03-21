@@ -4,6 +4,8 @@
 @theme {
   --font-pixel: "8bit Wonder", monospace;
   --font-press-start: "Press Start 2P", "8bit Wonder", monospace;
+  --font-upheaval: "Upheaval", "Press Start 2P", monospace;
+  --font-mem: "MemProp5x5", "Press Start 2P", monospace;
 }
 
 /* ── Font faces + global base styles (always included) ── */
@@ -19,6 +21,22 @@
   @font-face {
     font-family: "Press Start 2P";
     src: url("/fonts/PressStart2P-Regular.ttf") format("truetype");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+  }
+
+  @font-face {
+    font-family: "Upheaval";
+    src: url("/fonts/upheaval/upheavtt.ttf") format("truetype");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+  }
+
+  @font-face {
+    font-family: "MemProp5x5";
+    src: url("/fonts/mem/mem-prop-5x5.ttf") format("truetype");
     font-weight: 400;
     font-style: normal;
     font-display: swap;
@@ -60,6 +78,22 @@
 /* ── Multi-property custom utilities ── */
 @utility font-press-start-crisp {
   font-family: "Press Start 2P", "8bit Wonder", monospace;
+  -webkit-font-smoothing: none;
+  font-smooth: never;
+  text-rendering: optimizeSpeed;
+}
+
+@utility font-upheaval-pixel {
+  font-family: "Upheaval", "Press Start 2P", monospace;
+  letter-spacing: 0.04em;
+  -webkit-font-smoothing: none;
+  font-smooth: never;
+  text-rendering: optimizeSpeed;
+}
+
+@utility font-mem-pixel {
+  font-family: "MemProp5x5", "Press Start 2P", monospace;
+  letter-spacing: 0;
   -webkit-font-smoothing: none;
   font-smooth: never;
   text-rendering: optimizeSpeed;
@@ -241,6 +275,138 @@
 }
 
 @layer components {
+  .pixel-rounded-panel {
+    clip-path: polygon(
+      0 10px,
+      10px 10px,
+      10px 0,
+      calc(100% - 10px) 0,
+      calc(100% - 10px) 10px,
+      100% 10px,
+      100% calc(100% - 10px),
+      calc(100% - 10px) calc(100% - 10px),
+      calc(100% - 10px) 100%,
+      10px 100%,
+      10px calc(100% - 10px),
+      0 calc(100% - 10px)
+    );
+  }
+
+  .tutorial-split-pixel {
+    display: inline;
+    color: transparent;
+    background: linear-gradient(to bottom, #ffffff 0 50%, #b5bcc9 50% 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-fill-color: transparent;
+    text-shadow:
+      1px 0 0 #0a1220,
+      -1px 0 0 #0a1220,
+      0 1px 0 #0a1220,
+      0 -1px 0 #0a1220,
+      1px 1px 0 #0a1220,
+      -1px 1px 0 #0a1220;
+  }
+
+  /* Game Over text styles from SOVA font tester */
+  .mem-2a-double-outline {
+    color: var(--main-color, #ffffff);
+    display: inline-block;
+    line-height: normal;
+    white-space: nowrap;
+    text-align: center;
+    letter-spacing: 0 !important;
+    word-spacing: 0;
+    font-kerning: none;
+    font-feature-settings: "kern" 0, "liga" 0;
+    -webkit-font-smoothing: none;
+    --outline-color: #000000;
+    --outline-2-color: #ffffff;
+    text-shadow:
+      /* Inner ring - 1px (8 directions) */
+      -1px -1px 0 var(--outline-color, #000000),
+       1px -1px 0 var(--outline-color, #000000),
+      -1px  1px 0 var(--outline-color, #000000),
+       1px  1px 0 var(--outline-color, #000000),
+       0   -1px 0 var(--outline-color, #000000),
+       0    1px 0 var(--outline-color, #000000),
+      -1px  0   0 var(--outline-color, #000000),
+       1px  0   0 var(--outline-color, #000000),
+      /* Inner ring - 2px (8 directions) */
+      -2px -2px 0 var(--outline-color, #000000),
+       2px -2px 0 var(--outline-color, #000000),
+      -2px  2px 0 var(--outline-color, #000000),
+       2px  2px 0 var(--outline-color, #000000),
+       0   -2px 0 var(--outline-color, #000000),
+       0    2px 0 var(--outline-color, #000000),
+      -2px  0   0 var(--outline-color, #000000),
+       2px  0   0 var(--outline-color, #000000),
+      /* Inner ring - 3px (8 directions) */
+      -3px -3px 0 var(--outline-color, #000000),
+       3px -3px 0 var(--outline-color, #000000),
+      -3px  3px 0 var(--outline-color, #000000),
+       3px  3px 0 var(--outline-color, #000000),
+       0   -3px 0 var(--outline-color, #000000),
+       0    3px 0 var(--outline-color, #000000),
+      -3px  0   0 var(--outline-color, #000000),
+       3px  0   0 var(--outline-color, #000000),
+      /* Outer ring - 4px (32 perimeter points) */
+      -4px -4px 0 var(--outline-2-color, #ffffff),
+      -3px -4px 0 var(--outline-2-color, #ffffff),
+      -2px -4px 0 var(--outline-2-color, #ffffff),
+      -1px -4px 0 var(--outline-2-color, #ffffff),
+       0   -4px 0 var(--outline-2-color, #ffffff),
+       1px -4px 0 var(--outline-2-color, #ffffff),
+       2px -4px 0 var(--outline-2-color, #ffffff),
+       3px -4px 0 var(--outline-2-color, #ffffff),
+       4px -4px 0 var(--outline-2-color, #ffffff),
+       4px -3px 0 var(--outline-2-color, #ffffff),
+       4px -2px 0 var(--outline-2-color, #ffffff),
+       4px -1px 0 var(--outline-2-color, #ffffff),
+       4px  0   0 var(--outline-2-color, #ffffff),
+       4px  1px 0 var(--outline-2-color, #ffffff),
+       4px  2px 0 var(--outline-2-color, #ffffff),
+       4px  3px 0 var(--outline-2-color, #ffffff),
+       4px  4px 0 var(--outline-2-color, #ffffff),
+       3px  4px 0 var(--outline-2-color, #ffffff),
+       2px  4px 0 var(--outline-2-color, #ffffff),
+       1px  4px 0 var(--outline-2-color, #ffffff),
+       0    4px 0 var(--outline-2-color, #ffffff),
+      -1px  4px 0 var(--outline-2-color, #ffffff),
+      -2px  4px 0 var(--outline-2-color, #ffffff),
+      -3px  4px 0 var(--outline-2-color, #ffffff),
+      -4px  4px 0 var(--outline-2-color, #ffffff),
+      -4px  3px 0 var(--outline-2-color, #ffffff),
+      -4px  2px 0 var(--outline-2-color, #ffffff),
+      -4px  1px 0 var(--outline-2-color, #ffffff),
+      -4px  0   0 var(--outline-2-color, #ffffff),
+      -4px -1px 0 var(--outline-2-color, #ffffff),
+      -4px -2px 0 var(--outline-2-color, #ffffff),
+      -4px -3px 0 var(--outline-2-color, #ffffff);
+  }
+
+  .mem-1a-split-double-outline {
+    display: inline-block;
+    line-height: normal;
+    white-space: nowrap;
+    letter-spacing: 0 !important;
+    word-spacing: 0;
+    font-kerning: none;
+    font-feature-settings: "kern" 0, "liga" 0;
+    color: transparent;
+    background: linear-gradient(180deg, #ffffff 0 50%, #999999 50% 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-fill-color: transparent;
+    filter:
+      drop-shadow(2px 0 0 #000000)
+      drop-shadow(-2px 0 0 #000000)
+      drop-shadow(0 2px 0 #000000)
+      drop-shadow(0 -2px 0 #000000);
+  }
+
   .sova-loading-dot {
     opacity: 0;
     animation: sova-loading-dot 1.2s ease-in-out infinite;

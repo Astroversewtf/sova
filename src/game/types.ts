@@ -25,7 +25,7 @@ export interface FloorMap {
   stairs: TilePos;
   enemySpawns: EnemySpawnData[];
   treasureSpawns: TreasureSpawnData[];
-  chestSpawns: TilePos[];
+  chestSpawns: ChestSpawnData[];
   trapSpawns: TrapSpawnData[];
   fountainSpawn: TilePos | null;
   propSpawns: PropSpawnData[];
@@ -33,6 +33,11 @@ export interface FloorMap {
   bossSpawn: TilePos | null;
   statuePos: TilePos | null;
   rooms: RoomBounds[];
+}
+
+export interface ChestSpawnData {
+  pos: TilePos;
+  textureKey: string;
 }
 
 export interface EnemySpawnData {

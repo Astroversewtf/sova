@@ -23,6 +23,7 @@ export function LootRevealOverlay() {
   const lootPhase = useGameStore((s) => s.lootPhase);
   const data = useGameStore((s) => s.gameOverData);
   const keysUsed = useGameStore((s) => s.keysUsed);
+  const tutorialMode = useGameStore((s) => s.tutorialMode);
   const walletAddress = usePlayerStore((s) => s.walletAddress);
   const [mounted, setMounted] = useState(false);
   const [animIn, setAnimIn] = useState(false);
@@ -83,7 +84,7 @@ export function LootRevealOverlay() {
     if (finishingRef.current) return;
     finishingRef.current = true;
 
-    if (walletAddress && data) {
+    if (!tutorialMode && walletAddress && data) {
       try {
         const res = await fetch("/api/run", {
           method: "POST",
@@ -114,7 +115,7 @@ export function LootRevealOverlay() {
     window.dispatchEvent(
       new CustomEvent("sova:run-end-action", { detail: "lobby" }),
     );
-  }, [data, keysUsed, walletAddress]);
+  }, [data, keysUsed, tutorialMode, walletAddress]);
 
   useEffect(() => {
     setMounted(true);
@@ -186,10 +187,8 @@ export function LootRevealOverlay() {
   useEffect(() => {
     if (!isActive) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === " " || e.key === "Enter") {
-        e.preventDefault();
-        handleAdvance();
-      }
+      e.preventDefault();
+      handleAdvance();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -204,7 +203,7 @@ export function LootRevealOverlay() {
       : "/images/run-end/chest-closed.png";
   const bottomHint =
     stage === "intro"
-      ? "CLICK TO CONTINUE"
+      ? "press any key"
       : stage === "closed"
       ? "CLICK TO OPEN"
       : stage === "opening"
@@ -225,12 +224,17 @@ export function LootRevealOverlay() {
     >
       <div className="absolute inset-0 flex flex-col items-center justify-center overflow-hidden">
         {stage === "intro" && (
-          <h1
-            className="font-pixel text-[56px] sm:text-[92px] text-white leading-none tracking-wide"
-            style={{ textShadow: OUTLINE }}
-          >
-            GAME OVER
-          </h1>
+          <div className="relative z-30 flex flex-col items-center -translate-y-6 sm:-translate-y-8">
+            <img
+              src="/images/run-end/skull-game-over-cropped.png"
+              alt=""
+              className="w-[58px] h-[58px] sm:w-[74px] sm:h-[74px] -mt-14 sm:-mt-16 mb-8 sm:mb-10"
+              style={{ imageRendering: "pixelated" }}
+            />
+            <h1 className="font-mem-pixel mem-2a-double-outline text-[68px] sm:text-[85px] leading-none">
+              GAME OVER
+            </h1>
+          </div>
         )}
 
         {stage !== "intro" && (
@@ -280,7 +284,13 @@ export function LootRevealOverlay() {
       </div>
 
       <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-hint-blink">
-        <span className="font-press-start text-[10px] text-white/72 tracking-wide">
+        <span
+          className={
+            stage === "intro"
+              ? "font-mem-pixel mem-1a-split-double-outline text-[16px] sm:text-[20px] leading-none"
+              : "font-press-start text-[10px] text-white/72 tracking-wide"
+          }
+        >
           {bottomHint}
         </span>
       </div>

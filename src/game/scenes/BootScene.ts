@@ -100,6 +100,20 @@ export class BootScene extends Phaser.Scene {
       );
     }
 
+    // Flying Rock enemy frames (idle + attack, no walk)
+    for (const dir of dirs) {
+      for (let i = 1; i <= 4; i++) {
+        this.load.image(
+          `enemy-flying-rock-idle-${dir}-${i}`,
+          `sprites/enemies/flying_rock/idle/flyingrock_idle_${dir}_0${i}.png`,
+        );
+        this.load.image(
+          `enemy-flying-rock-attack-${dir}-${i}`,
+          `sprites/enemies/flying_rock/attack/flyingrock_attack_${dir}_0${i}.png`,
+        );
+      }
+    }
+
     // Tree enemy sprite frames (32×32 PNGs)
     for (const dir of dirs) {
       for (let i = 1; i <= 4; i++) {
@@ -118,12 +132,22 @@ export class BootScene extends Phaser.Scene {
       }
     }
 
-    // Boss Sova frames (idle only, 64×64 PNGs)
-    for (let i = 1; i <= 4; i++) {
-      this.load.image(
-        `enemy-sova-idle-${i}`,
-        `sprites/boss/sova/idle/boss_sova_idle_0${i}.png`,
-      );
+    // Boss Sova frames (idle + walk + attack)
+    for (const dir of dirs) {
+      for (let i = 1; i <= 4; i++) {
+        this.load.image(
+          `enemy-sova-idle-${dir}-${i}`,
+          `sprites/boss/sova/idle/sova_${dir}_idle_0${i}.png`,
+        );
+        this.load.image(
+          `enemy-sova-walk-${dir}-${i}`,
+          `sprites/boss/sova/walk/sova_${dir}_walk_0${i}.png`,
+        );
+        this.load.image(
+          `enemy-sova-attack-${dir}-${i}`,
+          `sprites/boss/sova/attack/sova_${dir}_attack_0${i}.png`,
+        );
+      }
     }
 
     // HUD icons
@@ -161,9 +185,11 @@ export class BootScene extends Phaser.Scene {
     this.load.image("wall-corner-br", "sprites/walls/wall_corner_br_01.png");
     this.load.image("wall-fill", "sprites/walls/wall_fill_01.png");
 
-    // Stairs
-    this.load.image("stairs-unlocked", "sprites/tiles/stairs.png");
-    this.load.image("stairs-locked", "sprites/tiles/stairs.png");
+    // Door (replaces stairs visuals)
+    this.load.image("door-1", "sprites/props/props_interactive/door/door_01.png");
+    this.load.image("door-2", "sprites/props/props_interactive/door/door_02.png");
+    this.load.image("door-3", "sprites/props/props_interactive/door/door_03.png");
+    this.load.image("door-4", "sprites/props/props_interactive/door/door_04.png");
 
     // Enemy HP hearts
     this.load.image("heart-full", "sprites/ui/mob_full_heart.png");
@@ -172,9 +198,11 @@ export class BootScene extends Phaser.Scene {
     // Skill icon (upgrade cards)
     this.load.image("skill-icon", "sprites/items/key/key_02.png");
 
-    // Loot boxes (chests)
-    this.load.image("loot-box-1", "sprites/props/loot_box_01.png");
-    this.load.image("loot-box-2", "sprites/props/loot_box_02.png");
+    // Loot boxes (chests) — polished variants
+    for (let i = 1; i <= 6; i++) {
+      const suffix = i.toString().padStart(2, "0");
+      this.load.image(`chest-${i}`, `sprites/props/chest/chest_${suffix}.png`);
+    }
 
     // Chest (run end ceremony)
     this.load.image("chest-wood", "sprites/props/chest_wood_01.png");
@@ -298,13 +326,17 @@ export class BootScene extends Phaser.Scene {
     } else {
       this.genBlobEnemy(g, "enemy-ghost-fb", C.ENEMY_GHOST, C.ENEMY_GHOST_DARK);
     }
-    this.ensureFlyingRockFallback(g);
+    if (this.textures.exists("enemy-flying-rock-idle-front-1")) {
+      this.createFlyingRockAnimations();
+    } else {
+      this.ensureFlyingRockFallback(g);
+    }
     if (this.textures.exists("enemy-tree-idle-front-1")) {
       this.createTreeAnimations();
     } else {
       this.genGolemEnemy(g, "enemy-tree-fb", C.ENEMY_TREE, C.ENEMY_TREE_DARK);
     }
-    if (this.textures.exists("enemy-sova-idle-1")) {
+    if (this.textures.exists("enemy-sova-idle-front-1")) {
       this.createSovaAnimations();
     } else {
       this.genBossTexture(g);
@@ -363,7 +395,7 @@ export class BootScene extends Phaser.Scene {
     this.genStatueTexture(g);
 
     // ── Chests (fallback if PNGs missing) ──
-    if (!this.textures.exists("loot-box-1")) {
+    if (!this.textures.exists("chest-1")) {
       this.genChestTexture(g, "chest-closed", false);
       this.genChestTexture(g, "chest-open", true);
     }
@@ -603,43 +635,69 @@ export class BootScene extends Phaser.Scene {
     if (!this.textures.exists("enemy-flying-rock-fb")) {
       this.genFlyingRockFrame(g, "enemy-flying-rock-fb", 0, false);
     }
+    const dirs = ["front", "back", "side"] as const;
     for (let i = 1; i <= 4; i++) {
-      const idleKey = `enemy-flying-rock-idle-${i}`;
-      if (!this.textures.exists(idleKey)) {
-        this.genFlyingRockFrame(g, idleKey, i - 1, false);
-      }
-      const attackKey = `enemy-flying-rock-attack-side-${i}`;
-      if (!this.textures.exists(attackKey)) {
-        this.genFlyingRockFrame(g, attackKey, i - 1, true);
+      for (const dir of dirs) {
+        const idleKey = `enemy-flying-rock-idle-${dir}-${i}`;
+        if (!this.textures.exists(idleKey)) {
+          this.genFlyingRockFrame(g, idleKey, i - 1, false);
+        }
+        const attackKey = `enemy-flying-rock-attack-${dir}-${i}`;
+        if (!this.textures.exists(attackKey)) {
+          this.genFlyingRockFrame(g, attackKey, i - 1, true);
+        }
       }
     }
 
-    if (!this.anims.exists("enemy-flying-rock-idle")) {
-      this.anims.create({
-        key: "enemy-flying-rock-idle",
-        frames: [1, 2, 3, 4].map((i) => ({ key: `enemy-flying-rock-idle-${i}` })),
-        frameRate: 8,
-        repeat: -1,
-      });
-    }
+    this.createFlyingRockAnimations();
+  }
 
-    if (!this.anims.exists("enemy-flying-rock-attack-side")) {
-      this.anims.create({
-        key: "enemy-flying-rock-attack-side",
-        frames: [1, 2, 3, 4].map((i) => ({ key: `enemy-flying-rock-attack-side-${i}` })),
-        frameRate: 10,
-        repeat: 0,
-      });
+  private createFlyingRockAnimations() {
+    const dirs = ["front", "back", "side"] as const;
+    for (const dir of dirs) {
+      const idleKey = `enemy-flying-rock-idle-${dir}`;
+      const attackKey = `enemy-flying-rock-attack-${dir}`;
+      if (!this.anims.exists(idleKey)) {
+        this.anims.create({
+          key: idleKey,
+          frames: [1, 2, 3, 4].map((i) => ({ key: `enemy-flying-rock-idle-${dir}-${i}` })),
+          frameRate: 8,
+          repeat: -1,
+        });
+      }
+      if (!this.anims.exists(attackKey)) {
+        this.anims.create({
+          key: attackKey,
+          frames: [1, 2, 3, 4].map((i) => ({ key: `enemy-flying-rock-attack-${dir}-${i}` })),
+          frameRate: 10,
+          repeat: 0,
+        });
+      }
     }
   }
 
   private createSovaAnimations() {
-    this.anims.create({
-      key: "enemy-sova-idle",
-      frames: [1, 2, 3, 4].map((i) => ({ key: `enemy-sova-idle-${i}` })),
-      frameRate: 6,
-      repeat: -1,
-    });
+    const dirs = ["front", "back", "side"] as const;
+    for (const dir of dirs) {
+      this.anims.create({
+        key: `enemy-sova-idle-${dir}`,
+        frames: [1, 2, 3, 4].map((i) => ({ key: `enemy-sova-idle-${dir}-${i}` })),
+        frameRate: 6,
+        repeat: -1,
+      });
+      this.anims.create({
+        key: `enemy-sova-walk-${dir}`,
+        frames: [1, 2, 3, 4].map((i) => ({ key: `enemy-sova-walk-${dir}-${i}` })),
+        frameRate: 7,
+        repeat: -1,
+      });
+      this.anims.create({
+        key: `enemy-sova-attack-${dir}`,
+        frames: [1, 2, 3, 4].map((i) => ({ key: `enemy-sova-attack-${dir}-${i}` })),
+        frameRate: 10,
+        repeat: 0,
+      });
+    }
   }
 
   // ── Player: chibi knight character (procedural fallback) ──

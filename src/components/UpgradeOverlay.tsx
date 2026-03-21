@@ -5,6 +5,7 @@ import {
   BUFF_UPGRADES,
   EVOLUTION_UPGRADES,
   UPGRADES,
+  UPGRADE_BY_ID,
   getBuffWeight,
   getEvolutionPathWeights,
   getUpgradeRarityChances,
@@ -201,21 +202,55 @@ const BOUNCE_STYLE = `
 }
 `;
 
-function StoneCardBorder() {
+function StoneCardBorder({ compact = false }: { compact?: boolean }) {
+  const tile = compact ? 22 : 46;
+  const insets = compact
+    ? { top: -10, right: -8, bottom: -8, left: -8 }
+    : { top: -20, right: -16, bottom: -16, left: -16 };
+
   return (
     <div
       className="absolute pointer-events-none z-20"
-      style={{ top: "-20px", right: "-16px", bottom: "-16px", left: "-16px" }}
+      style={{
+        top: `${insets.top}px`,
+        right: `${insets.right}px`,
+        bottom: `${insets.bottom}px`,
+        left: `${insets.left}px`,
+      }}
       aria-hidden="true"
     >
-      <div className="absolute top-0 left-0 w-[46px] h-[46px] bg-[url('/sprites/ui/overlay/overlay_tl_01.png')] bg-no-repeat bg-[length:46px_46px]" />
-      <div className="absolute top-0 left-[46px] right-[46px] h-[46px] bg-[url('/sprites/ui/overlay/overlay_tm_01.png')] bg-repeat-x bg-[length:46px_46px]" />
-      <div className="absolute top-0 right-0 w-[46px] h-[46px] bg-[url('/sprites/ui/overlay/overlay_tr_01.png')] bg-no-repeat bg-[length:46px_46px]" />
-      <div className="absolute left-0 top-[46px] bottom-[46px] w-[46px] bg-[url('/sprites/ui/overlay/overlay_ml_01.png')] bg-repeat-y bg-[length:46px_46px]" />
-      <div className="absolute right-0 top-[46px] bottom-[46px] w-[46px] bg-[url('/sprites/ui/overlay/overlay_mr_01.png')] bg-repeat-y bg-[length:46px_46px]" />
-      <div className="absolute bottom-0 left-0 w-[46px] h-[46px] bg-[url('/sprites/ui/overlay/overlay_dl_01.png')] bg-no-repeat bg-[length:46px_46px]" />
-      <div className="absolute bottom-0 left-[46px] right-[46px] h-[46px] bg-[url('/sprites/ui/overlay/overlay_dm_01.png')] bg-repeat-x bg-[length:46px_46px]" />
-      <div className="absolute bottom-0 right-0 w-[46px] h-[46px] bg-[url('/sprites/ui/overlay/overlay_dr_01.png')] bg-no-repeat bg-[length:46px_46px]" />
+      <div
+        className="absolute top-0 left-0 bg-[url('/sprites/ui/overlay/overlay_tl_01.png')] bg-no-repeat"
+        style={{ width: `${tile}px`, height: `${tile}px`, backgroundSize: `${tile}px ${tile}px` }}
+      />
+      <div
+        className="absolute top-0 bg-[url('/sprites/ui/overlay/overlay_tm_01.png')] bg-repeat-x"
+        style={{ left: `${tile}px`, right: `${tile}px`, height: `${tile}px`, backgroundSize: `${tile}px ${tile}px` }}
+      />
+      <div
+        className="absolute top-0 right-0 bg-[url('/sprites/ui/overlay/overlay_tr_01.png')] bg-no-repeat"
+        style={{ width: `${tile}px`, height: `${tile}px`, backgroundSize: `${tile}px ${tile}px` }}
+      />
+      <div
+        className="absolute left-0 bg-[url('/sprites/ui/overlay/overlay_ml_01.png')] bg-repeat-y"
+        style={{ top: `${tile}px`, bottom: `${tile}px`, width: `${tile}px`, backgroundSize: `${tile}px ${tile}px` }}
+      />
+      <div
+        className="absolute right-0 bg-[url('/sprites/ui/overlay/overlay_mr_01.png')] bg-repeat-y"
+        style={{ top: `${tile}px`, bottom: `${tile}px`, width: `${tile}px`, backgroundSize: `${tile}px ${tile}px` }}
+      />
+      <div
+        className="absolute bottom-0 left-0 bg-[url('/sprites/ui/overlay/overlay_dl_01.png')] bg-no-repeat"
+        style={{ width: `${tile}px`, height: `${tile}px`, backgroundSize: `${tile}px ${tile}px` }}
+      />
+      <div
+        className="absolute bottom-0 bg-[url('/sprites/ui/overlay/overlay_dm_01.png')] bg-repeat-x"
+        style={{ left: `${tile}px`, right: `${tile}px`, height: `${tile}px`, backgroundSize: `${tile}px ${tile}px` }}
+      />
+      <div
+        className="absolute bottom-0 right-0 bg-[url('/sprites/ui/overlay/overlay_dr_01.png')] bg-no-repeat"
+        style={{ width: `${tile}px`, height: `${tile}px`, backgroundSize: `${tile}px ${tile}px` }}
+      />
     </div>
   );
 }
@@ -233,7 +268,7 @@ function UpgradeCard({
 }) {
   if (!upgrade) {
     return (
-      <div className="w-[240px] h-[300px] rounded-lg bg-[#0f1225]/80 border-2 border-gray-700/30 animate-pulse" />
+      <div className="w-[108px] h-[164px] sm:w-[160px] sm:h-[220px] md:w-[240px] md:h-[300px] rounded-lg bg-[#0f1225]/80 border-2 border-gray-700/30 animate-pulse" />
     );
   }
 
@@ -247,30 +282,35 @@ function UpgradeCard({
         <div className={`absolute inset-0 rounded-lg ${styles.outerGlow} blur-sm`} />
         <div
           onClick={interactive ? onSelect : undefined}
-          className={`relative w-[240px] h-[300px] rounded-lg ${styles.glow} flex flex-col items-center justify-center px-10 py-8 transition-transform duration-150 ${
+          className={`relative w-[108px] h-[164px] sm:w-[160px] sm:h-[220px] md:w-[240px] md:h-[300px] rounded-lg ${styles.glow} flex flex-col items-center justify-center px-3 py-4 sm:px-6 sm:py-6 md:px-10 md:py-8 transition-transform duration-150 ${
             interactive ? "cursor-pointer hover:scale-[1.06]" : ""
           } ${isSpinning ? "opacity-60" : ""}`}
           style={{ background: styles.cardBg }}
         >
-          <StoneCardBorder />
+          <div className="md:hidden">
+            <StoneCardBorder compact />
+          </div>
+          <div className="hidden md:block">
+            <StoneCardBorder />
+          </div>
           <img
             src={styles.badgeImage}
             alt={rarity}
-            className="absolute top-0 left-1/2 z-30 -translate-x-1/2 -translate-y-1/2 w-[120px] h-auto"
+            className="absolute top-0 left-1/2 z-30 -translate-x-1/2 -translate-y-[45%] w-[64px] sm:w-[86px] md:w-[120px] h-auto"
             style={{ imageRendering: "pixelated" }}
           />
-          <div className="mb-6" style={{ animation: "icon-bounce 2s ease-in-out infinite" }}>
+          <div className="mb-3 sm:mb-4 md:mb-6" style={{ animation: "icon-bounce 2s ease-in-out infinite" }}>
             <img
               src={upgrade.icon}
               alt=""
-              className="w-14 h-14"
+              className="w-8 h-8 sm:w-10 sm:h-10 md:w-14 md:h-14"
               style={{ imageRendering: "pixelated" }}
             />
           </div>
-          <span className="font-pixel text-[16px] text-white text-center mb-3" style={{ textShadow: "0 2px 4px rgba(0,0,0,0.5)" }}>
+          <span className="font-pixel text-[10px] sm:text-[12px] md:text-[16px] text-white text-center mb-1 sm:mb-2 md:mb-3" style={{ textShadow: "0 2px 4px rgba(0,0,0,0.5)" }}>
             {upgrade.name.toUpperCase()}
           </span>
-          <span className="text-[9px] text-gray-300 text-center leading-relaxed" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+          <span className="text-[6px] sm:text-[7px] md:text-[9px] text-gray-300 text-center leading-relaxed" style={{ fontFamily: '"Press Start 2P", monospace' }}>
             {upgrade.description}
           </span>
         </div>
@@ -282,6 +322,7 @@ function UpgradeCard({
 export function UpgradeOverlay() {
   const floor = useGameStore((s) => s.upgradeScreenFloor);
   const coins = useGameStore((s) => s.coinsCollected);
+  const tutorialMode = useGameStore((s) => s.tutorialMode);
 
   const [revealed, setRevealed] = useState<(UpgradeDef | null)[]>([null, null, null]);
   const [isSpinning, setIsSpinning] = useState(false);
@@ -293,6 +334,12 @@ export function UpgradeOverlay() {
     const currentFloor = state.upgradeScreenFloor ?? state.floor;
     return rollChoices(currentFloor, state.buildTiers, state.upgradeHistory);
   }, []);
+
+  const tutorialChoices = useRef<UpgradeDef[]>([
+    UPGRADE_BY_ID.evo_rift_fang_t3,
+    UPGRADE_BY_ID.evo_volt_core_t3,
+    UPGRADE_BY_ID.evo_stone_veil_t3,
+  ].filter(Boolean) as UpgradeDef[]);
 
   const spinAndReveal = useCallback((newChoices: UpgradeDef[]) => {
     emitSfxEvent("skills-shuffle-stop");
@@ -347,6 +394,14 @@ export function UpgradeOverlay() {
       return;
     }
 
+    if (tutorialMode) {
+      emitSfxEvent("skills-shuffle-stop");
+      setIsSpinning(false);
+      setRevealed(tutorialChoices.current);
+      requestAnimationFrame(() => setVisible(true));
+      return;
+    }
+
     const initial = rollCurrentChoices();
     spinAndReveal(initial);
     requestAnimationFrame(() => setVisible(true));
@@ -356,7 +411,7 @@ export function UpgradeOverlay() {
       spinTimers.current = [];
       emitSfxEvent("skills-shuffle-stop");
     };
-  }, [floor, rollCurrentChoices, spinAndReveal]);
+  }, [floor, tutorialMode, rollCurrentChoices, spinAndReveal]);
 
   const handleSelect = useCallback((upgrade: UpgradeDef) => {
     if (isSpinning) return;
@@ -366,7 +421,7 @@ export function UpgradeOverlay() {
   }, [isSpinning]);
 
   const handleReroll = useCallback(() => {
-    if (isSpinning) return;
+    if (isSpinning || tutorialMode) return;
     const store = useGameStore.getState();
     const cost = store.getRerollCost();
     if (store.coinsCollected < cost) return;
@@ -374,7 +429,7 @@ export function UpgradeOverlay() {
     store.incrementReroll();
     const newChoices = rollCurrentChoices();
     spinAndReveal(newChoices);
-  }, [isSpinning, rollCurrentChoices, spinAndReveal]);
+  }, [isSpinning, tutorialMode, rollCurrentChoices, spinAndReveal]);
 
   if (floor === null) return null;
 
@@ -387,12 +442,13 @@ export function UpgradeOverlay() {
       style={{ backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }}
     >
       <div className="absolute inset-0 bg-black/85" />
-      <div className="relative z-10 flex flex-col items-center select-none">
-        <h1 className="font-pixel text-[28px] text-white mb-5 -mt-16" style={{ textShadow: "-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 -2px 0 #000, 0 2px 0 #000, -2px 0 0 #000, 2px 0 0 #000" }}>
+      <div className="relative z-10 w-full h-full overflow-y-auto overflow-x-hidden select-none px-2 sm:px-4 pb-[126px] md:pb-0">
+        <div className="min-h-full w-full flex flex-col items-center pt-4 sm:pt-6 md:pt-0 md:justify-center">
+        <h1 className="font-pixel text-[22px] sm:text-[24px] md:text-[28px] text-white mb-3 sm:mb-4 md:mb-5 md:-mt-16 text-center" style={{ textShadow: "-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 -2px 0 #000, 0 2px 0 #000, -2px 0 0 #000, 2px 0 0 #000" }}>
           FLOOR {floor} COMPLETE
         </h1>
 
-        <div className="relative w-[190px] h-[44px] mb-5">
+        <div className="relative w-[170px] sm:w-[180px] md:w-[190px] h-[40px] sm:h-[42px] md:h-[44px] mb-3 sm:mb-4 md:mb-5">
           <img src="/sprites/ui/overlay/overlay_common_01_clean.png" alt="" className="absolute inset-0 w-full h-full" style={{ imageRendering: "pixelated" }} />
           <div className="absolute inset-0 flex items-center justify-center gap-2">
             <span className="font-press-start-crisp text-[11px] text-[#d1d5db] translate-y-[2px]">+10</span>
@@ -400,11 +456,11 @@ export function UpgradeOverlay() {
           </div>
         </div>
 
-        <p className="font-pixel text-[9px] text-gray-400 mb-[40px] tracking-wider">
+        <p className="font-pixel text-[8px] md:text-[9px] text-gray-400 mb-4 sm:mb-5 md:mb-[40px] tracking-wider text-center">
           CHOOSE A SKILL
         </p>
 
-        <div className="flex gap-5 mb-8">
+        <div className="grid grid-cols-3 gap-2 sm:gap-3 md:flex md:gap-5 mb-5 sm:mb-6 md:mb-8">
           {revealed.map((upgrade, i) => (
             <UpgradeCard
               key={`${i}-${upgrade?.id ?? "spin"}`}
@@ -416,50 +472,55 @@ export function UpgradeOverlay() {
           ))}
         </div>
 
-        <button
-          onClick={handleReroll}
-          disabled={!canReroll}
-          className={`relative w-[270px] h-[46px] transition-all ${
-            canReroll ? "hover:translate-y-[1px] active:translate-y-[2px] cursor-pointer" : "opacity-50 cursor-not-allowed"
-          }`}
-        >
-          <img
-            src="/sprites/ui/buttons/buttons_tile_l_01.png"
-            alt=""
-            className="absolute left-0 top-0 h-full w-auto"
-            style={{ imageRendering: "pixelated", filter: "sepia(1) saturate(4.2) hue-rotate(345deg) brightness(1.08)" }}
-          />
-          <div
-            className="absolute top-0 bottom-0 left-[46px] right-[46px]"
-            style={{
-              backgroundImage: "url('/sprites/ui/buttons/buttons_tile_m_01.png')",
-              backgroundRepeat: "repeat-x",
-              backgroundSize: "auto 100%",
-              imageRendering: "pixelated",
-              filter: "sepia(1) saturate(4.2) hue-rotate(345deg) brightness(1.08)",
-            }}
-          />
-          <img
-            src="/sprites/ui/buttons/buttons_tile_r_01.png"
-            alt=""
-            className="absolute right-0 top-0 h-full w-auto"
-            style={{ imageRendering: "pixelated", filter: "sepia(1) saturate(4.2) hue-rotate(345deg) brightness(1.08)" }}
-          />
-          <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 -translate-y-[5px]">
-            <span className="font-press-start-crisp text-[12px] text-white" style={{ textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000" }}>
-              REROLL
-            </span>
-            <img src="/sprites/items/coin/coin_01.png" alt="" className="w-4 h-4" style={{ imageRendering: "pixelated" }} />
-            <span className="font-press-start-crisp text-[12px] text-white" style={{ textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000" }}>
-              {rerollCost}
-            </span>
-          </div>
-        </button>
+        {!tutorialMode && (
+          <>
+            <button
+              onClick={handleReroll}
+              disabled={!canReroll}
+              className={`relative w-[220px] sm:w-[250px] md:w-[270px] h-[42px] sm:h-[44px] md:h-[46px] transition-all ${
+                canReroll ? "hover:translate-y-[1px] active:translate-y-[2px] cursor-pointer" : "opacity-50 cursor-not-allowed"
+              }`}
+            >
+              <img
+                src="/sprites/ui/buttons/buttons_tile_l_01.png"
+                alt=""
+                className="absolute left-0 top-0 h-full w-auto"
+                style={{ imageRendering: "pixelated", filter: "sepia(1) saturate(4.2) hue-rotate(345deg) brightness(1.08)" }}
+              />
+              <div
+                className="absolute top-0 bottom-0 left-[46px] right-[46px]"
+                style={{
+                  backgroundImage: "url('/sprites/ui/buttons/buttons_tile_m_01.png')",
+                  backgroundRepeat: "repeat-x",
+                  backgroundSize: "auto 100%",
+                  imageRendering: "pixelated",
+                  filter: "sepia(1) saturate(4.2) hue-rotate(345deg) brightness(1.08)",
+                }}
+              />
+              <img
+                src="/sprites/ui/buttons/buttons_tile_r_01.png"
+                alt=""
+                className="absolute right-0 top-0 h-full w-auto"
+                style={{ imageRendering: "pixelated", filter: "sepia(1) saturate(4.2) hue-rotate(345deg) brightness(1.08)" }}
+              />
+              <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 -translate-y-[5px]">
+                <span className="font-press-start-crisp text-[12px] text-white" style={{ textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000" }}>
+                  REROLL
+                </span>
+                <img src="/sprites/items/coin/coin_01.png" alt="" className="w-4 h-4" style={{ imageRendering: "pixelated" }} />
+                <span className="font-press-start-crisp text-[12px] text-white" style={{ textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000" }}>
+                  {rerollCost}
+                </span>
+              </div>
+            </button>
 
-        <div className="flex items-center gap-2 mt-4">
-          <span className="font-press-start-crisp text-[8px] text-gray-300">YOU HAVE</span>
-          <img src="/sprites/items/coin/coin_01.png" alt="" className="w-3 h-3" style={{ imageRendering: "pixelated" }} />
-          <span className="font-press-start-crisp text-[8px] text-amber-300">{coins}</span>
+            <div className="flex items-center gap-2 mt-4">
+              <span className="font-press-start-crisp text-[8px] text-gray-300">YOU HAVE</span>
+              <img src="/sprites/items/coin/coin_01.png" alt="" className="w-3 h-3" style={{ imageRendering: "pixelated" }} />
+              <span className="font-press-start-crisp text-[8px] text-amber-300">{coins}</span>
+            </div>
+          </>
+        )}
         </div>
       </div>
     </div>

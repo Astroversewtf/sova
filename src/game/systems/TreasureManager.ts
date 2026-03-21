@@ -37,6 +37,9 @@ export class TreasureManager {
   }
 
   private collectTreasure(t: Treasure) {
+    const store = useGameStore.getState();
+    const tutorialMode = store.tutorialMode;
+
     if (t.type === "energy") {
       const startX = t.sprite.x;
       const startY = t.sprite.y;
@@ -51,28 +54,34 @@ export class TreasureManager {
     }
 
     t.collect();
-
-    const store = useGameStore.getState();
     const { popupManager } = this.scene;
 
     if (t.type === "coin") {
       const value = Math.max(1, Math.floor(t.value * store.getLootMultiplier(TreasureType.COIN)));
       store.addTreasure("coin", value);
-      popupManager.showCoinPickup(t.pos.x, t.pos.y, value);
+      if (!tutorialMode) {
+        popupManager.showCoinPickup(t.pos.x, t.pos.y, value);
+      }
       emitSfxEvent("collect-coin");
     } else if (t.type === "orb") {
       const value = Math.max(1, Math.floor(t.value * store.getLootMultiplier(TreasureType.ORB)));
       store.addTreasure("orb", value);
-      popupManager.showOrbPickup(t.pos.x, t.pos.y, value);
+      if (!tutorialMode) {
+        popupManager.showOrbPickup(t.pos.x, t.pos.y, value);
+      }
       emitSfxEvent("collect-orb");
     } else {
       // golden_ticket
-      store.addTreasure("golden_ticket", t.value);
-      popupManager.showTicketPickup(t.pos.x, t.pos.y, t.value);
+      if (!tutorialMode) {
+        store.addTreasure("golden_ticket", t.value);
+        popupManager.showTicketPickup(t.pos.x, t.pos.y, t.value);
+      }
       emitSfxEvent("collect-golden-ticket");
     }
 
-    this.tryExtraDrop(t.pos);
+    if (!tutorialMode) {
+      this.tryExtraDrop(t.pos);
+    }
     this.scene.events.emit("treasure:collected", t);
   }
 

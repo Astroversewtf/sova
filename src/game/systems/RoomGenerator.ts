@@ -6,6 +6,7 @@ import {
   type FloorMap,
   type TilePos,
   type EnemySpawnData,
+  type ChestSpawnData,
   type TreasureSpawnData,
   type TrapSpawnData,
   type PropSpawnData,
@@ -649,7 +650,7 @@ export function generateFloor(floor: number, hasKilledBossThisRun = false): Floo
 
   // 11. Chests
   const chestSpawns = placeChests(cells, occupied, rooms, spawnRoom, w, h, floor);
-  for (const c of chestSpawns) occupied.add(`${c.x},${c.y}`);
+  for (const c of chestSpawns) occupied.add(`${c.pos.x},${c.pos.y}`);
 
   // 12. Traps
   const trapSpawns = placeTraps(cells, occupied, chestSpawns, rooms, w, h, floor);
@@ -814,7 +815,22 @@ function placeChests(
   w: number,
   h: number,
   floor: number,
-): TilePos[] {
+): ChestSpawnData[] {
+  const chestTextureKeys = ["chest-1", "chest-2", "chest-3", "chest-4", "chest-5", "chest-6"] as const;
+  const roomVariantOrder = new Map<number, string[]>();
+  const roomVariantIdx = new Map<number, number>();
+  const nextTextureForRoom = (roomIdx: number): string => {
+    let order = roomVariantOrder.get(roomIdx);
+    if (!order) {
+      order = shuffle([...chestTextureKeys]);
+      roomVariantOrder.set(roomIdx, order);
+      roomVariantIdx.set(roomIdx, 0);
+    }
+    const idx = roomVariantIdx.get(roomIdx) ?? 0;
+    roomVariantIdx.set(roomIdx, idx + 1);
+    return order[idx % order.length];
+  };
+
   const isAdjacentToCorridor = (x: number, y: number): boolean => {
     for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
       const nx = x + dx;
@@ -840,9 +856,9 @@ function placeChests(
     ),
   );
 
-  const chests: TilePos[] = [];
+  const chests: ChestSpawnData[] = [];
   const hasMinSpacing = (pos: TilePos): boolean =>
-    !chests.some((c) => Math.abs(c.x - pos.x) <= 1 && Math.abs(c.y - pos.y) <= 1);
+    !chests.some((c) => Math.abs(c.pos.x - pos.x) <= 1 && Math.abs(c.pos.y - pos.y) <= 1);
 
   // Round 1: try to place one chest per room (spawn room excluded).
   // If total is smaller than room count, stop when total is reached.
@@ -853,7 +869,7 @@ function placeChests(
     const idx = roomTiles[i].findIndex(hasMinSpacing);
     if (idx < 0) continue;
     const [pos] = roomTiles[i].splice(idx, 1);
-    chests.push(pos);
+    chests.push({ pos, textureKey: nextTextureForRoom(i) });
     remaining--;
   }
 
@@ -883,7 +899,7 @@ function placeChests(
     const pickedCandidate = candidates.find((c) => c.i === picked);
     if (!pickedCandidate) break;
     const [pos] = roomTiles[picked].splice(pickedCandidate.idx, 1);
-    chests.push(pos);
+    chests.push({ pos, textureKey: nextTextureForRoom(picked) });
     remaining--;
   }
 
@@ -923,13 +939,13 @@ export function isRoomEdge(cells: CellType[][], x: number, y: number, w: number,
 function placeTraps(
   cells: CellType[][],
   occupied: Set<string>,
-  chestSpawns: TilePos[],
+  chestSpawns: ChestSpawnData[],
   rooms: Room[],
   w: number,
   h: number,
   floor: number,
 ): TrapSpawnData[] {
-  const chestKeys = new Set(chestSpawns.map((c) => `${c.x},${c.y}`));
+  const chestKeys = new Set(chestSpawns.map((c) => `${c.pos.x},${c.pos.y}`));
   const isAdjacentToCorridor = (x: number, y: number): boolean => {
     for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
       const nx = x + dx;
